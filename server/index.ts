@@ -57,10 +57,9 @@ app.use((req, res, next) => {
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Override to use port 3002 as requested by user
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 3002;
+  const port = parseInt(process.env.PORT!) || 5000;
   server.listen({
     port,
     host: "0.0.0.0",
