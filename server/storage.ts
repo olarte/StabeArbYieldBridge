@@ -254,6 +254,8 @@ export class MemStorage implements IStorage {
     const opportunity: ArbitrageOpportunity = {
       ...insertOpportunity,
       id,
+      maxAmount: insertOpportunity.maxAmount || null,
+      isActive: insertOpportunity.isActive ?? true,
       createdAt: now,
       updatedAt: now,
     };
@@ -293,6 +295,7 @@ export class MemStorage implements IStorage {
     const agent: TradingAgent = {
       ...insertAgent,
       id,
+      isActive: insertAgent.isActive ?? true,
       totalTrades: 0,
       totalProfit: "0.00",
       createdAt: now,
@@ -338,6 +341,8 @@ export class MemStorage implements IStorage {
     const transaction: Transaction = {
       ...insertTransaction,
       id,
+      agentId: insertTransaction.agentId || null,
+      txHash: insertTransaction.txHash || null,
       executedAt: new Date(),
     };
     this.transactions.set(id, transaction);
@@ -382,10 +387,11 @@ export class MemStorage implements IStorage {
   async updateChainStatus(chainName: string, updates: Partial<ChainStatus>): Promise<ChainStatus> {
     const existing = this.chainStatuses.get(chainName);
     const status: ChainStatus = {
-      ...existing,
-      ...updates,
       id: existing?.id || randomUUID(),
       chainName,
+      isOnline: updates.isOnline ?? existing?.isOnline ?? true,
+      latency: updates.latency ?? existing?.latency ?? 0,
+      lastBlockNumber: updates.lastBlockNumber ?? existing?.lastBlockNumber ?? null,
       updatedAt: new Date(),
     };
     this.chainStatuses.set(chainName, status);
