@@ -57,7 +57,7 @@ const CHAIN_CONFIG = {
 };
 
 // Initialize providers and SDKs
-let ethProvider, suiProvider;
+let ethProvider, suiProvider, celoSigner, suiSigner;
 
 // Cross-chain swap state management
 const swapStates = new Map();
@@ -68,10 +68,23 @@ async function initializeProviders() {
     // Ethereum provider with Alchemy enhancement
     ethProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.ethereum.rpc);
     
+    // Celo signer (uses Ethereum-compatible RPC)
+    if (process.env.CELO_PRIVATE_KEY) {
+      const celoProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
+      celoSigner = new ethers.Wallet(process.env.CELO_PRIVATE_KEY, celoProvider);
+      console.log('🔐 Celo wallet connected:', celoSigner.address);
+    }
+    
     // Sui provider for testnet
     suiProvider = new SuiClient({
       url: CHAIN_CONFIG.sui.rpc
     });
+    
+    // Initialize Sui wallet if private key provided
+    if (process.env.SUI_PRIVATE_KEY) {
+      // Note: Sui wallet initialization will be added when needed for transactions
+      console.log('🔐 Sui private key configured');
+    }
     
     // Test connections
     const [ethNetwork, suiChainInfo] = await Promise.all([
@@ -82,6 +95,8 @@ async function initializeProviders() {
     console.log('✅ All providers initialized successfully');
     console.log('🔗 1Inch API Key configured:', process.env.ONEINCH_API_KEY ? 'Yes' : 'No');
     console.log('🔗 Alchemy API Key configured:', process.env.ALCHEMY_KEY ? 'Yes' : 'No');
+    console.log('🔐 Celo Private Key configured:', process.env.CELO_PRIVATE_KEY ? 'Yes' : 'No');
+    console.log('🔐 Sui Private Key configured:', process.env.SUI_PRIVATE_KEY ? 'Yes' : 'No');
     console.log('🌐 Ethereum network:', ethNetwork.name, `(Chain ID: ${ethNetwork.chainId})`);
     console.log('🌐 Sui network: testnet (Chain:', suiChainInfo, ')');
     console.log('🌐 Celo network: Alfajores testnet');
@@ -352,6 +367,61 @@ app.get('/api/oracle/peg-status', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to check peg status',
+      details: error.message
+    });
+  }
+});
+
+// Wallet balance endpoint
+app.get('/api/wallet/balances', async (req, res) => {
+  try {
+    const balances = {};
+    
+    // Check Celo wallet balance
+    if (celoSigner) {
+      try {
+        const celoBalance = await celoSigner.provider.getBalance(celoSigner.address);
+        const cUSDContract = new ethers.Contract(
+          CHAIN_CONFIG.celo.tokens.cUSD, 
+          ['function balanceOf(address) view returns (uint256)'], 
+          celoSigner
+        );
+        const cUSDBalance = await cUSDContract.balanceOf(celoSigner.address);
+        
+        balances.celo = {
+          address: celoSigner.address,
+          nativeBalance: ethers.formatEther(celoBalance),
+          cUSDBalance: ethers.formatUnits(cUSDBalance, 18),
+          network: 'Alfajores Testnet'
+        };
+      } catch (error) {
+        balances.celo = { error: error.message };
+      }
+    } else {
+      balances.celo = { error: 'Private key not configured' };
+    }
+    
+    // Check Sui wallet (simplified - would need proper Sui wallet integration)
+    if (process.env.SUI_PRIVATE_KEY) {
+      balances.sui = {
+        status: 'Private key configured',
+        network: 'Sui Testnet',
+        note: 'Balance check requires Sui wallet integration'
+      };
+    } else {
+      balances.sui = { error: 'Private key not configured' };
+    }
+
+    res.json({
+      success: true,
+      data: balances,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Wallet balance error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch wallet balances',
       details: error.message
     });
   }
