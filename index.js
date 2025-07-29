@@ -522,6 +522,73 @@ function calculateOptimalAmount(priceDiff) {
   return Math.min(10000, Math.max(100, priceDiff * 1000));
 }
 
+// Real transaction tracking endpoint
+app.get('/api/transactions/:txHash', async (req, res) => {
+  try {
+    const { txHash } = req.params;
+    const { chain = 'ethereum' } = req.query;
+    
+    let provider;
+    let networkInfo;
+    
+    switch (chain) {
+      case 'ethereum':
+        provider = ethProvider;
+        networkInfo = { name: 'Ethereum Sepolia', chainId: 11155111, explorer: 'https://sepolia.etherscan.io/tx/' };
+        break;
+      case 'celo':
+        provider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
+        networkInfo = { name: 'Celo Alfajores', chainId: 44787, explorer: 'https://alfajores.celoscan.io/tx/' };
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Unsupported chain for transaction lookup'
+        });
+    }
+
+    // Get transaction details
+    const [tx, receipt] = await Promise.all([
+      provider.getTransaction(txHash),
+      provider.getTransactionReceipt(txHash).catch(() => null)
+    ]);
+
+    if (!tx) {
+      return res.status(404).json({
+        success: false,
+        error: 'Transaction not found',
+        explorer: `${networkInfo.explorer}${txHash}`
+      });
+    }
+
+    const result = {
+      success: true,
+      data: {
+        hash: tx.hash,
+        status: receipt ? (receipt.status === 1 ? 'Success' : 'Failed') : 'Pending',
+        from: tx.from,
+        to: tx.to,
+        value: ethers.formatEther(tx.value || '0'),
+        gasPrice: ethers.formatUnits(tx.gasPrice || '0', 'gwei'),
+        gasUsed: receipt ? receipt.gasUsed.toString() : 'Pending',
+        blockNumber: tx.blockNumber,
+        confirmations: tx.blockNumber ? await provider.getBlockNumber() - tx.blockNumber : 0,
+        network: networkInfo,
+        explorer: `${networkInfo.explorer}${txHash}`
+      }
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error('Transaction lookup error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to lookup transaction',
+      details: error.message
+    });
+  }
+});
+
 // Start automatic peg monitoring every 30 seconds
 setInterval(async () => {
   try {
@@ -546,6 +613,9 @@ async function startServer() {
     console.log(`   - GET /api/oracle/peg-status - Multi-chain monitoring`);
     console.log(`   - GET /api/oracle/chainlink/:pair?chain=ethereum - Single pair check`);
     console.log(`   - POST /api/oracle/peg-controls - Manual controls`);
+    console.log(`📊 Transaction endpoints:`);
+    console.log(`   - GET /api/wallet/balances - Real-time wallet balances`);
+    console.log(`   - GET /api/transactions/:txHash?chain=ethereum - Transaction lookup`);
   });
 }
 
