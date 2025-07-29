@@ -5,6 +5,11 @@ import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schem
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Test endpoint
+  app.get('/api/test', (req, res) => {
+    res.json({ message: 'Test endpoint works!', timestamp: new Date().toISOString() });
+  });
+
   // Arbitrage Opportunities routes
   app.get("/api/arbitrage/opportunities", async (req, res) => {
     try {

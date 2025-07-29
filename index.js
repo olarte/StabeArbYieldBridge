@@ -280,6 +280,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Test endpoint works!', timestamp: new Date().toISOString() });
+});
+
 // 1. Fetch stablecoin prices from 1Inch API
 app.get('/api/prices/1inch', async (req, res) => {
   try {
