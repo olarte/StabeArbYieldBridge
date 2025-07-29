@@ -44,7 +44,14 @@ const CHAIN_CONFIG = {
     chainId: 44787, // Alfajores testnet
     tokens: {
       cUSD: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1',  // Alfajores cUSD
-      USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B'   // Alfajores USDC
+      USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',  // Alfajores USDC
+      CELO: '0xF194afDf50B03e69Bd7D057c1Aa9e10c9954E4C9'   // Alfajores CELO
+    },
+    uniswap: {
+      factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984', // Uniswap V3 Factory
+      router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',   // Uniswap V3 SwapRouter
+      quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',   // Quoter V2
+      nftManager: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88' // NonfungiblePositionManager
     }
   },
   sui: {
@@ -91,6 +98,9 @@ async function initializeProviders() {
       ethProvider.getNetwork(),
       suiProvider.getChainIdentifier().catch(() => 'testnet')
     ]);
+    
+    // Initialize Uniswap V3 contracts
+    await initializeUniswapContracts();
     
     console.log('✅ All providers initialized successfully');
     console.log('🔗 1Inch API Key configured:', process.env.ONEINCH_API_KEY ? 'Yes' : 'No');
@@ -668,6 +678,149 @@ app.get('/api/transactions/:txHash', async (req, res) => {
   }
 });
 
+// Uniswap V3 ABIs for Celo integration
+const UNISWAP_V3_ABIS = {
+  Factory: [
+    'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)',
+    'event PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)'
+  ],
+  Pool: [
+    'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+    'function liquidity() external view returns (uint128)',
+    'function fee() external view returns (uint24)',
+    'function token0() external view returns (address)',
+    'function token1() external view returns (address)',
+    'function tickSpacing() external view returns (int24)'
+  ],
+  SwapRouter: [
+    'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)',
+    'function exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountIn)'
+  ],
+  Quoter: [
+    'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
+    'function quoteExactOutputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountOut, uint160 sqrtPriceLimitX96) external returns (uint256 amountIn)'
+  ]
+};
+
+// Initialize Uniswap V3 contracts
+let uniswapContracts = {};
+
+async function initializeUniswapContracts() {
+  try {
+    const celoConfig = CHAIN_CONFIG.celo.uniswap;
+    const celoProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
+    
+    uniswapContracts = {
+      factory: new ethers.Contract(celoConfig.factory, UNISWAP_V3_ABIS.Factory, celoProvider),
+      router: new ethers.Contract(celoConfig.router, UNISWAP_V3_ABIS.SwapRouter, celoProvider),
+      quoter: new ethers.Contract(celoConfig.quoter, UNISWAP_V3_ABIS.Quoter, celoProvider)
+    };
+
+    console.log('✅ Uniswap V3 contracts initialized on Celo Alfajores');
+  } catch (error) {
+    console.error('❌ Uniswap initialization failed:', error.message);
+  }
+}
+
+// Enhanced function to get Uniswap prices on Celo
+async function getUniswapCeloPrices(tokenPair, fee = 3000) {
+  try {
+    const [token0Symbol, token1Symbol] = tokenPair.split('-');
+    const token0Address = CHAIN_CONFIG.celo.tokens[token0Symbol];
+    const token1Address = CHAIN_CONFIG.celo.tokens[token1Symbol];
+    
+    if (!token0Address || !token1Address) {
+      throw new Error(`Invalid token pair: ${tokenPair}. Available: ${Object.keys(CHAIN_CONFIG.celo.tokens).join(', ')}`);
+    }
+
+    // Get pool address
+    const poolAddress = await uniswapContracts.factory.getPool(token0Address, token1Address, fee);
+    
+    if (poolAddress === ethers.ZeroAddress) {
+      throw new Error(`Pool not found for ${tokenPair} with fee ${fee}. Try fees: 500, 3000, 10000`);
+    }
+
+    // Get pool contract and data
+    const poolContract = new ethers.Contract(poolAddress, UNISWAP_V3_ABIS.Pool, celoProvider);
+    const [slot0, liquidity, token0, token1] = await Promise.all([
+      poolContract.slot0(),
+      poolContract.liquidity(),
+      poolContract.token0(),
+      poolContract.token1()
+    ]);
+
+    // Calculate price from sqrtPriceX96
+    const sqrtPriceX96 = slot0.sqrtPriceX96;
+    const price = calculatePriceFromSqrtPriceX96(sqrtPriceX96, token0, token1, token0Address, token1Address);
+    
+    // Get TVL estimate
+    const tvl = await calculateTVL(poolContract, liquidity, token0, token1);
+
+    return {
+      success: true,
+      data: {
+        pair: tokenPair,
+        poolAddress,
+        fee: fee / 10000, // Convert to percentage
+        price: {
+          token0ToToken1: price.price0,
+          token1ToToken0: price.price1,
+          formatted: `1 ${token0Symbol} = ${price.price0.toFixed(6)} ${token1Symbol}`
+        },
+        poolStats: {
+          sqrtPriceX96: sqrtPriceX96.toString(),
+          tick: slot0.tick,
+          liquidity: liquidity.toString(),
+          tvl: tvl,
+          feeGrowth: slot0.feeProtocol
+        },
+        tokens: {
+          token0: { address: token0, symbol: token0Symbol },
+          token1: { address: token1, symbol: token1Symbol }
+        },
+        timestamp: new Date().toISOString()
+      },
+      source: 'uniswap_v3_celo'
+    };
+  } catch (error) {
+    console.error('Uniswap V3 price fetch error:', error.message);
+    throw error;
+  }
+}
+
+// Helper function to calculate price from sqrtPriceX96
+function calculatePriceFromSqrtPriceX96(sqrtPriceX96, token0Address, token1Address, expectedToken0, expectedToken1) {
+  const Q96 = 2n ** 96n;
+  const price = (sqrtPriceX96 * sqrtPriceX96) / (Q96 * Q96);
+  
+  // Convert to number for easier handling (precision loss acceptable for display)
+  const price0 = Number(price) / 1e12; // Adjust for token decimals
+  const price1 = 1 / price0;
+  
+  // Ensure correct token ordering
+  const isToken0First = token0Address.toLowerCase() < token1Address.toLowerCase();
+  
+  return {
+    price0: isToken0First ? price0 : price1,
+    price1: isToken0First ? price1 : price0
+  };
+}
+
+// Helper function to calculate TVL
+async function calculateTVL(poolContract, liquidity, token0Address, token1Address) {
+  try {
+    // Simplified TVL calculation - in production would need token decimals and prices
+    const liquidityNumber = Number(liquidity) / 1e18; // Simplified conversion
+    return {
+      liquidity: liquidityNumber,
+      estimated: true,
+      note: 'Simplified calculation - production needs token price data'
+    };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
 // Start automatic peg monitoring every 30 seconds
 setInterval(async () => {
   try {
@@ -688,6 +841,7 @@ async function startServer() {
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`);
     console.log(`🛡️ Peg monitoring: Active (threshold: ${pegStatus.alertThreshold * 100}%)`);
+    console.log(`🦄 Uniswap V3: Integrated on Celo Alfajores testnet`);
     console.log(`📈 Oracle endpoints:`);
     console.log(`   - GET /api/oracle/peg-status - Multi-chain monitoring`);
     console.log(`   - GET /api/oracle/chainlink/:pair?chain=ethereum - Single pair check`);
@@ -695,7 +849,174 @@ async function startServer() {
     console.log(`📊 Transaction endpoints:`);
     console.log(`   - GET /api/wallet/balances - Real-time wallet balances`);
     console.log(`   - GET /api/transactions/:txHash?chain=ethereum - Transaction lookup`);
+    console.log(`🦄 Uniswap V3 endpoints:`);
+    console.log(`   - GET /api/uniswap/price/:pair - Get pool price (e.g., cUSD-USDC)`);
+    console.log(`   - GET /api/uniswap/pools/:pair - Compare all fee tiers`);
+    console.log(`   - GET /api/uniswap/quote - Get swap quote with price impact`);
+    console.log(`🎯 Example Uniswap calls:`);
+    console.log(`   curl "http://localhost:${PORT}/api/uniswap/price/cUSD-USDC?fee=3000"`);
+    console.log(`   curl "http://localhost:${PORT}/api/uniswap/quote?tokenIn=cUSD&tokenOut=USDC&amountIn=100"`);
   });
 }
+
+// Uniswap V3 price fetching for Celo pairs
+app.get('/api/uniswap/price/:pair', async (req, res) => {
+  try {
+    const { pair } = req.params;
+    const { fee = 3000 } = req.query; // Default to 0.3% fee tier
+    
+    const result = await getUniswapCeloPrices(pair, parseInt(fee));
+    res.json(result);
+
+  } catch (error) {
+    console.error('Uniswap V3 price fetch error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Uniswap V3 price',
+      details: error.message
+    });
+  }
+});
+
+// Get multiple pool prices and find best rates
+app.get('/api/uniswap/pools/:pair', async (req, res) => {
+  try {
+    const { pair } = req.params;
+    const [token0Symbol, token1Symbol] = pair.split('-');
+    const token0Address = CHAIN_CONFIG.celo.tokens[token0Symbol];
+    const token1Address = CHAIN_CONFIG.celo.tokens[token1Symbol];
+    
+    if (!token0Address || !token1Address) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid token pair',
+        availableTokens: Object.keys(CHAIN_CONFIG.celo.tokens)
+      });
+    }
+
+    // Check all fee tiers
+    const feeTiers = [500, 3000, 10000]; // 0.05%, 0.3%, 1%
+    const poolData = [];
+
+    for (const fee of feeTiers) {
+      try {
+        const poolAddress = await uniswapContracts.factory.getPool(token0Address, token1Address, fee);
+        
+        if (poolAddress !== ethers.ZeroAddress) {
+          const poolContract = new ethers.Contract(poolAddress, UNISWAP_V3_ABIS.Pool, uniswapContracts.factory.runner);
+          const [slot0, liquidity] = await Promise.all([
+            poolContract.slot0(),
+            poolContract.liquidity()
+          ]);
+
+          const price = calculatePriceFromSqrtPriceX96(
+            slot0.sqrtPriceX96, 
+            await poolContract.token0(), 
+            await poolContract.token1(),
+            token0Address, 
+            token1Address
+          );
+
+          poolData.push({
+            fee: fee / 10000,
+            poolAddress,
+            price: price.price0,
+            liquidity: liquidity.toString(),
+            tick: slot0.tick,
+            active: true
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching pool for fee ${fee}:`, error.message);
+      }
+    }
+
+    // Sort by liquidity (higher liquidity = better for large trades)
+    poolData.sort((a, b) => BigInt(b.liquidity) - BigInt(a.liquidity));
+
+    res.json({
+      success: true,
+      data: {
+        pair,
+        pools: poolData,
+        recommendedPool: poolData[0] || null,
+        totalPools: poolData.length,
+        timestamp: new Date().toISOString()
+      },
+      source: 'uniswap_v3_celo'
+    });
+
+  } catch (error) {
+    console.error('Uniswap pools fetch error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch Uniswap V3 pools',
+      details: error.message
+    });
+  }
+});
+
+// Get swap quote with price impact
+app.get('/api/uniswap/quote', async (req, res) => {
+  try {
+    const { tokenIn, tokenOut, amountIn, fee = 3000 } = req.query;
+    
+    if (!tokenIn || !tokenOut || !amountIn) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: tokenIn, tokenOut, amountIn'
+      });
+    }
+
+    const tokenInAddress = CHAIN_CONFIG.celo.tokens[tokenIn];
+    const tokenOutAddress = CHAIN_CONFIG.celo.tokens[tokenOut];
+    
+    if (!tokenInAddress || !tokenOutAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid token symbols',
+        availableTokens: Object.keys(CHAIN_CONFIG.celo.tokens)
+      });
+    }
+
+    // Get pool price for comparison
+    const poolResult = await getUniswapCeloPrices(`${tokenIn}-${tokenOut}`, parseInt(fee));
+    
+    // Simple quote calculation (in production would use Quoter contract)
+    const amountInWei = ethers.parseUnits(amountIn.toString(), 18); // Assuming 18 decimals
+    const estimatedAmountOut = poolResult.data.price.token0ToToken1 * parseFloat(amountIn);
+    
+    // Calculate price impact (simplified)
+    const poolLiquidity = parseFloat(poolResult.data.poolStats.liquidity);
+    const tradeSize = parseFloat(amountIn);
+    const priceImpact = Math.min((tradeSize / poolLiquidity) * 100, 15); // Cap at 15%
+
+    res.json({
+      success: true,
+      data: {
+        tokenIn,
+        tokenOut,
+        amountIn,
+        estimatedAmountOut: estimatedAmountOut.toFixed(6),
+        rate: poolResult.data.price.token0ToToken1,
+        fee: fee / 10000,
+        priceImpact: priceImpact.toFixed(4),
+        poolAddress: poolResult.data.poolAddress,
+        minimumAmountOut: (estimatedAmountOut * 0.995).toFixed(6), // 0.5% slippage
+        gasEstimate: "~150,000", // Simplified estimate
+        timestamp: new Date().toISOString()
+      },
+      source: 'uniswap_v3_celo'
+    });
+
+  } catch (error) {
+    console.error('Uniswap quote error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get Uniswap quote',
+      details: error.message
+    });
+  }
+});
 
 startServer().catch(console.error);

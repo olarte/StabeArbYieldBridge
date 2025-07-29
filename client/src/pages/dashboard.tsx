@@ -6,6 +6,7 @@ import { OpportunityTable } from "@/components/arbitrage/opportunity-table";
 import { AgentCreator } from "@/components/arbitrage/agent-creator";
 import { ActiveAgents } from "@/components/arbitrage/active-agents";
 import { RecentTransactions } from "@/components/transactions/recent-transactions";
+import { UniswapPrices } from "@/components/uniswap/uniswap-prices";
 
 export default function Dashboard() {
   return (
@@ -20,8 +21,11 @@ export default function Dashboard() {
             {/* Market Overview */}
             <PortfolioOverview />
 
-            {/* Price Spread Chart */}
-            <PriceSpreadChart />
+            {/* Price Data */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PriceSpreadChart />
+              <UniswapPrices />
+            </div>
 
             {/* Live Arbitrage Opportunities */}
             <OpportunityTable />

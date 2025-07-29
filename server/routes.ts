@@ -293,6 +293,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Uniswap V3 price endpoint for Celo
+  app.get('/api/uniswap/price/:pair', async (req, res) => {
+    try {
+      const { pair } = req.params;
+      const { fee = 3000 } = req.query;
+      
+      // Mock response for now - would integrate with actual Uniswap V3 contracts
+      const [token0, token1] = pair.split('-');
+      
+      if (!token0 || !token1) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid pair format. Use format: TOKEN0-TOKEN1'
+        });
+      }
+      
+      // Simulated Uniswap V3 pool data
+      const mockPoolData = {
+        success: true,
+        data: {
+          pair,
+          poolAddress: '0x1234567890123456789012345678901234567890',
+          fee: Number(fee) / 10000, // Convert to percentage
+          price: {
+            token0ToToken1: 0.999845,
+            token1ToToken0: 1.000155,
+            formatted: `1 ${token0} = 0.999845 ${token1}`
+          },
+          poolStats: {
+            sqrtPriceX96: '79228162514264337593543950336',
+            tick: -1,
+            liquidity: '1234567890123456789',
+            tvl: {
+              liquidity: 1234567,
+              estimated: true,
+              note: 'Uniswap V3 integration available in enhanced index.js'
+            },
+            feeGrowth: 0
+          },
+          tokens: {
+            token0: { address: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1', symbol: token0 },
+            token1: { address: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B', symbol: token1 }
+          },
+          timestamp: new Date().toISOString()
+        },
+        source: 'uniswap_v3_celo_simulation',
+        note: 'Full Uniswap V3 integration available in enhanced index.js file'
+      };
+      
+      res.json(mockPoolData);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch Uniswap price',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Uniswap V3 quote endpoint
+  app.get('/api/uniswap/quote', async (req, res) => {
+    try {
+      const { tokenIn, tokenOut, amountIn, fee = 3000 } = req.query;
+      
+      if (!tokenIn || !tokenOut || !amountIn) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required parameters: tokenIn, tokenOut, amountIn'
+        });
+      }
+      
+      // Simulated quote calculation
+      const rate = 0.999845; // cUSD to USDC rate
+      const estimatedAmountOut = parseFloat(amountIn as string) * rate;
+      const priceImpact = (parseFloat(amountIn as string) / 1000000) * 100; // Simplified calculation
+      
+      res.json({
+        success: true,
+        data: {
+          tokenIn,
+          tokenOut,
+          amountIn,
+          estimatedAmountOut: estimatedAmountOut.toFixed(6),
+          rate,
+          fee: Number(fee) / 10000,
+          priceImpact: Math.min(priceImpact, 15).toFixed(4),
+          poolAddress: '0x1234567890123456789012345678901234567890',
+          minimumAmountOut: (estimatedAmountOut * 0.995).toFixed(6), // 0.5% slippage
+          gasEstimate: "~150,000",
+          timestamp: new Date().toISOString()
+        },
+        source: 'uniswap_v3_celo_simulation',
+        note: 'Full Uniswap V3 integration available in enhanced index.js file'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get Uniswap quote',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
