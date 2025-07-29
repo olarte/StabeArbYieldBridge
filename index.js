@@ -26,26 +26,29 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Chain configurations
+// Chain configurations with enhanced Alchemy RPC support
 const CHAIN_CONFIG = {
   ethereum: {
-    rpc: process.env.ETHEREUM_RPC || 'https://eth.llamarpc.com',
-    chainId: 1,
+    rpc: process.env.ALCHEMY_KEY ? 
+      `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}` : 
+      process.env.ETHEREUM_RPC || 'https://eth.llamarpc.com',
+    chainId: 11155111, // Sepolia testnet
     tokens: {
-      USDC: '0xA0b86a33E6441efC4b5e9fE1D7EC8c4D8a3b8d2E', // Ethereum USDC
-      USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+      USDC: '0xA0b86a33E6441efC4b5e9fE1D7EC8c4D8a3b8d2E', // Sepolia USDC
+      USDT: '0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7'  // Sepolia USDT
     }
   },
   celo: {
-    rpc: process.env.CELO_RPC || 'https://forno.celo.org',
-    chainId: 42220,
+    rpc: process.env.CELO_RPC || 'https://alfajores-forno.celo-testnet.org',
+    chainId: 44787, // Alfajores testnet
     tokens: {
-      cUSD: '0x765DE816845861e75A25fCA122bb6898B8B1282a',
-      USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'
+      cUSD: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1',  // Alfajores cUSD
+      USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B'   // Alfajores USDC
     }
   },
   sui: {
-    rpc: process.env.SUI_RPC || 'https://fullnode.mainnet.sui.io:443',
+    rpc: process.env.SUI_RPC || 'https://fullnode.testnet.sui.io:443',
+    chainId: 'testnet',
     tokens: {
       USDC: '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN'
     }
@@ -57,11 +60,16 @@ let ethProvider;
 
 async function initializeProviders() {
   try {
-    // Ethereum provider
+    // Ethereum provider with Alchemy enhancement
     ethProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.ethereum.rpc);
     
+    // Test the connection
+    const network = await ethProvider.getNetwork();
     console.log('✅ Core providers initialized successfully');
     console.log('🔗 1Inch API Key configured:', process.env.ONEINCH_API_KEY ? 'Yes' : 'No');
+    console.log('🔗 Alchemy API Key configured:', process.env.ALCHEMY_KEY ? 'Yes' : 'No');
+    console.log('🌐 Ethereum network:', network.name, `(Chain ID: ${network.chainId})`);
+    console.log('🔗 Using RPC:', CHAIN_CONFIG.ethereum.rpc.includes('alchemy') ? 'Alchemy Enhanced' : 'Standard RPC');
   } catch (error) {
     console.error('❌ Provider initialization failed:', error.message);
     // Don't exit on initialization errors, just log them
