@@ -821,38 +821,70 @@ async function calculateTVL(poolContract, liquidity, token0Address, token1Addres
   }
 }
 
-// Start automatic peg monitoring every 30 seconds
-setInterval(async () => {
-  try {
-    if (pegStatus.isActive) {
-      await axios.get(`http://localhost:${PORT}/api/oracle/peg-status`);
-    }
-  } catch (error) {
-    console.error('Automatic peg check failed:', error.message);
-  }
-}, 30000);
-
-// Initialize and start server
+// Start server with peg monitoring, swap cleanup, and Uniswap integration
 async function startServer() {
   await initializeProviders();
+  
+  // Check if in development mode
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  if (isDevelopment) {
+    console.log('🛠️ Development mode: Peg monitoring disabled');
+    pegStatus.isActive = false;
+    pegStatus.swapsPaused = false;
+  }
+  
+  // Start automated peg monitoring only in production (every 30 seconds)
+  if (pegStatus.isActive) {
+    setInterval(async () => {
+      try {
+        const response = await axios.get(`http://localhost:${PORT}/api/oracle/peg-status`);
+        console.log('🔍 Peg monitoring check completed:', 
+          response.data.data.globalStatus.criticalDepegs > 0 ? '⚠️ ALERTS DETECTED' : '✅ All stable');
+      } catch (error) {
+        console.error('Automated peg monitoring error:', error.message);
+      }
+    }, 30000);
+  }
+
+  // Cleanup expired swaps (every 5 minutes)
+  setInterval(() => {
+    const now = Date.now() / 1000;
+    let cleanedCount = 0;
+    
+    for (const [swapId, swapState] of swapStates.entries()) {
+      if (now > swapState.timelock + 3600) { // 1 hour after expiry
+        swapStates.delete(swapId);
+        cleanedCount++;
+      }
+    }
+    
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} expired swaps`);
+    }
+  }, 300000);
   
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 DeFi Bridge API server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`);
     console.log(`🛡️ Peg monitoring: Active (threshold: ${pegStatus.alertThreshold * 100}%)`);
+    console.log(`⚛️ Atomic swaps: Enabled with hashlock/timelock`);
     console.log(`🦄 Uniswap V3: Integrated on Celo Alfajores testnet`);
+    console.log(`📈 Swap endpoints:`);
+    console.log(`   - POST /api/swap/bidirectional - Create atomic cross-chain swap`);
+    console.log(`   - POST /api/swap/execute - Execute swap steps`);
+    console.log(`   - GET /api/swap/status/:swapId - Check swap progress`);
+    console.log(`   - POST /api/swap/refund - Refund expired swaps`);
+    console.log(`🦄 Uniswap V3 endpoints:`);
+    console.log(`   - GET /api/uniswap/price/:pair - Get pool price (e.g., cUSD-USDC)`);
+    console.log(`   - GET /api/uniswap/pools/:pair - Compare all fee tiers`);
+    console.log(`   - POST /api/uniswap/swap - Execute swap via Fusion+ or direct`);
+    console.log(`   - GET /api/uniswap/quote - Get swap quote with price impact`);
     console.log(`📈 Oracle endpoints:`);
     console.log(`   - GET /api/oracle/peg-status - Multi-chain monitoring`);
     console.log(`   - GET /api/oracle/chainlink/:pair?chain=ethereum - Single pair check`);
     console.log(`   - POST /api/oracle/peg-controls - Manual controls`);
-    console.log(`📊 Transaction endpoints:`);
-    console.log(`   - GET /api/wallet/balances - Real-time wallet balances`);
-    console.log(`   - GET /api/transactions/:txHash?chain=ethereum - Transaction lookup`);
-    console.log(`🦄 Uniswap V3 endpoints:`);
-    console.log(`   - GET /api/uniswap/price/:pair - Get pool price (e.g., cUSD-USDC)`);
-    console.log(`   - GET /api/uniswap/pools/:pair - Compare all fee tiers`);
-    console.log(`   - GET /api/uniswap/quote - Get swap quote with price impact`);
     console.log(`🎯 Example Uniswap calls:`);
     console.log(`   curl "http://localhost:${PORT}/api/uniswap/price/cUSD-USDC?fee=3000"`);
     console.log(`   curl "http://localhost:${PORT}/api/uniswap/quote?tokenIn=cUSD&tokenOut=USDC&amountIn=100"`);
