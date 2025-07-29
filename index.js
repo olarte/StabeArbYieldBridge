@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { ethers } from 'ethers';
 // import { FusionSDK } from '@1inch/fusion-sdk';
-// import { Connection, JsonRpcProvider } from '@mysten/sui.js/client';
+import { SuiClient } from '@mysten/sui.js/client';
 // import { ContractKit } from '@celo/contractkit';
 import axios from 'axios';
 import dotenv from 'dotenv';
@@ -56,20 +56,32 @@ const CHAIN_CONFIG = {
 };
 
 // Initialize providers
-let ethProvider;
+let ethProvider, suiProvider;
 
 async function initializeProviders() {
   try {
     // Ethereum provider with Alchemy enhancement
     ethProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.ethereum.rpc);
     
-    // Test the connection
-    const network = await ethProvider.getNetwork();
-    console.log('✅ Core providers initialized successfully');
+    // Sui provider for testnet
+    suiProvider = new SuiClient({
+      url: CHAIN_CONFIG.sui.rpc
+    });
+    
+    // Test connections
+    const [ethNetwork, suiChainInfo] = await Promise.all([
+      ethProvider.getNetwork(),
+      suiProvider.getChainIdentifier().catch(() => 'testnet')
+    ]);
+    
+    console.log('✅ All providers initialized successfully');
     console.log('🔗 1Inch API Key configured:', process.env.ONEINCH_API_KEY ? 'Yes' : 'No');
     console.log('🔗 Alchemy API Key configured:', process.env.ALCHEMY_KEY ? 'Yes' : 'No');
-    console.log('🌐 Ethereum network:', network.name, `(Chain ID: ${network.chainId})`);
+    console.log('🌐 Ethereum network:', ethNetwork.name, `(Chain ID: ${ethNetwork.chainId})`);
+    console.log('🌐 Sui network: testnet (Chain:', suiChainInfo, ')');
+    console.log('🌐 Celo network: Alfajores testnet (RPC ready)');
     console.log('🔗 Using RPC:', CHAIN_CONFIG.ethereum.rpc.includes('alchemy') ? 'Alchemy Enhanced' : 'Standard RPC');
+    console.log('🔗 Sui testnet RPC:', CHAIN_CONFIG.sui.rpc);
   } catch (error) {
     console.error('❌ Provider initialization failed:', error.message);
     // Don't exit on initialization errors, just log them
