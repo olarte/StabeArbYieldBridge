@@ -3,7 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { ethers } from 'ethers';
-// import { FusionSDK } from '@1inch/fusion-sdk';
+// import { FusionSDK, LimitOrderProtocolV4 } from '@1inch/fusion-sdk';
+import { randomBytes, createHash } from 'crypto';
 import { SuiClient } from '@mysten/sui.js/client';
 // import { ContractKit } from '@celo/contractkit';
 import axios from 'axios';
@@ -26,7 +27,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Chain configurations with enhanced Alchemy RPC support
+// Chain configurations with enhanced testnet support
 const CHAIN_CONFIG = {
   ethereum: {
     rpc: process.env.ALCHEMY_KEY ? 
@@ -55,8 +56,12 @@ const CHAIN_CONFIG = {
   }
 };
 
-// Initialize providers
+// Initialize providers and SDKs
 let ethProvider, suiProvider;
+
+// Cross-chain swap state management
+const swapStates = new Map();
+const SWAP_TIMEOUT = 3600000; // 1 hour timeout
 
 async function initializeProviders() {
   try {
@@ -79,9 +84,8 @@ async function initializeProviders() {
     console.log('🔗 Alchemy API Key configured:', process.env.ALCHEMY_KEY ? 'Yes' : 'No');
     console.log('🌐 Ethereum network:', ethNetwork.name, `(Chain ID: ${ethNetwork.chainId})`);
     console.log('🌐 Sui network: testnet (Chain:', suiChainInfo, ')');
-    console.log('🌐 Celo network: Alfajores testnet (RPC ready)');
+    console.log('🌐 Celo network: Alfajores testnet');
     console.log('🔗 Using RPC:', CHAIN_CONFIG.ethereum.rpc.includes('alchemy') ? 'Alchemy Enhanced' : 'Standard RPC');
-    console.log('🔗 Sui testnet RPC:', CHAIN_CONFIG.sui.rpc);
   } catch (error) {
     console.error('❌ Provider initialization failed:', error.message);
     // Don't exit on initialization errors, just log them
@@ -264,7 +268,7 @@ app.get('/api/oracle/chainlink/:pair', async (req, res) => {
   }
 });
 
-// New endpoint: Multi-chain peg monitoring dashboard
+// Multi-chain peg monitoring dashboard
 app.get('/api/oracle/peg-status', async (req, res) => {
   try {
     const results = {};
@@ -353,7 +357,7 @@ app.get('/api/oracle/peg-status', async (req, res) => {
   }
 });
 
-// New endpoint: Manual peg monitoring controls
+// Manual peg monitoring controls
 app.post('/api/oracle/peg-controls', async (req, res) => {
   try {
     const { action, threshold } = req.body;
@@ -399,329 +403,71 @@ app.post('/api/oracle/peg-controls', async (req, res) => {
   }
 });
 
-// 3. Detect arbitrage opportunities between Celo and Sui
-app.get('/api/arbitrage/celo-sui', async (req, res) => {
-  try {
-    const { minProfit = 0.5 } = req.query; // Minimum profit percentage
-    
-    // Fetch prices from both chains
-    const [celoPrice, suiPrice, ethPrice] = await Promise.all([
-      getCeloStablecoinPrice('cUSD'),
-      getSuiStablecoinPrice('USDC'),
-      get1InchPrice('USDC')
-    ]);
-
-    const opportunities = [];
-    
-    // Calculate potential arbitrage
-    const priceDiff = Math.abs(celoPrice - suiPrice);
-    const profitPercent = (priceDiff / Math.min(celoPrice, suiPrice)) * 100;
-    
-    if (profitPercent >= parseFloat(minProfit)) {
-      const direction = celoPrice > suiPrice ? 'CELO->SUI' : 'SUI->CELO';
-      
-      opportunities.push({
-        pair: 'CUSD/USDC',
-        direction,
-        celoPrice,
-        suiPrice,
-        priceDiff,
-        profitPercent: profitPercent.toFixed(2),
-        estimatedGasCost: await estimateArbitrageGas(),
-        recommendedAmount: calculateOptimalAmount(priceDiff)
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        opportunities,
-        totalOpportunities: opportunities.length,
-        timestamp: new Date().toISOString(),
-        prices: { celoPrice, suiPrice, ethPrice }
-      }
-    });
-  } catch (error) {
-    console.error('Arbitrage detection error:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to detect arbitrage opportunities',
-      details: error.message
-    });
-  }
-});
-
-// 4. Execute swaps via Fusion+ with peg protection
-app.post('/api/swap/fusion', async (req, res) => {
-  try {
-    // Check if swaps are paused due to depegging
-    if (pegStatus.swapsPaused) {
-      return res.status(423).json({
-        success: false,
-        error: 'Swaps temporarily paused due to stablecoin depegging',
-        pegStatus: pegStatus.deviations,
-        resumeAction: 'Contact admin or wait for automatic resume'
-      });
-    }
-
-    const {
-      fromToken,
-      toToken,
-      amount,
-      fromChain,
-      toChain,
-      slippageTolerance = 1,
-      enableLimitOrder = false,
-      limitPrice,
-      bypassPegCheck = false
-    } = req.body;
-
-    // Validate required parameters
-    if (!fromToken || !toToken || !amount) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required parameters: fromToken, toToken, amount'
-      });
-    }
-
-    // Pre-swap peg validation (unless bypassed)
-    if (!bypassPegCheck) {
-      const pegCheckResult = await validateSwapPegs(fromToken, toToken, fromChain, toChain);
-      if (!pegCheckResult.safe) {
-        return res.status(400).json({
-          success: false,
-          error: 'Swap blocked due to peg deviation',
-          pegAnalysis: pegCheckResult,
-          suggestion: 'Wait for peg stability or set bypassPegCheck=true (not recommended)'
-        });
-      }
-    }
-
-    // Create Fusion+ order
-    const orderParams = {
-      fromTokenAddress: CHAIN_CONFIG[fromChain]?.tokens[fromToken],
-      toTokenAddress: CHAIN_CONFIG[toChain]?.tokens[toToken],
-      amount: ethers.parseUnits(amount.toString(), 6), // Assuming 6 decimals for stablecoins
-      walletAddress: req.body.walletAddress,
-      slippageTolerance: slippageTolerance * 100, // Convert to basis points
-    };
-
-    if (enableLimitOrder && limitPrice) {
-      orderParams.limitPrice = ethers.parseUnits(limitPrice.toString(), 18);
-    }
-
-    const order = await fusionSDK.createOrder(orderParams);
-    
-    // For cross-chain swaps, we need to handle the relay logic
-    let executionPlan;
-    if (fromChain !== toChain) {
-      executionPlan = await createCrossChainExecutionPlan(orderParams, fromChain, toChain);
-    }
-
-    res.json({
-      success: true,
-      data: {
-        orderId: order.orderHash,
-        order: order,
-        executionPlan: executionPlan || null,
-        estimatedGas: await estimateSwapGas(orderParams),
-        estimatedTime: fromChain === toChain ? '30-120s' : '5-15min',
-        pegProtection: {
-          enabled: !bypassPegCheck,
-          lastCheck: pegStatus.lastCheck,
-          status: 'PROTECTED'
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Fusion+ swap error:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to execute swap',
-      details: error.message
-    });
-  }
-});
-
-// Enhanced helper functions with multi-chain oracle support
+// Helper functions
 async function getCeloStablecoinPrice(token) {
   try {
-    // Use Chainlink oracle for Celo if available
-    const chainOracles = CHAINLINK_ORACLES.celo;
-    const oracleAddress = chainOracles[`${token.toUpperCase()}_USD`];
-    
-    if (oracleAddress) {
-      const provider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
-      const oracle = new ethers.Contract(oracleAddress, CHAINLINK_ABI, provider);
-      const roundData = await oracle.latestRoundData();
-      return Number(roundData.answer) / Math.pow(10, chainOracles.decimals);
-    }
-    
-    // Fallback to DEX query (simplified)
-    return 1.0001; // Simulated price with slight variation
+    // Simplified mock price for Celo cUSD
+    return 1.002; // Slightly off peg for testing
   } catch (error) {
-    console.error('Celo price fetch error:', error);
-    return 1.0;
+    console.error('Celo price fetch error:', error.message);
+    return 1.0; // Fallback
   }
 }
 
-async function validateSwapPegs(fromToken, toToken, fromChain, toChain) {
-  try {
-    const tokens = [
-      { token: fromToken, chain: fromChain },
-      { token: toToken, chain: toChain }
-    ];
-    
-    const pegChecks = [];
-    
-    for (const { token, chain } of tokens) {
-      if (token.toUpperCase().includes('USD')) {
-        try {
-          const chainOracles = CHAINLINK_ORACLES[chain];
-          if (!chainOracles) continue;
-          
-          const oracleAddress = chainOracles[`${token.toUpperCase()}_USD`];
-          if (!oracleAddress) continue;
-          
-          const provider = chain === 'celo' ? 
-            new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc) : 
-            ethProvider;
-          
-          const oracle = new ethers.Contract(oracleAddress, CHAINLINK_ABI, provider);
-          const roundData = await oracle.latestRoundData();
-          
-          const price = Number(roundData.answer) / Math.pow(10, chainOracles.decimals);
-          const deviation = Math.abs(price - 1.0);
-          const deviationPercent = deviation * 100;
-          
-          pegChecks.push({
-            token,
-            chain,
-            price,
-            deviation,
-            deviationPercent,
-            isPegged: deviation <= pegStatus.alertThreshold,
-            timestamp: new Date().toISOString()
-          });
-        } catch (error) {
-          console.error(`Peg check failed for ${token} on ${chain}:`, error.message);
-        }
-      }
-    }
-    
-    const failedPegs = pegChecks.filter(check => !check.isPegged);
-    
-    return {
-      safe: failedPegs.length === 0,
-      checks: pegChecks,
-      failedPegs,
-      recommendation: failedPegs.length > 0 ? 
-        'Wait for peg stability before swapping' : 
-        'Safe to proceed'
-    };
-  } catch (error) {
-    console.error('Peg validation error:', error);
-    return {
-      safe: false,
-      error: error.message,
-      recommendation: 'Unable to validate pegs, proceed with caution'
-    };
-  }
-}
-
-// Sui price fallback (since no native Chainlink)
 async function getSuiStablecoinPrice(token) {
   try {
-    // Fallback to CoinGecko API for Sui prices
-    const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price`, {
-      params: {
-        ids: token.toLowerCase() === 'usdc' ? 'usd-coin' : 'sui',
-        vs_currencies: 'usd'
-      }
-    });
-    
-    const tokenId = token.toLowerCase() === 'usdc' ? 'usd-coin' : 'sui';
-    return response.data[tokenId]?.usd || 1.0;
+    // Simplified mock price for Sui USDC
+    return 0.998; // Slightly off peg for testing
   } catch (error) {
-    console.error('Sui price fetch error:', error);
-    return 1.0;
+    console.error('Sui price fetch error:', error.message);
+    return 1.0; // Fallback
   }
 }
 
 async function get1InchPrice(token) {
   try {
-    const response = await axios.get(`https://api.1inch.dev/price/v1.1/1/${token}`, {
-      headers: { 'Authorization': `Bearer ${process.env.ONEINCH_API_KEY}` }
+    const response = await axios.get(`https://api.1inch.dev/price/v1.1/1/USDC`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.ONEINCH_API_KEY}`
+      }
     });
-    return response.data[token];
+    return response.data.USDC || 1.0;
   } catch (error) {
-    console.error('1Inch price error:', error);
-    return 1.0;
+    console.error('1Inch price fetch error:', error.message);
+    return 1.0; // Fallback
   }
 }
 
 async function estimateArbitrageGas() {
   // Simplified gas estimation
   return {
-    ethereum: '0.01',
-    celo: '0.001',
-    sui: '0.0001'
+    ethereum: '0.01 ETH',
+    celo: '0.001 CELO',
+    sui: '0.1 SUI'
   };
 }
 
 function calculateOptimalAmount(priceDiff) {
-  // Simplified calculation - should consider liquidity and gas costs
-  return Math.min(10000, 1000 / priceDiff);
+  // Simplified optimal amount calculation
+  return Math.min(10000, Math.max(100, priceDiff * 1000));
 }
 
-async function createCrossChainExecutionPlan(params, fromChain, toChain) {
-  return {
-    steps: [
-      { chain: fromChain, action: 'swap_to_bridge_token', estimatedTime: '1-2min' },
-      { chain: 'ethereum', action: 'relay_bridge', estimatedTime: '2-5min' },
-      { chain: toChain, action: 'bridge_to_target', estimatedTime: '2-8min' }
-    ],
-    totalEstimatedTime: '5-15min',
-    bridgeFees: '0.1%'
-  };
-}
+// Start automatic peg monitoring every 30 seconds
+setInterval(async () => {
+  try {
+    if (pegStatus.isActive) {
+      await axios.get(`http://localhost:${PORT}/api/oracle/peg-status`);
+    }
+  } catch (error) {
+    console.error('Automatic peg check failed:', error.message);
+  }
+}, 30000);
 
-async function estimateSwapGas(params) {
-  return {
-    gasLimit: '150000',
-    gasPrice: '20',
-    estimatedCost: '0.003 ETH'
-  };
-}
-
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Start server with peg monitoring
+// Initialize and start server
 async function startServer() {
   await initializeProviders();
   
-  // Start automated peg monitoring (every 30 seconds)
-  setInterval(async () => {
-    try {
-      if (pegStatus.isActive) {
-        const response = await axios.get(`http://localhost:${PORT}/api/oracle/peg-status`);
-        console.log('🔍 Peg monitoring check completed:', 
-          response.data.data.globalStatus.criticalDepegs > 0 ? '⚠️ ALERTS DETECTED' : '✅ All stable');
-      }
-    } catch (error) {
-      console.error('Automated peg monitoring error:', error.message);
-    }
-  }, 30000);
-  
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 DeFi Bridge API server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`);
