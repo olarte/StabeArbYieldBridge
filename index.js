@@ -859,6 +859,82 @@ async function startServer() {
   });
 }
 
+// Arbitrage opportunity scanning with Uniswap V3 prices
+app.get('/api/scan-arbs', async (req, res) => {
+  try {
+    const { pairs = 'cUSD-USDC,cUSD-CELO', minSpread = 0.1 } = req.query;
+    const tokenPairs = pairs.split(',');
+    const opportunities = [];
+    
+    console.log(`🔍 Scanning arbitrage opportunities for ${tokenPairs.length} pairs...`);
+    
+    for (const pair of tokenPairs) {
+      try {
+        // Get Uniswap V3 prices for this pair
+        const uniswapData = await getUniswapCeloPrices(pair.trim(), 3000);
+        
+        if (uniswapData.success) {
+          // Get 1Inch prices for comparison
+          const oneinchPrice = await get1InchPrice(pair.split('-')[0]);
+          
+          // Calculate spread between Uniswap and 1Inch
+          const uniswapPrice = uniswapData.data.price.token0ToToken1;
+          const spread = Math.abs((uniswapPrice - oneinchPrice) / oneinchPrice) * 100;
+          
+          // Check if spread meets minimum threshold
+          if (spread >= parseFloat(minSpread)) {
+            const opportunity = {
+              id: `arb_${pair.replace('-', '_')}_${Date.now()}`,
+              pair: pair,
+              spread: spread.toFixed(4),
+              uniswapPrice: uniswapPrice.toFixed(6),
+              oneinchPrice: oneinchPrice.toFixed(6),
+              poolAddress: uniswapData.data.poolAddress,
+              liquidity: uniswapData.data.poolStats.liquidity,
+              estimatedProfit: (spread * 100).toFixed(2), // Simplified calculation
+              optimalAmount: calculateOptimalAmount(spread),
+              gasEstimate: await estimateArbitrageGas(),
+              timestamp: new Date().toISOString(),
+              source: 'uniswap_v3_vs_1inch',
+              status: 'active',
+              confidence: spread > 1.0 ? 'high' : 'medium'
+            };
+            
+            opportunities.push(opportunity);
+            console.log(`💰 Found opportunity: ${pair} spread ${spread.toFixed(2)}%`);
+          }
+        }
+      } catch (error) {
+        console.error(`Error scanning ${pair}:`, error.message);
+      }
+    }
+    
+    // Sort by spread (highest first)
+    opportunities.sort((a, b) => parseFloat(b.spread) - parseFloat(a.spread));
+    
+    res.json({
+      success: true,
+      data: {
+        opportunities,
+        scannedPairs: tokenPairs.length,
+        foundOpportunities: opportunities.length,
+        minSpreadThreshold: parseFloat(minSpread),
+        timestamp: new Date().toISOString(),
+        priceSource: 'uniswap_v3_celo'
+      },
+      message: `Scanned ${tokenPairs.length} pairs, found ${opportunities.length} opportunities`
+    });
+    
+  } catch (error) {
+    console.error('Arbitrage scanning error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to scan arbitrage opportunities',
+      details: error.message
+    });
+  }
+});
+
 // Uniswap V3 price fetching for Celo pairs
 app.get('/api/uniswap/price/:pair', async (req, res) => {
   try {

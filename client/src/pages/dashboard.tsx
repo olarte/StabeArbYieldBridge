@@ -7,6 +7,7 @@ import { AgentCreator } from "@/components/arbitrage/agent-creator";
 import { ActiveAgents } from "@/components/arbitrage/active-agents";
 import { RecentTransactions } from "@/components/transactions/recent-transactions";
 import { UniswapPrices } from "@/components/uniswap/uniswap-prices";
+import { ArbitrageScanner } from "@/components/arbitrage/arbitrage-scanner";
 
 export default function Dashboard() {
   return (
@@ -35,6 +36,9 @@ export default function Dashboard() {
               <AgentCreator />
               <ActiveAgents />
             </div>
+
+            {/* Arbitrage Scanner */}
+            <ArbitrageScanner />
 
             {/* Recent Transactions */}
             <RecentTransactions />
