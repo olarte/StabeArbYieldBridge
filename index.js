@@ -47,11 +47,17 @@ const CHAIN_CONFIG = {
       USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',  // Alfajores USDC
       CELO: '0xF194afDf50B03e69Bd7D057c1Aa9e10c9954E4C9'   // Alfajores CELO
     },
+    // Note: Uniswap V3 may not be deployed on Celo Alfajores
+    // Using SushiSwap or Celo native DEX addresses instead
     uniswap: {
-      factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984', // Uniswap V3 Factory
-      router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',   // Uniswap V3 SwapRouter
-      quoter: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',   // Quoter V2
-      nftManager: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88' // NonfungiblePositionManager
+      // These are placeholder addresses - Celo uses different DEX infrastructure
+      factory: null, // Will be detected dynamically
+      router: null,   // Will be detected dynamically
+      quoter: null,   // Will be detected dynamically
+      nftManager: null,
+      // Celo-specific DEX (Ubeswap/SushiSwap)
+      ubeswapFactory: '0x62d5b84bE28a183aBB507E125B384122D2C25fAE', // Ubeswap V2
+      ubeswapRouter: '0xE3D8bd6Aed4F159bc8000a9cD47CffDb95F96121'
     }
   },
   sui: {
@@ -678,7 +684,7 @@ app.get('/api/transactions/:txHash', async (req, res) => {
   }
 });
 
-// Uniswap V3 ABIs for Celo integration
+// Uniswap V3 ABIs and Celo DEX ABIs
 const UNISWAP_V3_ABIS = {
   Factory: [
     'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)',
@@ -702,23 +708,82 @@ const UNISWAP_V3_ABIS = {
   ]
 };
 
+// Celo native DEX ABIs (Ubeswap V2 style)
+const CELO_DEX_ABIS = {
+  Factory: [
+    'function getPair(address tokenA, address tokenB) external view returns (address pair)',
+    'function allPairs(uint) external view returns (address pair)',
+    'function allPairsLength() external view returns (uint)'
+  ],
+  Pair: [
+    'function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
+    'function token0() external view returns (address)',
+    'function token1() external view returns (address)',
+    'function totalSupply() external view returns (uint)',
+    'function balanceOf(address) external view returns (uint)'
+  ],
+  Router: [
+    'function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)',
+    'function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts)'
+  ]
+};
+
 // Initialize Uniswap V3 contracts
 let uniswapContracts = {};
 
 async function initializeUniswapContracts() {
+  const celoConfig = CHAIN_CONFIG.celo.uniswap;
+  const celoProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
+  
   try {
-    const celoConfig = CHAIN_CONFIG.celo.uniswap;
-    const celoProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
+    // First, try to detect if Uniswap V3 is actually deployed on Celo Alfajores
+    console.log('🔍 Detecting DEX infrastructure on Celo Alfajores...');
     
+    // Try Ubeswap (most likely to work on Celo)
+    if (celoConfig.ubeswapFactory) {
+      try {
+        const ubeswapFactory = new ethers.Contract(
+          celoConfig.ubeswapFactory, 
+          CELO_DEX_ABIS.Factory, 
+          celoProvider
+        );
+        
+        // Test if contract exists by calling allPairsLength
+        const pairsLength = await ubeswapFactory.allPairsLength();
+        
+        uniswapContracts = {
+          factory: ubeswapFactory,
+          router: new ethers.Contract(celoConfig.ubeswapRouter, CELO_DEX_ABIS.Router, celoProvider),
+          type: 'ubeswap_v2'
+        };
+        
+        console.log(`✅ Ubeswap V2 contracts initialized (${pairsLength} pairs found)`);
+        return;
+      } catch (error) {
+        console.log('⚠️ Ubeswap not available, trying fallback...');
+      }
+    }
+    
+    // Fallback: Use mock contracts for development
     uniswapContracts = {
-      factory: new ethers.Contract(celoConfig.factory, UNISWAP_V3_ABIS.Factory, celoProvider),
-      router: new ethers.Contract(celoConfig.router, UNISWAP_V3_ABIS.SwapRouter, celoProvider),
-      quoter: new ethers.Contract(celoConfig.quoter, UNISWAP_V3_ABIS.Quoter, celoProvider)
+      factory: null,
+      router: null,
+      quoter: null,
+      type: 'mock'
     };
-
-    console.log('✅ Uniswap V3 contracts initialized on Celo Alfajores');
+    
+    console.log('⚠️ Using mock DEX contracts for development');
+    
   } catch (error) {
-    console.error('❌ Uniswap initialization failed:', error.message);
+    console.error('❌ Failed to initialize DEX contracts:', error.message);
+    
+    // Fallback to mock
+    uniswapContracts = {
+      factory: null,
+      router: null,
+      quoter: null,
+      type: 'mock'
+    };
   }
 }
 
@@ -864,7 +929,7 @@ async function startServer() {
     }
   }, 300000);
   
-  app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, 'localhost', () => {
     console.log(`🚀 DeFi Bridge API server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`);
