@@ -736,20 +736,36 @@ async function initializeUniswapContracts() {
   const celoProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
   
   try {
-    // First, try to detect if Uniswap V3 is actually deployed on Celo Alfajores
     console.log('🔍 Detecting DEX infrastructure on Celo Alfajores...');
+    
+    // First, let's just use mock for development to avoid contract issues
+    const forceUseMock = process.env.FORCE_MOCK_DEX === 'true' || process.env.NODE_ENV === 'development';
+    
+    if (forceUseMock) {
+      uniswapContracts = {
+        factory: null,
+        router: null,
+        quoter: null,
+        type: 'mock'
+      };
+      console.log('🛠️ Using mock DEX contracts for development');
+      return;
+    }
     
     // Try Ubeswap (most likely to work on Celo)
     if (celoConfig.ubeswapFactory) {
       try {
+        console.log(`🔍 Testing Ubeswap factory at ${celoConfig.ubeswapFactory}...`);
+        
         const ubeswapFactory = new ethers.Contract(
           celoConfig.ubeswapFactory, 
           CELO_DEX_ABIS.Factory, 
           celoProvider
         );
         
-        // Test if contract exists by calling allPairsLength
-        const pairsLength = await ubeswapFactory.allPairsLength();
+        // Test if contract exists with a simple call
+        const testCall = await ubeswapFactory.allPairsLength();
+        console.log(`✅ Ubeswap factory responded with ${testCall} pairs`);
         
         uniswapContracts = {
           factory: ubeswapFactory,
@@ -757,14 +773,16 @@ async function initializeUniswapContracts() {
           type: 'ubeswap_v2'
         };
         
-        console.log(`✅ Ubeswap V2 contracts initialized (${pairsLength} pairs found)`);
+        console.log(`✅ Ubeswap V2 contracts initialized (${testCall} pairs found)`);
         return;
+        
       } catch (error) {
-        console.log('⚠️ Ubeswap not available, trying fallback...');
+        console.log(`⚠️ Ubeswap test failed: ${error.message}`);
+        console.log('🔄 Falling back to mock contracts...');
       }
     }
     
-    // Fallback: Use mock contracts for development
+    // Fallback: Use mock contracts
     uniswapContracts = {
       factory: null,
       router: null,
@@ -772,18 +790,20 @@ async function initializeUniswapContracts() {
       type: 'mock'
     };
     
-    console.log('⚠️ Using mock DEX contracts for development');
+    console.log('⚠️ Using mock DEX contracts - no live DEX detected');
     
   } catch (error) {
-    console.error('❌ Failed to initialize DEX contracts:', error.message);
+    console.error('❌ DEX initialization error:', error.message);
     
-    // Fallback to mock
+    // Always fallback to mock
     uniswapContracts = {
       factory: null,
       router: null,
       quoter: null,
       type: 'mock'
     };
+    
+    console.log('🔄 Forced fallback to mock DEX due to errors');
   }
 }
 
@@ -933,15 +953,15 @@ async function startServer() {
     console.log(`🚀 DeFi Bridge API server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`);
-    console.log(`🛡️ Peg monitoring: Active (threshold: ${pegStatus.alertThreshold * 100}%)`);
+    console.log(`🛡️ Peg monitoring: ${pegStatus.isActive ? 'Active' : 'Disabled'} (threshold: ${pegStatus.alertThreshold * 100}%)`);
     console.log(`⚛️ Atomic swaps: Enabled with hashlock/timelock`);
-    console.log(`🦄 Uniswap V3: Integrated on Celo Alfajores testnet`);
+    console.log(`🦄 DEX Integration: ${uniswapContracts.type || 'unknown'}`);
     console.log(`📈 Swap endpoints:`);
     console.log(`   - POST /api/swap/bidirectional - Create atomic cross-chain swap`);
     console.log(`   - POST /api/swap/execute - Execute swap steps`);
     console.log(`   - GET /api/swap/status/:swapId - Check swap progress`);
     console.log(`   - POST /api/swap/refund - Refund expired swaps`);
-    console.log(`🦄 Uniswap V3 endpoints:`);
+    console.log(`🦄 DEX endpoints:`);
     console.log(`   - GET /api/uniswap/price/:pair - Get pool price (e.g., cUSD-USDC)`);
     console.log(`   - GET /api/uniswap/pools/:pair - Compare all fee tiers`);
     console.log(`   - POST /api/uniswap/swap - Execute swap via Fusion+ or direct`);
@@ -950,9 +970,10 @@ async function startServer() {
     console.log(`   - GET /api/oracle/peg-status - Multi-chain monitoring`);
     console.log(`   - GET /api/oracle/chainlink/:pair?chain=ethereum - Single pair check`);
     console.log(`   - POST /api/oracle/peg-controls - Manual controls`);
-    console.log(`🎯 Example Uniswap calls:`);
-    console.log(`   curl "http://localhost:${PORT}/api/uniswap/price/cUSD-USDC?fee=3000"`);
+    console.log(`🎯 Test commands:`);
+    console.log(`   curl "http://localhost:${PORT}/api/uniswap/price/cUSD-USDC"`);
     console.log(`   curl "http://localhost:${PORT}/api/uniswap/quote?tokenIn=cUSD&tokenOut=USDC&amountIn=100"`);
+    console.log(`💡 Using ${uniswapContracts.type === 'mock' ? 'mock data for development' : 'live DEX data'}`);
   });
 }
 
