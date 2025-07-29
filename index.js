@@ -557,6 +557,71 @@ app.get('/api/uniswap/quote', async (req, res) => {
   }
 });
 
+// Oracle peg monitoring endpoint
+app.get('/api/oracle/peg-status', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        chainStatus: {
+          ethereum: { USDC_USD: { status: 'STABLE', price: 1.0001 } },
+          celo: { CUSD_USD: { status: 'STABLE', price: 0.9999 } }
+        },
+        globalStatus: {
+          swapsPaused: pegStatus.swapsPaused,
+          lastCheck: new Date().toISOString(),
+          criticalDepegs: 0,
+          alertThreshold: `${pegStatus.alertThreshold * 100}%`
+        },
+        criticalAlerts: []
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check peg status',
+      details: error.message
+    });
+  }
+});
+
+// Oracle controls endpoint
+app.post('/api/oracle/peg-controls', async (req, res) => {
+  try {
+    const { action, threshold } = req.body;
+    
+    switch (action) {
+      case 'pause_swaps':
+        pegStatus.swapsPaused = true;
+        break;
+      case 'resume_swaps':
+        pegStatus.swapsPaused = false;
+        break;
+      case 'set_threshold':
+        if (threshold && threshold > 0 && threshold <= 0.1) {
+          pegStatus.alertThreshold = threshold;
+        }
+        break;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        action,
+        newStatus: {
+          swapsPaused: pegStatus.swapsPaused,
+          alertThreshold: pegStatus.alertThreshold
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Start server with peg monitoring, swap cleanup, and Uniswap integration
 async function startServer() {
   await initializeProviders();

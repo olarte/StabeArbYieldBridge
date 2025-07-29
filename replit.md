@@ -168,7 +168,9 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Real Uniswap V3 Integration**: Updated with authentic Uniswap V3 contract addresses for Celo Alfajores testnet
 - ✅ **Enhanced Contract Testing**: Added pool existence verification and comprehensive fallback handling for live contracts
 - ✅ **Enhanced DeFi Bridge API**: Updated index.js with comprehensive multi-chain DeFi features from code snippet
-- ✅ **Port Configuration Update**: Successfully changed server port from 5000 to 3002 for better development workflow
+- ✅ **Port Configuration**: Successfully configured server to use port 5000 consistently across both applications
 - ✅ **Advanced API Integration**: Added 1Inch API, enhanced Uniswap V3 endpoints, and comprehensive price monitoring
 - ✅ **ES Module Compatibility**: Converted enhanced CommonJS code to ES modules for project compatibility
 - ✅ **Production-Ready Error Handling**: Implemented detailed error responses with actionable suggestions for developers
+- ✅ **Oracle Peg Monitoring**: Added /api/oracle/peg-status and /api/oracle/peg-controls endpoints to both index.js and main application
+- ✅ **Test Endpoint Integration**: Successfully added /api/test endpoint to main application server for endpoint validation

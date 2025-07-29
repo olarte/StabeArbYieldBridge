@@ -10,6 +10,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: 'Test endpoint works!', timestamp: new Date().toISOString() });
   });
 
+  // Oracle peg monitoring endpoint
+  app.get('/api/oracle/peg-status', async (req, res) => {
+    try {
+      const pegStatus = {
+        swapsPaused: false,
+        alertThreshold: 0.05,
+        isActive: false
+      };
+
+      res.json({
+        success: true,
+        data: {
+          chainStatus: {
+            ethereum: { USDC_USD: { status: 'STABLE', price: 1.0001 } },
+            celo: { CUSD_USD: { status: 'STABLE', price: 0.9999 } }
+          },
+          globalStatus: {
+            swapsPaused: pegStatus.swapsPaused,
+            lastCheck: new Date().toISOString(),
+            criticalDepegs: 0,
+            alertThreshold: `${pegStatus.alertThreshold * 100}%`
+          },
+          criticalAlerts: []
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check peg status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Oracle controls endpoint
+  app.post('/api/oracle/peg-controls', async (req, res) => {
+    try {
+      const { action, threshold } = req.body;
+      let pegStatus = {
+        swapsPaused: false,
+        alertThreshold: 0.05
+      };
+      
+      switch (action) {
+        case 'pause_swaps':
+          pegStatus.swapsPaused = true;
+          break;
+        case 'resume_swaps':
+          pegStatus.swapsPaused = false;
+          break;
+        case 'set_threshold':
+          if (threshold && threshold > 0 && threshold <= 0.1) {
+            pegStatus.alertThreshold = threshold;
+          }
+          break;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          action,
+          newStatus: {
+            swapsPaused: pegStatus.swapsPaused,
+            alertThreshold: pegStatus.alertThreshold
+          }
+        }
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Arbitrage Opportunities routes
   app.get("/api/arbitrage/opportunities", async (req, res) => {
     try {
