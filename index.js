@@ -47,17 +47,21 @@ const CHAIN_CONFIG = {
       USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',  // Alfajores USDC
       CELO: '0xF194afDf50B03e69Bd7D057c1Aa9e10c9954E4C9'   // Alfajores CELO
     },
-    // Note: Uniswap V3 may not be deployed on Celo Alfajores
-    // Using SushiSwap or Celo native DEX addresses instead
+    // Real Uniswap V3 addresses on Celo Alfajores testnet
     uniswap: {
-      // These are placeholder addresses - Celo uses different DEX infrastructure
-      factory: null, // Will be detected dynamically
-      router: null,   // Will be detected dynamically
-      quoter: null,   // Will be detected dynamically
-      nftManager: null,
-      // Celo-specific DEX (Ubeswap/SushiSwap)
-      ubeswapFactory: '0x62d5b84bE28a183aBB507E125B384122D2C25fAE', // Ubeswap V2
-      ubeswapRouter: '0xE3D8bd6Aed4F159bc8000a9cD47CffDb95F96121'
+      factory: '0x229Fd76DA9062C1a10eb4193768E192bdEA99572',      // UniswapV3Factory
+      router: '0x8C456F41A3883bA0ba99f810F7A2Da54D9Ea3EF0',       // SwapRouter02
+      quoter: '0x3c1FCF8D6f3A579E98F4AE75EB0adA6de70f5673',       // QuoterV2
+      nftManager: '0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A',    // NonfungiblePositionManager
+      universalRouter: '0x84904B9E85F76a421223565be7b596d7d9A8b8Ce'  // UniversalRouter
+    },
+    // Mainnet addresses (for reference)
+    uniswapMainnet: {
+      factory: '0xAfE208a311B21f13EF87E33A90049fC17A7acDEc',      // UniswapV3Factory  
+      router: '0x5615CDAb10dc425a742d643d949a7F474C01abc4',       // SwapRouter02
+      quoter: '0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8',       // QuoterV2
+      nftManager: '0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A',    // NonfungiblePositionManager
+      universalRouter: '0x643770E279d5D0733F21d6DC03A8efbABf3255B4'  // UniversalRouter
     }
   },
   sui: {
@@ -736,74 +740,60 @@ async function initializeUniswapContracts() {
   const celoProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.celo.rpc);
   
   try {
-    console.log('🔍 Detecting DEX infrastructure on Celo Alfajores...');
+    console.log('🔍 Initializing Uniswap V3 contracts on Celo Alfajores...');
     
-    // First, let's just use mock for development to avoid contract issues
-    const forceUseMock = process.env.FORCE_MOCK_DEX === 'true' || process.env.NODE_ENV === 'development';
+    // Initialize real Uniswap V3 contracts
+    const factory = new ethers.Contract(celoConfig.factory, UNISWAP_V3_ABIS.Factory, celoProvider);
+    const router = new ethers.Contract(celoConfig.router, UNISWAP_V3_ABIS.SwapRouter, celoProvider);
+    const quoter = new ethers.Contract(celoConfig.quoter, UNISWAP_V3_ABIS.Quoter, celoProvider);
     
-    if (forceUseMock) {
+    // Test the factory contract by calling a simple function
+    console.log(`🧪 Testing Uniswap V3 factory at ${celoConfig.factory}...`);
+    
+    // Try to get a known pool (this will return 0x0 if pool doesn't exist, but shouldn't throw)
+    const testPoolAddress = await factory.getPool(
+      CHAIN_CONFIG.celo.tokens.cUSD,
+      CHAIN_CONFIG.celo.tokens.USDC,
+      3000 // 0.3% fee tier
+    );
+    
+    console.log(`✅ Uniswap V3 factory is responsive`);
+    console.log(`📊 Test pool cUSD/USDC (0.3%): ${testPoolAddress === ethers.ZeroAddress ? 'Not created yet' : testPoolAddress}`);
+    
+    uniswapContracts = {
+      factory: factory,
+      router: router,
+      quoter: quoter,
+      type: 'uniswap_v3'
+    };
+    
+    console.log('✅ Uniswap V3 contracts successfully initialized on Celo Alfajores');
+    
+  } catch (error) {
+    console.error(`❌ Uniswap V3 initialization failed: ${error.message}`);
+    console.log('🔄 This might be due to network issues or contract verification delays');
+    
+    // For now, let's still try to create the contracts but mark them as potentially problematic
+    try {
+      uniswapContracts = {
+        factory: new ethers.Contract(celoConfig.factory, UNISWAP_V3_ABIS.Factory, celoProvider),
+        router: new ethers.Contract(celoConfig.router, UNISWAP_V3_ABIS.SwapRouter, celoProvider),
+        quoter: new ethers.Contract(celoConfig.quoter, UNISWAP_V3_ABIS.Quoter, celoProvider),
+        type: 'uniswap_v3_unverified'
+      };
+      console.log('⚠️ Uniswap V3 contracts created but not verified - will use with caution');
+    } catch (fallbackError) {
+      console.error(`❌ Complete fallback failed: ${fallbackError.message}`);
+      
+      // Final fallback to mock
       uniswapContracts = {
         factory: null,
         router: null,
         quoter: null,
         type: 'mock'
       };
-      console.log('🛠️ Using mock DEX contracts for development');
-      return;
+      console.log('🔄 Using mock contracts as final fallback');
     }
-    
-    // Try Ubeswap (most likely to work on Celo)
-    if (celoConfig.ubeswapFactory) {
-      try {
-        console.log(`🔍 Testing Ubeswap factory at ${celoConfig.ubeswapFactory}...`);
-        
-        const ubeswapFactory = new ethers.Contract(
-          celoConfig.ubeswapFactory, 
-          CELO_DEX_ABIS.Factory, 
-          celoProvider
-        );
-        
-        // Test if contract exists with a simple call
-        const testCall = await ubeswapFactory.allPairsLength();
-        console.log(`✅ Ubeswap factory responded with ${testCall} pairs`);
-        
-        uniswapContracts = {
-          factory: ubeswapFactory,
-          router: new ethers.Contract(celoConfig.ubeswapRouter, CELO_DEX_ABIS.Router, celoProvider),
-          type: 'ubeswap_v2'
-        };
-        
-        console.log(`✅ Ubeswap V2 contracts initialized (${testCall} pairs found)`);
-        return;
-        
-      } catch (error) {
-        console.log(`⚠️ Ubeswap test failed: ${error.message}`);
-        console.log('🔄 Falling back to mock contracts...');
-      }
-    }
-    
-    // Fallback: Use mock contracts
-    uniswapContracts = {
-      factory: null,
-      router: null,
-      quoter: null,
-      type: 'mock'
-    };
-    
-    console.log('⚠️ Using mock DEX contracts - no live DEX detected');
-    
-  } catch (error) {
-    console.error('❌ DEX initialization error:', error.message);
-    
-    // Always fallback to mock
-    uniswapContracts = {
-      factory: null,
-      router: null,
-      quoter: null,
-      type: 'mock'
-    };
-    
-    console.log('🔄 Forced fallback to mock DEX due to errors');
   }
 }
 
