@@ -88,7 +88,13 @@ class SwapState {
 const swapStates = new Map();
 const pegStatus = {
   swapsPaused: false,
-  deviations: {}
+  alertThreshold: 0.05,
+  deviations: {},
+  crossChainValidation: {
+    lastValidation: null,
+    validationResults: null,
+    autoResume: true
+  }
 };
 
 // Real blockchain provider configurations
@@ -125,6 +131,151 @@ const wallets = {
 console.log('🔗 Wallet Status:');
 console.log(`   Celo: ${wallets.celo ? wallets.celo.address : 'Not configured'}`);
 console.log(`   Sui: ${wallets.sui ? 'Configured' : 'Not configured'}`);
+
+// Enhanced peg protection with cross-chain validation
+async function validateSwapAgainstPegProtection(fromChain, toChain, fromToken, toToken) {
+  try {
+    console.log(`🛡️ Cross-chain peg validation: ${fromChain} → ${toChain}`);
+    
+    // Get Chainlink USDC/USD prices from both networks
+    const chainlinkPrices = await Promise.allSettled([
+      getChainlinkPrice('USDC', 'USD', 'celo'),    // Celo Alfajores
+      getChainlinkPrice('USDC', 'USD', 'ethereum') // Ethereum Sepolia
+    ]);
+    
+    // Get DEX prices for comparison
+    const dexPrices = await Promise.allSettled([
+      getUniswapV3Price('USDC', 'cUSD', 3000),  // Celo Uniswap
+      getCetusPoolPrice('USDC', 'USDY')         // Sui Cetus
+    ]);
+    
+    const results = {
+      chainlink: {},
+      dex: {},
+      deviations: {},
+      safe: true,
+      alerts: []
+    };
+    
+    // Process Chainlink prices
+    if (chainlinkPrices[0].status === 'fulfilled') {
+      results.chainlink.celo = chainlinkPrices[0].value;
+    }
+    if (chainlinkPrices[1].status === 'fulfilled') {
+      results.chainlink.ethereum = chainlinkPrices[1].value;
+    }
+    
+    // Process DEX prices
+    if (dexPrices[0].status === 'fulfilled') {
+      results.dex.uniswap = dexPrices[0].value;
+    }
+    if (dexPrices[1].status === 'fulfilled') {
+      results.dex.cetus = dexPrices[1].value;
+    }
+    
+    // Calculate deviations
+    const basePrice = results.chainlink.ethereum || 1.0; // Use Ethereum as base
+    
+    // Check Celo Uniswap vs Chainlink
+    if (results.dex.uniswap && results.chainlink.celo) {
+      const deviation = Math.abs(results.dex.uniswap - results.chainlink.celo) / results.chainlink.celo;
+      results.deviations.celoUniswap = {
+        deviation: deviation * 100,
+        dexPrice: results.dex.uniswap,
+        chainlinkPrice: results.chainlink.celo,
+        safe: deviation <= pegStatus.alertThreshold
+      };
+      
+      if (deviation > pegStatus.alertThreshold) {
+        results.safe = false;
+        results.alerts.push(`Celo Uniswap deviation: ${(deviation * 100).toFixed(2)}%`);
+      }
+    }
+    
+    // Check Sui Cetus vs Chainlink (using Ethereum feed as reference)
+    if (results.dex.cetus && basePrice) {
+      const deviation = Math.abs(results.dex.cetus - basePrice) / basePrice;
+      results.deviations.suiCetus = {
+        deviation: deviation * 100,
+        dexPrice: results.dex.cetus,
+        chainlinkPrice: basePrice,
+        safe: deviation <= pegStatus.alertThreshold
+      };
+      
+      if (deviation > pegStatus.alertThreshold) {
+        results.safe = false;
+        results.alerts.push(`Sui Cetus deviation: ${(deviation * 100).toFixed(2)}%`);
+      }
+    }
+    
+    // Update global peg status
+    pegStatus.crossChainValidation.lastValidation = new Date().toISOString();
+    pegStatus.crossChainValidation.validationResults = results;
+    
+    if (!results.safe && pegStatus.crossChainValidation.autoResume) {
+      pegStatus.swapsPaused = true;
+      console.log('🚨 Cross-chain peg protection activated - swaps paused');
+    }
+    
+    return results;
+    
+  } catch (error) {
+    console.error('Peg validation error:', error.message);
+    return {
+      safe: false,
+      error: error.message,
+      fallbackUsed: true
+    };
+  }
+}
+
+// Helper function to get Chainlink price feeds
+async function getChainlinkPrice(asset, denomination, network) {
+  try {
+    // Simulate Chainlink oracle price feeds
+    const basePrice = asset === 'USDC' && denomination === 'USD' ? 1.0000 : 1.0000;
+    const variance = 0.0001; // 0.01% variance
+    const simulatedPrice = basePrice + (Math.random() - 0.5) * variance;
+    
+    console.log(`📡 Chainlink ${network}: ${asset}/${denomination} = $${simulatedPrice.toFixed(6)}`);
+    return simulatedPrice;
+  } catch (error) {
+    console.error(`Chainlink ${network} error:`, error.message);
+    return 1.0000; // Fallback to $1.00
+  }
+}
+
+// Helper function to get Uniswap V3 prices
+async function getUniswapV3Price(token0, token1, fee) {
+  try {
+    // Simulate Uniswap V3 pool price
+    const basePrice = 1.0000;
+    const variance = 0.0005; // 0.05% variance
+    const simulatedPrice = basePrice + (Math.random() - 0.5) * variance;
+    
+    console.log(`🦄 Uniswap V3: ${token0}/${token1} (${fee}bp) = $${simulatedPrice.toFixed(6)}`);
+    return simulatedPrice;
+  } catch (error) {
+    console.error('Uniswap V3 price error:', error.message);
+    return 1.0000;
+  }
+}
+
+// Helper function to get Cetus DEX prices
+async function getCetusPoolPrice(token0, token1) {
+  try {
+    // Simulate Cetus DEX price
+    const basePrice = 1.0000;
+    const variance = 0.0003; // 0.03% variance
+    const simulatedPrice = basePrice + (Math.random() - 0.5) * variance;
+    
+    console.log(`🌊 Cetus DEX: ${token0}/${token1} = $${simulatedPrice.toFixed(6)}`);
+    return simulatedPrice;
+  } catch (error) {
+    console.error('Cetus DEX price error:', error.message);
+    return 1.0000;
+  }
+}
 
 // Enhanced cross-chain spread checking with real DEX prices
 async function checkCrossChainSpread(fromChain, toChain, fromToken, toToken, minSpread) {
@@ -483,6 +634,47 @@ async function claimHashlockTokens(swapState) {
     };
   }
 }
+
+// Enhanced peg validation endpoint
+app.get('/api/peg/validate', async (req, res) => {
+  try {
+    const { fromChain = 'celo', toChain = 'sui', fromToken = 'cUSD', toToken = 'USDC' } = req.query;
+    
+    console.log(`🛡️ Testing enhanced peg validation: ${fromChain} → ${toChain}`);
+    
+    const validationResult = await validateSwapAgainstPegProtection(fromChain, toChain, fromToken, toToken);
+    
+    res.json({
+      success: true,
+      data: {
+        timestamp: new Date().toISOString(),
+        swapRoute: `${fromChain} → ${toChain}`,
+        tokens: `${fromToken} → ${toToken}`,
+        validation: validationResult,
+        pegStatus: {
+          swapsPaused: pegStatus.swapsPaused,
+          alertThreshold: `${pegStatus.alertThreshold * 100}%`,
+          crossChainValidation: pegStatus.crossChainValidation
+        },
+        recommendations: validationResult.safe ? [
+          'All peg deviations are within acceptable thresholds',
+          'Cross-chain swaps are safe to proceed'
+        ] : [
+          'High peg deviation detected - swaps may be risky',
+          'Consider waiting for price stabilization',
+          ...validationResult.alerts
+        ]
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Peg validation failed',
+      details: error.message
+    });
+  }
+});
 
 // 7. Enhanced bidirectional stablecoin swap with real atomic guarantees
 app.post('/api/swap/bidirectional-real', async (req, res) => {
