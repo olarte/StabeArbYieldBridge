@@ -229,3 +229,6 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Cetus DEX Integration**: Implemented Sui TransactionBlock creation for Cetus DEX swaps with wallet signatures
 - ✅ **Bridge Transaction Preparation**: Added cross-chain bridge transaction data preparation with wallet integration
 - ✅ **Enhanced Execution Endpoint**: Updated /api/swap/execute-real with wallet execution mode and transaction signature requirements
+- ✅ **Transaction Submission Endpoint**: Added /api/swap/submit-transaction for frontend to submit signed transactions back to server
+- ✅ **Complete Frontend-Backend Flow**: Established full workflow for wallet signature collection and transaction submission
+- ✅ **Step Status Tracking**: Enhanced step tracking with SUBMITTED status and transaction hash recording

@@ -1366,6 +1366,135 @@ app.post('/api/swap/execute-real', async (req, res) => {
   }
 });
 
+// Submit signed transaction from frontend
+app.post('/api/swap/submit-transaction', async (req, res) => {
+  try {
+    const { 
+      swapId, 
+      stepIndex, 
+      signedTransaction, 
+      transactionHash,
+      chain 
+    } = req.body;
+
+    const swapState = swapStates.get(swapId);
+    if (!swapState) {
+      return res.status(404).json({
+        success: false,
+        error: 'Swap not found'
+      });
+    }
+
+    // Update step with transaction details
+    const step = swapState.executionPlan.steps[stepIndex];
+    step.transactionHash = transactionHash;
+    step.signedTransaction = signedTransaction;
+    step.status = 'SUBMITTED';
+    step.submittedAt = new Date().toISOString();
+
+    // Add to swap history
+    swapState.addStep({
+      stepIndex,
+      type: step.type,
+      status: 'SUBMITTED',
+      transactionHash,
+      chain
+    });
+
+    console.log(`📝 Transaction submitted for swap ${swapId}, step ${stepIndex}: ${transactionHash}`);
+
+    res.json({
+      success: true,
+      data: {
+        swapId,
+        stepIndex,
+        transactionHash,
+        status: 'SUBMITTED',
+        nextStep: stepIndex + 1 < swapState.executionPlan.steps.length ? stepIndex + 1 : null
+      }
+    });
+
+  } catch (error) {
+    console.error('Transaction submission error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to submit transaction',
+      details: error.message
+    });
+  }
+});
+
+// Monitor transaction confirmation status
+app.post('/api/swap/confirm-transaction', async (req, res) => {
+  try {
+    const { 
+      swapId, 
+      stepIndex, 
+      transactionHash,
+      confirmations = 1,
+      gasUsed,
+      blockNumber 
+    } = req.body;
+
+    const swapState = swapStates.get(swapId);
+    if (!swapState) {
+      return res.status(404).json({
+        success: false,
+        error: 'Swap not found'
+      });
+    }
+
+    // Update step with confirmation details
+    const step = swapState.executionPlan.steps[stepIndex];
+    step.status = 'COMPLETED';
+    step.confirmations = confirmations;
+    step.gasUsed = gasUsed;
+    step.blockNumber = blockNumber;
+    step.confirmedAt = new Date().toISOString();
+
+    // Add confirmation to swap history
+    swapState.addStep({
+      stepIndex,
+      type: step.type,
+      status: 'COMPLETED',
+      transactionHash,
+      confirmations,
+      gasUsed,
+      blockNumber
+    });
+
+    // Check if all steps are completed
+    const allStepsComplete = swapState.executionPlan.steps.every(s => s.status === 'COMPLETED');
+    if (allStepsComplete) {
+      swapState.updateStatus('COMPLETED');
+      console.log(`✅ Swap ${swapId} completed successfully - all transactions confirmed`);
+    }
+
+    console.log(`✅ Transaction confirmed for swap ${swapId}, step ${stepIndex}: ${transactionHash} (${confirmations} confirmations)`);
+
+    res.json({
+      success: true,
+      data: {
+        swapId,
+        stepIndex,
+        transactionHash,
+        status: 'COMPLETED',
+        confirmations,
+        swapComplete: allStepsComplete,
+        nextStep: !allStepsComplete && stepIndex + 1 < swapState.executionPlan.steps.length ? stepIndex + 1 : null
+      }
+    });
+
+  } catch (error) {
+    console.error('Transaction confirmation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to confirm transaction',
+      details: error.message
+    });
+  }
+});
+
 // 9. Enhanced swap status with real-time monitoring
 app.get('/api/swap/status-real/:swapId', async (req, res) => {
   try {
@@ -1538,6 +1667,8 @@ async function startServer() {
     console.log('📋 Available endpoints:');
     console.log('   POST /api/swap/bidirectional-real - Create atomic swap');
     console.log('   POST /api/swap/execute-real - Execute swap steps (wallet-integrated)');
+    console.log('   POST /api/swap/submit-transaction - Submit signed transactions');
+    console.log('   POST /api/swap/confirm-transaction - Confirm transaction completion');
     console.log('   GET  /api/swap/status-real/:id - Get swap status');
     console.log('   POST /api/wallet/register - Register wallet session');
     console.log('   GET  /api/health - Health check');
