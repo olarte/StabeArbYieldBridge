@@ -10,7 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
+// @ts-ignore
+import WalletConnect from "@/components/WalletConnect.jsx";
 import { useState, useEffect } from "react";
+// import { Web3ReactProvider } from '@web3-react/core';
+// import { ethers } from 'ethers';
 
 // Arbitrage Opportunities Component
 function ArbitrageOpportunities() {
@@ -53,7 +57,7 @@ function ArbitrageOpportunities() {
     },
   });
 
-  const opportunities = arbData?.data?.opportunities || [];
+  const opportunities = (arbData as any)?.data?.opportunities || [];
 
   return (
     <Card>
@@ -168,13 +172,13 @@ function LivePriceMonitor() {
           ) : (
             <div className="space-y-2">
               <div className="text-2xl font-bold">
-                ${priceData?.data?.price?.token0ToToken1 ? Number(priceData.data.price.token0ToToken1).toFixed(6) : '1.000000'}
+                ${(priceData as any)?.data?.price?.token0ToToken1 ? Number((priceData as any).data.price.token0ToToken1).toFixed(6) : '1.000000'}
               </div>
               <div className="text-sm text-muted-foreground">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
               <div className="text-xs text-muted-foreground">
-                {priceData?.data?.price?.formatted || '1 cUSD = 1.000000 USDC'}
+                {(priceData as any)?.data?.price?.formatted || '1 cUSD = 1.000000 USDC'}
               </div>
               <Badge variant="outline" className="text-xs">
                 Celo Alfajores Testnet
@@ -195,13 +199,13 @@ function LivePriceMonitor() {
           ) : (
             <div className="space-y-2">
               <div className="text-2xl font-bold">
-                ${cetusData?.data?.price?.token0ToToken1 ? Number(cetusData.data.price.token0ToToken1).toFixed(6) : '1.000000'}
+                ${(cetusData as any)?.data?.price?.token0ToToken1 ? Number((cetusData as any).data.price.token0ToToken1).toFixed(6) : '1.000000'}
               </div>
               <div className="text-sm text-muted-foreground">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
               <div className="text-xs text-muted-foreground">
-                {cetusData?.data?.price?.formatted || '1 USDC = 1.000000 USDY'}
+                {(cetusData as any)?.data?.price?.formatted || '1 USDC = 1.000000 USDY'}
               </div>
               <Badge variant="outline" className="text-xs">
                 Sui Devnet
@@ -226,6 +230,14 @@ function ArbitrageTradingPage() {
           </p>
         </div>
 
+{/* <WalletConnect /> */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              🦊 Wallet integration temporarily disabled - focusing on arbitrage functionality
+            </div>
+          </CardContent>
+        </Card>
         <LivePriceMonitor />
         <ArbitrageOpportunities />
       </div>
