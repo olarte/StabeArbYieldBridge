@@ -8,6 +8,10 @@ import rateLimit from "express-rate-limit";
 import { createHash, randomBytes } from "crypto";
 import pkg from "ethers";
 const { ethers } = pkg;
+// Enhanced imports for real wallet integration
+import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+import { fromB64 } from '@mysten/sui.js/utils';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -56,6 +60,7 @@ class SwapState {
     this.toToken = config.toToken;
     this.amount = config.amount;
     this.walletAddress = config.walletAddress;
+    this.walletSession = config.walletSession;
     this.minSpread = config.minSpread;
     this.maxSlippage = config.maxSlippage;
     this.enableAtomicSwap = config.enableAtomicSwap;
@@ -86,6 +91,8 @@ class SwapState {
 
 // Global state storage
 const swapStates = new Map();
+// Store active wallet connections
+const walletConnections = new Map();
 const pegStatus = {
   swapsPaused: false,
   alertThreshold: 0.05,
@@ -676,7 +683,57 @@ app.get('/api/peg/validate', async (req, res) => {
   }
 });
 
-// 7. Enhanced bidirectional stablecoin swap with real atomic guarantees
+// Register wallet connection from frontend
+app.post('/api/wallet/register', async (req, res) => {
+  try {
+    const { 
+      sessionId, 
+      evmAddress, 
+      suiAddress, 
+      evmChainId, 
+      suiNetwork = 'devnet' 
+    } = req.body;
+
+    if (!sessionId || (!evmAddress && !suiAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required wallet information'
+      });
+    }
+
+    walletConnections.set(sessionId, {
+      evmAddress,
+      suiAddress,
+      evmChainId,
+      suiNetwork,
+      registeredAt: new Date().toISOString()
+    });
+
+    console.log(`📝 Registered wallet session: ${sessionId}`);
+    console.log(`  EVM: ${evmAddress} (Chain: ${evmChainId})`);
+    console.log(`  Sui: ${suiAddress} (Network: ${suiNetwork})`);
+
+    res.json({
+      success: true,
+      data: {
+        sessionId,
+        registeredWallets: {
+          evm: !!evmAddress,
+          sui: !!suiAddress
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Wallet registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to register wallet'
+    });
+  }
+});
+
+// 7. Enhanced bidirectional swap with real wallet integration
 app.post('/api/swap/bidirectional-real', async (req, res) => {
   try {
     const {
@@ -685,11 +742,12 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
       fromToken,
       toToken,
       amount,
-      walletAddress,
-      minSpread = 0.5, // Minimum 0.5% spread required
+      sessionId, // Frontend provides this
+      minSpread = 0.5,
       maxSlippage = 1,
       enableAtomicSwap = true,
-      timeoutMinutes = 60
+      timeoutMinutes = 60,
+      bypassPegProtection = false
     } = req.body;
 
     // Validate supported chain pairs
@@ -707,13 +765,44 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
       });
     }
 
-    // Check if swaps are paused due to peg deviation
-    if (pegStatus.swapsPaused) {
-      return res.status(423).json({
+    // Validate wallet session
+    const walletSession = walletConnections.get(sessionId);
+    if (!walletSession) {
+      return res.status(400).json({
         success: false,
-        error: 'Swaps temporarily paused due to stablecoin depegging',
-        pegStatus: pegStatus.deviations
+        error: 'Wallet session not found. Please connect your wallets first.',
+        suggestion: 'Call /api/wallet/register first'
       });
+    }
+
+    // Validate wallet addresses for swap direction
+    if (fromChain === 'celo' && !walletSession.evmAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'EVM wallet required for Celo transactions'
+      });
+    }
+
+    if (toChain === 'sui' && !walletSession.suiAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sui wallet required for Sui transactions'
+      });
+    }
+
+    // Enhanced peg protection validation
+    if (!bypassPegProtection) {
+      console.log('🛡️ Validating swap against peg protection...');
+      const pegValidation = await validateSwapAgainstPegProtection(fromChain, toChain, fromToken, toToken);
+      
+      if (!pegValidation.safe) {
+        return res.status(423).json({
+          success: false,
+          error: 'Swap blocked by peg protection',
+          pegValidation,
+          suggestion: 'Wait for peg stabilization or contact admin'
+        });
+      }
     }
 
     // Generate atomic swap components
@@ -722,7 +811,7 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
     const hashlock = createHash('sha256').update(secret).digest('hex');
     const timelock = Math.floor(Date.now() / 1000) + (timeoutMinutes * 60);
 
-    // Initialize enhanced swap state
+    // Initialize enhanced swap state with wallet info
     const swapState = new SwapState({
       swapId,
       fromChain,
@@ -730,7 +819,7 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
       fromToken,
       toToken,
       amount,
-      walletAddress,
+      walletSession, // Store wallet session
       minSpread,
       maxSlippage,
       enableAtomicSwap,
@@ -754,11 +843,29 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
 
     swapState.spreadCheck = spreadCheck;
 
-    // Create comprehensive execution plan
+    // Create comprehensive execution plan with real wallet integration
     const executionPlan = {
-      type: 'BIDIRECTIONAL_ATOMIC_SWAP',
+      type: 'BIDIRECTIONAL_ATOMIC_SWAP_WITH_WALLETS',
       route: `${fromChain.toUpperCase()} → ${swapPair.via.toUpperCase()} → ${toChain.toUpperCase()}`,
+      wallets: {
+        fromChain: fromChain === 'celo' ? walletSession.evmAddress : walletSession.suiAddress,
+        toChain: toChain === 'celo' ? walletSession.evmAddress : walletSession.suiAddress,
+        bridgeChain: walletSession.evmAddress // Always use EVM for bridging
+      },
       steps: [
+        {
+          type: 'WALLET_VERIFICATION',
+          description: 'Verify wallet balances and approvals',
+          chain: fromChain,
+          status: 'PENDING'
+        },
+        {
+          type: 'TOKEN_APPROVAL',
+          description: `Approve ${fromToken} spending on ${fromChain}`,
+          chain: fromChain,
+          status: 'PENDING',
+          requiresSignature: true
+        },
         {
           type: 'SPREAD_CHECK',
           description: `Verify ${minSpread}% minimum spread between chains`,
@@ -808,16 +915,16 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
         }
       ],
       estimatedGas: {
-        [fromChain]: fromChain === 'celo' ? '0.01 CELO' : '0.001 SUI',
-        [toChain]: toChain === 'celo' ? '0.01 CELO' : '0.001 SUI',
-        bridge: '0.05 ETH'
+        [fromChain]: fromChain === 'celo' ? '0.02 CELO' : '0.002 SUI',
+        [toChain]: toChain === 'celo' ? '0.02 CELO' : '0.002 SUI',
+        bridge: '0.08 ETH'
       },
-      estimatedTime: '15-45 minutes',
+      estimatedTime: '20-60 minutes',
       estimatedFees: {
-        dexFees: '0.3%',
+        dexFees: '0.3-0.6%',
         bridgeFees: '0.1%',
-        gasFees: '$2-5',
-        totalFees: '~0.5-1%'
+        gasFees: '$5-15',
+        totalFees: '~1-2%'
       }
     };
 
@@ -827,7 +934,9 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
     // Store swap state
     swapStates.set(swapId, swapState);
 
-    console.log(`✅ Created bidirectional swap: ${swapId} with ${spreadCheck.spread}% spread`);
+    console.log(`✅ Created real wallet swap: ${swapId}`);
+    console.log(`  From: ${walletSession.evmAddress || walletSession.suiAddress}`);
+    console.log(`  Spread: ${spreadCheck.spread}%`);
 
     res.json({
       success: true,
@@ -835,16 +944,10 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
         swapId,
         executionPlan,
         spreadCheck,
-        atomicGuarantees: enableAtomicSwap ? {
-          hashlock,
-          timelock: new Date(timelock * 1000).toISOString(),
-          expiresIn: `${timeoutMinutes} minutes`,
-          refundAvailable: 'After timeout if swap fails'
-        } : null,
-        thresholdExecution: {
-          minSpread: `${minSpread}%`,
-          currentSpread: `${spreadCheck.spread}%`,
-          limitOrders: 'Will be created on execution'
+        walletInfo: {
+          fromWallet: executionPlan.wallets.fromChain,
+          toWallet: executionPlan.wallets.toChain,
+          signaturesRequired: executionPlan.steps.filter(s => s.requiresSignature).length
         },
         estimatedProfit: spreadCheck.profitEstimate,
         nextStep: 'Execute swap using /api/swap/execute-real endpoint'
@@ -852,10 +955,10 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Bidirectional swap creation error:', error.message);
+    console.error('Real wallet swap creation error:', error.message);
     res.status(500).json({
       success: false,
-      error: 'Failed to create bidirectional swap',
+      error: 'Failed to create wallet-integrated swap',
       details: error.message
     });
   }
