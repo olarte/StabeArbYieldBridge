@@ -230,14 +230,7 @@ function ArbitrageTradingPage() {
           </p>
         </div>
 
-{/* <WalletConnect /> */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="text-center text-muted-foreground">
-              🦊 Wallet integration temporarily disabled - focusing on arbitrage functionality
-            </div>
-          </CardContent>
-        </Card>
+<WalletConnect />
         <LivePriceMonitor />
         <ArbitrageOpportunities />
       </div>

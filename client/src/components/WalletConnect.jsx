@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { useWeb3React } from '@web3-react/core';
-import { injectedConnector, switchNetwork, CHAIN_CONFIG } from '../utils/web3';
 import './WalletConnect.css';
 
+const CHAIN_CONFIG = {
+  44787: { chainName: 'Celo Alfajores', currency: 'CELO' },
+  11155111: { chainName: 'Ethereum Sepolia', currency: 'ETH' }
+};
+
 const WalletConnect = () => {
-  const { activate, deactivate, account, chainId, active, error } = useWeb3React();
+  const [account, setAccount] = useState(null);
+  const [chainId, setChainId] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [balance, setBalance] = useState(null);
 
   // Connect to MetaMask
   const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert('MetaMask is not installed!');
+      return;
+    }
+
     setConnecting(true);
     try {
-      await activate(injectedConnector);
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+      const chainId = await window.ethereum.request({
+        method: 'eth_chainId',
+      });
+      
+      setAccount(accounts[0]);
+      setChainId(parseInt(chainId, 16));
     } catch (error) {
       console.error('Connection failed:', error);
     } finally {
@@ -22,15 +39,47 @@ const WalletConnect = () => {
 
   // Disconnect wallet
   const disconnectWallet = () => {
-    deactivate();
+    setAccount(null);
+    setChainId(null);
     setBalance(null);
   };
 
   // Switch to specific network
   const handleNetworkSwitch = async (targetChainId) => {
-    const success = await switchNetwork(targetChainId);
-    if (!success) {
-      alert(`Failed to switch to ${CHAIN_CONFIG[targetChainId]?.chainName}`);
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+      });
+    } catch (error) {
+      if (error.code === 4902) {
+        // Chain not added to wallet
+        try {
+          const config = targetChainId === 44787 
+            ? {
+                chainId: '0xaef3',
+                chainName: 'Celo Alfajores Testnet',
+                nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
+                rpcUrls: ['https://alfajores-forno.celo-testnet.org'],
+                blockExplorerUrls: ['https://alfajores-blockscout.celo-testnet.org/']
+              }
+            : {
+                chainId: '0xaa36a7',
+                chainName: 'Ethereum Sepolia',
+                nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://sepolia.infura.io/v3/'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io/']
+              };
+          
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [config],
+          });
+        } catch (addError) {
+          console.error('Failed to add network:', addError);
+        }
+      }
+      console.error('Failed to switch network:', error);
     }
   };
 
@@ -66,6 +115,31 @@ const WalletConnect = () => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
+  // Listen for account changes
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = (accounts) => {
+        if (accounts.length > 0) {
+          setAccount(accounts[0]);
+        } else {
+          disconnectWallet();
+        }
+      };
+
+      const handleChainChanged = (chainId) => {
+        setChainId(parseInt(chainId, 16));
+      };
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      };
+    }
+  }, []);
+
   useEffect(() => {
     if (account) {
       getBalance();
@@ -77,28 +151,25 @@ const WalletConnect = () => {
     const connectOnLoad = async () => {
       if (window.ethereum && window.ethereum.selectedAddress) {
         try {
-          await activate(injectedConnector);
+          const accounts = await window.ethereum.request({
+            method: 'eth_accounts'
+          });
+          if (accounts.length > 0) {
+            const chainId = await window.ethereum.request({
+              method: 'eth_chainId',
+            });
+            setAccount(accounts[0]);
+            setChainId(parseInt(chainId, 16));
+          }
         } catch (error) {
           console.log('Auto-connect failed:', error);
         }
       }
     };
     connectOnLoad();
-  }, [activate]);
+  }, []);
 
-  if (error) {
-    return (
-      <div className="wallet-error">
-        <h3>❌ Connection Error</h3>
-        <p>{error.message}</p>
-        <button onClick={connectWallet} className="retry-btn">
-          🔄 Retry Connection
-        </button>
-      </div>
-    );
-  }
-
-  if (!active) {
+  if (!account) {
     return (
       <div className="wallet-connect">
         <div className="connect-card">
