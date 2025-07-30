@@ -6,8 +6,12 @@ import {
   ConnectModal,
   useAccountBalance,
 } from '@suiet/wallet-kit';
+import '@suiet/wallet-kit/style.css';
 import { suiClient, formatSuiAddress, mistToSui } from '../utils/sui';
 import './SuiWalletConnect.css';
+
+// Debug logging
+console.log('SuiWalletConnect: Component loaded');
 
 // Inner component that uses wallet hooks
 const SuiWalletContent: React.FC = () => {
@@ -86,12 +90,32 @@ const SuiWalletContent: React.FC = () => {
           <p>Connect your Sui wallet to trade on Sui Devnet</p>
           
           <button 
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              console.log('SuiWallet: Button clicked, opening modal');
+              setShowModal(true);
+            }}
             disabled={connecting}
             className="connect-btn sui"
           >
             {connecting ? '🔄 Connecting...' : '🟦 Connect Sui Wallet'}
           </button>
+          
+          {/* Alternative: Use built-in ConnectButton */}
+          <div style={{ marginTop: '10px' }}>
+            <ConnectButton 
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              📱 Connect Sui (Built-in)
+            </ConnectButton>
+          </div>
 
           <div className="supported-networks">
             <small>Connected to: Sui Devnet</small>
@@ -103,7 +127,10 @@ const SuiWalletContent: React.FC = () => {
           {/* Connect Modal */}
           <ConnectModal
             open={showModal}
-            onOpenChange={setShowModal}
+            onOpenChange={(open) => {
+              console.log('SuiWallet: Modal state changed:', open);
+              setShowModal(open);
+            }}
           />
         </div>
       </div>
@@ -220,7 +247,7 @@ const SuiWalletContent: React.FC = () => {
 // Main component with provider
 const SuiWalletConnect: React.FC = () => {
   return (
-    <WalletProvider defaultWallets={[]}>
+    <WalletProvider>
       <SuiWalletContent />
     </WalletProvider>
   );
