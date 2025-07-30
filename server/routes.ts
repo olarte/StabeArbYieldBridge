@@ -293,35 +293,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Oracle peg monitoring endpoint
+  // Global peg status for cross-chain validation
+  const pegStatus = {
+    swapsPaused: false,
+    alertThreshold: 0.05,
+    crossChainValidation: {
+      autoResume: true,
+      lastValidation: new Date().toISOString()
+    }
+  };
+
+  // Enhanced oracle peg monitoring endpoint  
   app.get('/api/oracle/peg-status', async (req, res) => {
     try {
-      const pegStatus = {
-        swapsPaused: false,
-        alertThreshold: 0.05,
-        isActive: false
-      };
-
+      // Force fresh validation
+      const validation = await validateSwapAgainstPegProtection('celo', 'sui', 'USDC', 'USDY');
+      
+      // Update last validation timestamp
+      pegStatus.crossChainValidation.lastValidation = new Date().toISOString();
+      
       res.json({
         success: true,
         data: {
-          chainStatus: {
-            ethereum: { USDC_USD: { status: 'STABLE', price: 1.0001 } },
-            celo: { CUSD_USD: { status: 'STABLE', price: 0.9999 } }
+          crossChainValidation: validation,
+          chainlinkFeeds: {
+            celo: validation.chainlink?.celo || null,
+            ethereum: validation.chainlink?.ethereum || null
           },
+          dexPrices: {
+            celoUniswap: validation.dex?.uniswap || null,
+            suiCetus: validation.dex?.cetus || null
+          },
+          deviations: validation.deviations || {},
           globalStatus: {
             swapsPaused: pegStatus.swapsPaused,
-            lastCheck: new Date().toISOString(),
-            criticalDepegs: 0,
-            alertThreshold: `${pegStatus.alertThreshold * 100}%`
+            alertThreshold: `${pegStatus.alertThreshold * 100}%`,
+            autoResume: pegStatus.crossChainValidation.autoResume,
+            lastValidation: pegStatus.crossChainValidation.lastValidation
           },
-          criticalAlerts: []
+          safety: {
+            safe: validation.safe,
+            alerts: validation.alerts || [],
+            recommendation: validation.safe ? 'SAFE_TO_SWAP' : 'SWAPS_PAUSED'
+          }
         }
       });
     } catch (error) {
       res.status(500).json({
         success: false,
-        error: 'Failed to check peg status',
+        error: 'Failed to check cross-chain peg status',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -331,22 +351,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/oracle/peg-controls', async (req, res) => {
     try {
       const { action, threshold } = req.body;
-      let pegStatus = {
-        swapsPaused: false,
-        alertThreshold: 0.05
-      };
       
       switch (action) {
         case 'pause_swaps':
           pegStatus.swapsPaused = true;
+          console.log('🛑 Cross-chain swaps manually paused');
           break;
         case 'resume_swaps':
           pegStatus.swapsPaused = false;
+          console.log('✅ Cross-chain swaps manually resumed');
           break;
         case 'set_threshold':
           if (threshold && threshold > 0 && threshold <= 0.1) {
             pegStatus.alertThreshold = threshold;
+            console.log(`⚙️ Alert threshold updated to ${threshold * 100}%`);
           }
+          break;
+        case 'toggle_auto_resume':
+          pegStatus.crossChainValidation.autoResume = !pegStatus.crossChainValidation.autoResume;
+          console.log(`🔄 Auto-resume ${pegStatus.crossChainValidation.autoResume ? 'enabled' : 'disabled'}`);
           break;
       }
 
@@ -356,7 +379,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action,
           newStatus: {
             swapsPaused: pegStatus.swapsPaused,
-            alertThreshold: pegStatus.alertThreshold
+            alertThreshold: pegStatus.alertThreshold,
+            autoResume: pegStatus.crossChainValidation.autoResume,
+            lastUpdated: new Date().toISOString()
           }
         }
       });

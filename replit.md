@@ -200,3 +200,6 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Enhanced getChainlinkPrice Function**: Updated with real oracle configuration, round ID tracking, data freshness monitoring, and comprehensive error handling
 - ✅ **Oracle Data Structure Enhancement**: Added detailed oracle metadata with contract addresses, round IDs, timestamps, and staleness alerts
 - ✅ **Oracle Demo Endpoint**: Added /api/oracle/demo showcasing enhanced Chainlink oracle functionality with complete feature demonstration
+- ✅ **Enhanced Peg Status Endpoint**: Updated /api/oracle/peg-status with comprehensive cross-chain validation and real-time safety monitoring
+- ✅ **Advanced Control System**: Added manual swap pause/resume, auto-resume toggle, and configurable alert thresholds to peg controls
+- ✅ **Real-Time Safety Validation**: Integrated live deviation monitoring with SAFE_TO_SWAP/SWAPS_PAUSED recommendations
