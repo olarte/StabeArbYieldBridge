@@ -13,9 +13,20 @@ import './SuiWalletConnect.css';
 // Debug logging
 console.log('SuiWalletConnect: Component loaded');
 
-// Check for window.sui and installed wallets
-console.log('Window.sui available:', typeof window !== 'undefined' && window.sui);
-console.log('Window object keys:', typeof window !== 'undefined' ? Object.keys(window).filter(k => k.toLowerCase().includes('sui')) : 'N/A');
+// Enhanced wallet detection logging
+if (typeof window !== 'undefined') {
+  console.log('Window.sui available:', !!window.sui);
+  console.log('Window.ethereum available:', !!(window as any).ethereum);
+  console.log('Window.suiet available:', !!(window as any).suiet);
+  console.log('Window.martian available:', !!(window as any).martian);
+  console.log('Sui-related keys:', Object.keys(window).filter(k => k.toLowerCase().includes('sui')));
+  console.log('Wallet-related keys:', Object.keys(window).filter(k => 
+    k.toLowerCase().includes('wallet') || 
+    k.toLowerCase().includes('metamask') || 
+    k.toLowerCase().includes('phantom') ||
+    k.toLowerCase().includes('coinbase')
+  ));
+}
 
 // Inner component that uses wallet hooks
 const SuiWalletContent: React.FC = () => {
@@ -45,58 +56,122 @@ const SuiWalletContent: React.FC = () => {
       const detectedWallets = [];
       
       if (typeof window !== 'undefined') {
-        // Check for Sui Wallet
-        if (window.sui) {
-          detectedWallets.push({ name: 'Sui Wallet', detected: true });
-        }
+        console.log('SuiWallet: Comprehensive wallet scan starting...');
         
-        // Check for Suiet Wallet  
-        if (window.suiet) {
-          detectedWallets.push({ name: 'Suiet Wallet', detected: true });
-        }
+        // Check for standard Sui wallets
+        const walletChecks = [
+          { key: 'sui', name: 'Sui Wallet (Official)' },
+          { key: 'suiet', name: 'Suiet Wallet' },
+          { key: 'martian', name: 'Martian Wallet' },
+          { key: 'suiWallet', name: 'Sui Wallet (suiWallet)' },
+          { key: 'wallet', name: 'Generic Wallet' },
+          { key: 'ethereum', name: 'Ethereum (MetaMask-like)' },
+          { key: 'keplr', name: 'Keplr Wallet' },
+          { key: 'phantom', name: 'Phantom Wallet' },
+          { key: 'coinbase', name: 'Coinbase Wallet' },
+          { key: 'okxwallet', name: 'OKX Wallet' },
+          { key: 'BitKeep', name: 'BitKeep Wallet' },
+          { key: 'trustWallet', name: 'Trust Wallet' },
+          { key: 'binance', name: 'Binance Wallet' }
+        ];
         
-        // Check for Martian Wallet
-        if (window.martian) {
-          detectedWallets.push({ name: 'Martian Wallet', detected: true });
-        }
-        
-        // Check for other potential Sui wallets
-        const windowKeys = Object.keys(window);
-        console.log('SuiWallet: All window keys:', windowKeys.slice(0, 20)); // Log first 20 keys for debugging
-        
-        windowKeys.forEach(key => {
-          if (key.toLowerCase().includes('sui') && !['sui'].includes(key)) {
-            detectedWallets.push({ name: `${key} (detected)`, detected: true });
+        walletChecks.forEach(({ key, name }) => {
+          if ((window as any)[key]) {
+            const walletObj = (window as any)[key];
+            
+            // Check if this wallet supports Sui
+            let suiSupport = false;
+            try {
+              if (walletObj.isSui || walletObj.sui || (walletObj.signAndExecuteTransactionBlock) || 
+                  (walletObj.features && walletObj.features.includes && walletObj.features.includes('sui')) ||
+                  (walletObj.name && walletObj.name.toLowerCase().includes('sui'))) {
+                suiSupport = true;
+              }
+            } catch (e) {
+              // Silent fail for wallet inspection
+            }
+            
+            detectedWallets.push({ 
+              name: `${name} (${key})${suiSupport ? ' ✓SUI' : ''}`, 
+              detected: true, 
+              key, 
+              suiSupport 
+            });
+            console.log(`SuiWallet: Found ${name} at window.${key}`, {
+              type: typeof walletObj,
+              isSui: walletObj.isSui,
+              hasSui: !!walletObj.sui,
+              hasSignMethod: !!walletObj.signAndExecuteTransactionBlock,
+              name: walletObj.name,
+              suiSupport
+            });
           }
         });
         
-        // Also check for wallet adapters that might be available
-        if ((window as any).__sui_wallet_standard_interface__) {
-          detectedWallets.push({ name: 'Sui Standard Interface', detected: true });
-        }
+        // Check for wallet standard interfaces
+        const standardChecks = [
+          '__sui_wallet_standard_interface__',
+          'ethereum',
+          'solana',
+          'aptos'
+        ];
+        
+        standardChecks.forEach(standardKey => {
+          if ((window as any)[standardKey]) {
+            detectedWallets.push({ name: `${standardKey} Standard`, detected: true, key: standardKey });
+            console.log(`SuiWallet: Found standard interface ${standardKey}`);
+          }
+        });
+        
+        // Scan all window keys for wallet-related objects
+        const windowKeys = Object.keys(window);
+        console.log('SuiWallet: Total window keys count:', windowKeys.length);
+        console.log('SuiWallet: Sample window keys:', windowKeys.slice(0, 30));
+        
+        // Look for wallet-related keys
+        const walletPatterns = ['wallet', 'sui', 'coin', 'crypto', 'web3', 'ethereum', 'metamask'];
+        windowKeys.forEach(key => {
+          const lowerKey = key.toLowerCase();
+          walletPatterns.forEach(pattern => {
+            if (lowerKey.includes(pattern) && !detectedWallets.find(w => w.key === key)) {
+              const walletObj = (window as any)[key];
+              if (walletObj && typeof walletObj === 'object') {
+                detectedWallets.push({ name: `${key} (pattern match)`, detected: true, key });
+                console.log(`SuiWallet: Found wallet pattern ${key}:`, typeof walletObj);
+              }
+            }
+          });
+        });
       }
       
       return detectedWallets;
     };
     
-    const wallets = checkWalletExtensions();
-    console.log('SuiWallet: Detected wallets:', wallets);
+    // Initial check
+    const initialWallets = checkWalletExtensions();
+    console.log('SuiWallet: Initial scan detected wallets:', initialWallets);
+    setAvailableWallets(initialWallets);
     
-    setAvailableWallets(wallets);
-    
-    // Extra debugging
-    if (typeof window !== 'undefined') {
-      console.log('SuiWallet: window.sui exists:', !!window.sui);
-      console.log('SuiWallet: window.suiet exists:', !!(window as any).suiet);
-      console.log('SuiWallet: window.martian exists:', !!(window as any).martian);
-    }
+    // Delayed check for wallets that inject after page load
+    const delayedCheck = setTimeout(() => {
+      console.log('SuiWallet: Running delayed wallet detection...');
+      const delayedWallets = checkWalletExtensions();
+      console.log('SuiWallet: Delayed scan detected wallets:', delayedWallets);
+      
+      if (delayedWallets.length > initialWallets.length) {
+        console.log('SuiWallet: Found additional wallets after delay');
+        setAvailableWallets(delayedWallets);
+      }
+    }, 2000);
     
     // Check if any wallet is installed
-    if (wallets.length === 0) {
-      console.warn('SuiWallet: No Sui wallets detected. Please install a Sui wallet extension.');
+    if (initialWallets.length === 0) {
+      console.warn('SuiWallet: No wallets detected in initial scan. Running delayed check...');
     } else {
-      console.log('SuiWallet: Found', wallets.length, 'detected wallet(s)');
+      console.log('SuiWallet: Found', initialWallets.length, 'wallet(s) in initial scan');
     }
+    
+    return () => clearTimeout(delayedCheck);
   }, []);
 
   // Get account objects (coins, NFTs, etc.)
@@ -163,8 +238,17 @@ const SuiWalletContent: React.FC = () => {
               <strong>Wallet Status:</strong>
             </div>
             {availableWallets.length > 0 ? (
-              <div style={{ color: '#4CAF50' }}>
-                ✅ {availableWallets.length} wallet(s) detected: {availableWallets.map(w => w.name).join(', ')}
+              <div>
+                <div style={{ color: '#4CAF50', marginBottom: '8px' }}>
+                  ✅ {availableWallets.length} wallet(s) detected
+                </div>
+                <div style={{ fontSize: '12px', color: '#E0E0E0' }}>
+                  {availableWallets.map((w, i) => (
+                    <div key={i} style={{ marginBottom: '4px' }}>
+                      • {w.name} {w.suiSupport ? '(Sui Compatible)' : '(Check Sui support)'}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div style={{ color: '#FF9800' }}>
