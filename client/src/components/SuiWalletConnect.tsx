@@ -13,6 +13,10 @@ import './SuiWalletConnect.css';
 // Debug logging
 console.log('SuiWalletConnect: Component loaded');
 
+// Check for window.sui and installed wallets
+console.log('Window.sui available:', typeof window !== 'undefined' && window.sui);
+console.log('Window object keys:', typeof window !== 'undefined' ? Object.keys(window).filter(k => k.toLowerCase().includes('sui')) : 'N/A');
+
 // Inner component that uses wallet hooks
 const SuiWalletContent: React.FC = () => {
   const {
@@ -30,6 +34,70 @@ const SuiWalletContent: React.FC = () => {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [accountObjects, setAccountObjects] = useState<any[]>([]);
   const [loadingObjects, setLoadingObjects] = useState<boolean>(false);
+  const [availableWallets, setAvailableWallets] = useState<any[]>([]);
+
+  // Check for installed wallets on component mount
+  useEffect(() => {
+    console.log('SuiWallet: Checking for installed wallets...');
+    
+    // Check for common Sui wallet objects in window
+    const checkWalletExtensions = () => {
+      const detectedWallets = [];
+      
+      if (typeof window !== 'undefined') {
+        // Check for Sui Wallet
+        if (window.sui) {
+          detectedWallets.push({ name: 'Sui Wallet', detected: true });
+        }
+        
+        // Check for Suiet Wallet  
+        if (window.suiet) {
+          detectedWallets.push({ name: 'Suiet Wallet', detected: true });
+        }
+        
+        // Check for Martian Wallet
+        if (window.martian) {
+          detectedWallets.push({ name: 'Martian Wallet', detected: true });
+        }
+        
+        // Check for other potential Sui wallets
+        const windowKeys = Object.keys(window);
+        console.log('SuiWallet: All window keys:', windowKeys.slice(0, 20)); // Log first 20 keys for debugging
+        
+        windowKeys.forEach(key => {
+          if (key.toLowerCase().includes('sui') && !['sui'].includes(key)) {
+            detectedWallets.push({ name: `${key} (detected)`, detected: true });
+          }
+        });
+        
+        // Also check for wallet adapters that might be available
+        if ((window as any).__sui_wallet_standard_interface__) {
+          detectedWallets.push({ name: 'Sui Standard Interface', detected: true });
+        }
+      }
+      
+      return detectedWallets;
+    };
+    
+    const wallets = checkWalletExtensions();
+    console.log('SuiWallet: Detected wallets:', wallets);
+    
+    setAvailableWallets(wallets);
+    
+    // Extra debugging
+    if (typeof window !== 'undefined') {
+      console.log('SuiWallet: window.sui exists:', !!window.sui);
+      console.log('SuiWallet: window.suiet exists:', !!(window as any).suiet);
+      console.log('SuiWallet: window.martian exists:', !!(window as any).martian);
+    }
+    
+    // Check if any wallet is installed
+    if (wallets.length === 0) {
+      console.warn('SuiWallet: No Sui wallets detected. Please install a Sui wallet extension.');
+    } else {
+      console.log('SuiWallet: Found', wallets.length, 'detected wallet(s)');
+    }
+  }, []);
 
   // Get account objects (coins, NFTs, etc.)
   const getAccountObjects = async () => {
@@ -89,32 +157,69 @@ const SuiWalletContent: React.FC = () => {
           <h3>🟦 Connect Sui Wallet</h3>
           <p>Connect your Sui wallet to trade on Sui Devnet</p>
           
+          {/* Wallet detection status */}
+          <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+            <div style={{ fontSize: '14px', marginBottom: '5px' }}>
+              <strong>Wallet Status:</strong>
+            </div>
+            {availableWallets.length > 0 ? (
+              <div style={{ color: '#4CAF50' }}>
+                ✅ {availableWallets.length} wallet(s) detected: {availableWallets.map(w => w.name).join(', ')}
+              </div>
+            ) : (
+              <div style={{ color: '#FF9800' }}>
+                ⚠️ No Sui wallet extensions detected. Please install:
+                <br />• <a href="https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil" target="_blank" style={{ color: '#64B5F6' }}>Sui Wallet</a>
+                <br />• <a href="https://chrome.google.com/webstore/detail/suiet-sui-wallet/khpkpbbcccdmmclmpigdgddabeilkdpd" target="_blank" style={{ color: '#64B5F6' }}>Suiet Wallet</a>
+                <br />• <a href="https://chrome.google.com/webstore/detail/martian-aptos-wallet/efbglgofoippbgcjepnhiblaibcnclgk" target="_blank" style={{ color: '#64B5F6' }}>Martian Wallet</a>
+              </div>
+            )}
+          </div>
+          
           <button 
             onClick={() => {
               console.log('SuiWallet: Button clicked, opening modal');
+              console.log('SuiWallet: Available wallets:', availableWallets);
               setShowModal(true);
             }}
-            disabled={connecting}
+            disabled={connecting || availableWallets.length === 0}
             className="connect-btn sui"
           >
-            {connecting ? '🔄 Connecting...' : '🟦 Connect Sui Wallet'}
+            {connecting ? '🔄 Connecting...' : availableWallets.length === 0 ? '❌ No Wallets Found' : '🟦 Connect Sui Wallet'}
           </button>
           
           {/* Alternative: Use built-in ConnectButton */}
           <div style={{ marginTop: '10px' }}>
-            <ConnectButton 
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                color: 'white',
-                padding: '12px 24px',
-                borderRadius: '12px',
-                fontWeight: '600',
-                cursor: 'pointer',
-              }}
-            >
-              📱 Connect Sui (Built-in)
-            </ConnectButton>
+            {availableWallets.length > 0 ? (
+              <ConnectButton 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  color: 'white',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                📱 Connect Sui (Built-in)
+              </ConnectButton>
+            ) : (
+              <div 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '2px solid rgba(255, 255, 255, 0.2)',
+                  color: '#999',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  fontWeight: '600',
+                  cursor: 'not-allowed',
+                  textAlign: 'center',
+                }}
+              >
+                ❌ Built-in Connect (No Wallet)
+              </div>
+            )}
           </div>
 
           <div className="supported-networks">
