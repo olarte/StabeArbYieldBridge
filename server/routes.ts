@@ -78,10 +78,13 @@ async function executeRealSuiTransaction(step: any, swapState: any) {
   // Setup Sui client (testnet)
   const suiClient = new SuiClient({ url: getFullnodeUrl('testnet') });
   
-  // Fix Sui key parsing - ensure proper format
-  let cleanKey = privateKey.replace('0x', '');
+  // Fix Sui key parsing - handle various formats  
+  let cleanKey = privateKey.replace(/^0x/i, '');
+  if (cleanKey.length === 66) {
+    cleanKey = cleanKey.slice(2);
+  }
   if (cleanKey.length !== 64) {
-    throw new Error(`Invalid SUI_PRIVATE_KEY length: ${cleanKey.length}, expected 64 hex characters`);
+    throw new Error(`Invalid SUI_PRIVATE_KEY format: got ${cleanKey.length} chars, expected 64 hex characters`);
   }
   const keyPair = Ed25519Keypair.fromSecretKey(Uint8Array.from(Buffer.from(cleanKey, 'hex')));
   
@@ -372,13 +375,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Setup Sui client
       const suiClient = new SuiClient({ url: getFullnodeUrl('testnet') });
       
-      // Fix key parsing
-      let cleanKey = privateKey.replace('0x', '');
+      // Fix key parsing - handle various formats
+      let cleanKey = privateKey.replace(/^0x/i, ''); // Remove 0x prefix
+      if (cleanKey.length === 66) {
+        cleanKey = cleanKey.slice(2); // Remove additional prefix if present
+      }
       if (cleanKey.length !== 64) {
         return res.json({
           success: false,
-          error: `Invalid SUI_PRIVATE_KEY length: ${cleanKey.length}, expected 64`,
-          keyLength: cleanKey.length
+          error: `Invalid SUI_PRIVATE_KEY format`,
+          details: `Got ${cleanKey.length} characters, expected 64 hex characters`,
+          suggestion: 'Private key should be 64 hex characters (32 bytes) without 0x prefix',
+          keyLength: cleanKey.length,
+          originalLength: privateKey.length
         });
       }
       
