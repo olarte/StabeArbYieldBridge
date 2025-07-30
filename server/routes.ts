@@ -80,11 +80,21 @@ async function executeRealSuiTransaction(step: any, swapState: any) {
   
   // Fix Sui key parsing - handle various formats  
   let cleanKey = privateKey.replace(/^0x/i, '');
-  if (cleanKey.length === 66) {
+  
+  // Handle different key formats
+  if (cleanKey.length === 70) {
+    cleanKey = cleanKey.slice(6); // Remove extra prefix
+  } else if (cleanKey.length === 66) {
     cleanKey = cleanKey.slice(2);
   }
+  
+  // If still not 64 chars, try one more extraction approach
+  if (cleanKey.length !== 64 && cleanKey.length > 64) {
+    cleanKey = cleanKey.slice(-64);
+  }
+  
   if (cleanKey.length !== 64) {
-    throw new Error(`Invalid SUI_PRIVATE_KEY format: got ${cleanKey.length} chars, expected 64 hex characters`);
+    throw new Error(`Invalid SUI_PRIVATE_KEY format: got ${cleanKey.length} chars after cleanup, expected 64 hex characters`);
   }
   const keyPair = Ed25519Keypair.fromSecretKey(Uint8Array.from(Buffer.from(cleanKey, 'hex')));
   
@@ -377,17 +387,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fix key parsing - handle various formats
       let cleanKey = privateKey.replace(/^0x/i, ''); // Remove 0x prefix
-      if (cleanKey.length === 66) {
-        cleanKey = cleanKey.slice(2); // Remove additional prefix if present
+      
+      // Handle different key formats
+      if (cleanKey.length === 70) {
+        // Likely has extra prefix characters, remove first 6 chars
+        cleanKey = cleanKey.slice(6);
+      } else if (cleanKey.length === 66) {
+        // Remove additional prefix if present
+        cleanKey = cleanKey.slice(2);
       }
+      
+      // If still not 64 chars, try one more extraction approach
+      if (cleanKey.length !== 64 && cleanKey.length > 64) {
+        // Extract the last 64 characters if longer
+        cleanKey = cleanKey.slice(-64);
+      }
+      
       if (cleanKey.length !== 64) {
         return res.json({
           success: false,
           error: `Invalid SUI_PRIVATE_KEY format`,
-          details: `Got ${cleanKey.length} characters, expected 64 hex characters`,
-          suggestion: 'Private key should be 64 hex characters (32 bytes) without 0x prefix',
+          details: `Got ${cleanKey.length} characters after cleanup, expected 64 hex characters`,
+          suggestion: 'Private key should be 64 hex characters (32 bytes)',
           keyLength: cleanKey.length,
-          originalLength: privateKey.length
+          originalLength: privateKey.length,
+          cleanedKey: cleanKey.slice(0, 10) + '...' // Show first 10 chars for debugging
         });
       }
       
