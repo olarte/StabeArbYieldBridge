@@ -88,25 +88,25 @@ function PegProtectionStatus() {
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Celo Chainlink</div>
               <div className="text-lg font-bold">
-                ${typeof pegStatus?.chainlinkFeeds?.celo === 'number' ? pegStatus.chainlinkFeeds.celo.toFixed(4) : 'N/A'}
+                ${pegStatus?.chainlinkFeeds?.celo ? Number(pegStatus.chainlinkFeeds.celo).toFixed(4) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Ethereum Chainlink</div>
               <div className="text-lg font-bold">
-                ${typeof pegStatus?.chainlinkFeeds?.ethereum === 'number' ? pegStatus.chainlinkFeeds.ethereum.toFixed(4) : 'N/A'}
+                ${pegStatus?.chainlinkFeeds?.ethereum ? Number(pegStatus.chainlinkFeeds.ethereum).toFixed(4) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Uniswap V3</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.dexPrices?.celoUniswap?.toFixed(4) || 'N/A'}
+                ${pegStatus?.dexPrices?.celoUniswap ? Number(pegStatus.dexPrices.celoUniswap).toFixed(4) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Cetus DEX</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.dexPrices?.suiCetus?.toFixed(4) || 'N/A'}
+                ${pegStatus?.dexPrices?.suiCetus ? Number(pegStatus.dexPrices.suiCetus).toFixed(4) : 'N/A'}
               </div>
             </div>
           </div>
