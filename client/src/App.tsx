@@ -13,6 +13,7 @@ import NotFound from "@/pages/not-found";
 // @ts-ignore
 import WalletConnect from "@/components/WalletConnect.jsx";
 import SuiWalletConnect from "@/components/SuiWalletConnect";
+import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
 
 // TypeScript interfaces for better type safety
@@ -593,6 +594,15 @@ function ArbitrageTradingPage() {
   const [walletConnections, setWalletConnections] = useState<any>({});
   const [suiWalletInfo, setSuiWalletInfo] = useState<any>({});
 
+  // Handle unified wallet changes from WalletSelector
+  const handleWalletChange = (walletType: 'celo' | 'sui', walletInfo: any) => {
+    if (walletType === 'celo') {
+      setWalletConnections(walletInfo);
+    } else {
+      setSuiWalletInfo(walletInfo);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -603,10 +613,7 @@ function ArbitrageTradingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <WalletConnect onWalletChange={setWalletConnections} />
-          <SuiWalletConnect onWalletChange={setSuiWalletInfo} />
-        </div>
+        <WalletSelector onWalletChange={handleWalletChange} />
         <PegProtectionStatus />
         <LivePriceMonitor />
         <ArbitrageOpportunities 
