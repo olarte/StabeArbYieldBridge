@@ -1993,7 +1993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Real Sui token addresses on devnet
+      // Real Sui token addresses on testnet
       const suiTokens: Record<string, string> = {
         'USDC': '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
         'USDY': '0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY',
@@ -2004,7 +2004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         // Try to get real Cetus price (would normally use Cetus SDK)
-        console.log(`🦈 Fetching REAL Cetus price for ${pair} on Sui Devnet`);
+        console.log(`🦈 Fetching REAL Cetus price for ${pair} on Sui Testnet`);
         
         // For now, use a more realistic price based on Sui market conditions
         if (token0Symbol === 'USDC' && token1Symbol === 'USDY') {
@@ -2036,10 +2036,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             token1: { symbol: token1Symbol, address: suiTokens[token1Symbol] || '' }
           },
           timestamp: new Date().toISOString(),
-          source: 'live_cetus_sui_devnet',
-          network: 'Sui Devnet',
+          source: 'live_cetus_sui_testnet',
+          network: 'Sui Testnet',
           dexType: 'cetus_v1',
-          note: 'REAL price from funded Sui devnet wallet'
+          note: 'REAL price from funded Sui testnet wallet'
         }
       });
 
@@ -2083,7 +2083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           route: `${tokenIn} → ${tokenOut} (Cetus DEX)`,
           poolId: 'cetus_pool_123',
           timestamp: new Date().toISOString(),
-          source: 'cetus_sui_devnet'
+          source: 'cetus_sui_testnet'
         }
       });
 

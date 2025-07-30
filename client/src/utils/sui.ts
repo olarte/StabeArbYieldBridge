@@ -19,9 +19,9 @@ export const SUI_NETWORKS = {
   },
 };
 
-// Create Sui client for devnet
+// Create Sui client for testnet
 export const suiClient = new SuiClient({
-  url: SUI_NETWORKS.devnet.url,
+  url: SUI_NETWORKS.testnet.url,
 });
 
 // Format Sui address for display

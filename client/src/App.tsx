@@ -659,7 +659,7 @@ function LivePriceMonitor() {
                 {(cetusData as any)?.data?.price?.formatted || '1 USDC = 1.000000 USDY'}
               </div>
               <Badge variant="outline" className="text-xs">
-                Sui Devnet
+                Sui Testnet
               </Badge>
             </div>
           )}
