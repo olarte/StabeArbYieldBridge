@@ -311,74 +311,87 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       setSelectedOpportunity(opportunity.id);
       setExecutionSteps([]);
 
-      // Step 1: Register wallet session
-      toast({
-        title: "Starting Arbitrage",
-        description: "Registering wallet session...",
-      });
-
-      const { sessionId } = await registerWalletSession();
-      
-      setExecutionSteps(prev => [...prev, { 
-        step: 'Wallet Session', 
-        status: 'completed', 
-        message: 'Wallets registered successfully' 
-      }]);
-
-      // Step 2: Create atomic swap
-      toast({
-        title: "Creating Swap",
-        description: "Setting up atomic swap...",
-      });
-
-      const swapResult = await createAtomicSwap(opportunity, sessionId);
-      const swapId = swapResult.data.swapId;
-      
-      setExecutionSteps(prev => [...prev, { 
-        step: 'Atomic Swap Created', 
-        status: 'completed', 
-        message: `Swap ID: ${swapId}` 
-      }]);
-
-      // Step 3: Execute each step with wallet signatures
-      const totalSteps = swapResult.data.executionPlan.steps.length;
-      
-      for (let i = 0; i < totalSteps; i++) {
-        const stepName = swapResult.data.executionPlan.steps[i].type;
-        
+      try {
+        // Step 1: Register wallet session
         toast({
-          title: `Step ${i + 1}/${totalSteps}`,
-          description: `Executing ${stepName}...`,
+          title: "Starting Arbitrage",
+          description: "Registering wallet session...",
         });
 
+        const { sessionId } = await registerWalletSession();
+        
         setExecutionSteps(prev => [...prev, { 
-          step: stepName, 
-          status: 'executing', 
-          message: 'Preparing transaction...' 
+          step: 'Wallet Session', 
+          status: 'completed', 
+          message: 'Wallets registered successfully' 
         }]);
 
-        // Execute step to get transaction data
-        const stepResult = await executeSwapStep(swapId, i);
+        // Step 2: Create atomic swap
+        toast({
+          title: "Creating Swap",
+          description: "Setting up atomic swap...",
+        });
+
+        const swapResult = await createAtomicSwap(opportunity, sessionId);
+        const swapId = swapResult.data.swapId;
         
-        if (stepResult.data.walletIntegration?.requiresSignature) {
-          // Sign and submit transaction
-          setExecutionSteps(prev => prev.map((s, idx) => 
-            idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
-          ));
+        setExecutionSteps(prev => [...prev, { 
+          step: 'Atomic Swap Created', 
+          status: 'completed', 
+          message: `Swap ID: ${swapId}` 
+        }]);
 
-          await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
+        // Step 3: Execute each step with wallet signatures
+        const totalSteps = swapResult.data.executionPlan.steps.length;
+        
+        for (let i = 0; i < totalSteps; i++) {
+          const stepName = swapResult.data.executionPlan.steps[i].type;
           
-          setExecutionSteps(prev => prev.map((s, idx) => 
-            idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
-          ));
-        } else {
-          setExecutionSteps(prev => prev.map((s, idx) => 
-            idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Step completed automatically' } : s
-          ));
-        }
-      }
+          toast({
+            title: `Step ${i + 1}/${totalSteps}`,
+            description: `Executing ${stepName}...`,
+          });
 
-      return { swapId, steps: totalSteps };
+          setExecutionSteps(prev => [...prev, { 
+            step: stepName, 
+            status: 'executing', 
+            message: 'Preparing transaction...' 
+          }]);
+
+          // Execute step to get transaction data
+          const stepResult = await executeSwapStep(swapId, i);
+          
+          if (stepResult.data.walletIntegration?.requiresSignature) {
+            // Sign and submit transaction
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
+            ));
+
+            await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
+            
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
+            ));
+          } else {
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Step completed automatically' } : s
+            ));
+          }
+        }
+
+        return { swapId, steps: totalSteps };
+      } catch (error) {
+        console.error('Arbitrage execution failed:', error);
+        
+        // Add detailed error information to steps
+        setExecutionSteps(prev => [...prev, { 
+          step: 'Error', 
+          status: 'failed', 
+          message: error instanceof Error ? error.message : 'Unknown error occurred' 
+        }]);
+        
+        throw error;
+      }
     },
     onSuccess: (data) => {
       toast({
