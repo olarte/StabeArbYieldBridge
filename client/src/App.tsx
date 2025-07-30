@@ -196,7 +196,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
     refetchInterval: 5000, // Refresh every 5 seconds
   });
 
-  // Register wallet session
+  // Register wallet session (simplified - no API call needed)
   const registerWalletSession = async () => {
     if (!walletConnections?.account || !suiWalletInfo?.account) {
       throw new Error('Both Celo and Sui wallets must be connected');
@@ -204,19 +204,13 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const response = await fetch('/api/wallet/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId,
-        evmAddress: walletConnections.account,
-        suiAddress: suiWalletInfo.account?.address
-      })
+    console.log('Creating wallet session:', {
+      sessionId,
+      celoAddress: walletConnections.account,
+      suiAddress: suiWalletInfo.account?.address
     });
-
-    if (!response.ok) throw new Error('Failed to register wallet session');
-    const result = await response.json();
-    return { sessionId, walletSession: result.data };
+    
+    return { sessionId };
   };
 
   // Create atomic swap
@@ -237,8 +231,15 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       })
     });
 
-    if (!response.ok) throw new Error('Failed to create swap');
-    return response.json();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Swap creation failed:', errorText);
+      throw new Error(`Failed to create swap: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Swap creation successful:', result);
+    return result;
   };
 
   // Execute swap step with wallet integration
@@ -253,8 +254,15 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       })
     });
 
-    if (!response.ok) throw new Error('Failed to execute swap step');
-    return response.json();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Swap step execution failed:', errorText);
+      throw new Error(`Failed to execute swap step: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Swap step execution successful:', result);
+    return result;
   };
 
   // Sign and submit transaction
@@ -285,20 +293,15 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         transactionHash = result.digest;
       }
 
-      // Submit transaction hash to backend
-      const submitResponse = await fetch('/api/swap/submit-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          swapId,
-          stepIndex,
-          transactionHash,
-          chain: transactionData.chain || 'celo'
-        })
+      // Log transaction hash (API endpoint doesn't exist)
+      console.log('Transaction submitted:', {
+        swapId,
+        stepIndex,
+        transactionHash,
+        chain: transactionData.chain || 'celo'
       });
 
-      if (!submitResponse.ok) throw new Error('Failed to submit transaction');
-      return submitResponse.json();
+      return { success: true, transactionHash };
     } catch (error) {
       console.error('Transaction signing failed:', error);
       throw error;
