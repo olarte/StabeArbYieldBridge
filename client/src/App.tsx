@@ -151,7 +151,7 @@ function LivePriceMonitor() {
   });
 
   const { data: cetusData, isLoading: cetusLoading } = useQuery({
-    queryKey: ['/api/cetus/price'],
+    queryKey: ['/api/cetus/price/USDC-USDY'],
     refetchInterval: 3000,
   });
 
@@ -168,10 +168,13 @@ function LivePriceMonitor() {
           ) : (
             <div className="space-y-2">
               <div className="text-2xl font-bold">
-                ${priceData?.data?.price ? Number(priceData.data.price).toFixed(6) : '1.000000'}
+                ${priceData?.data?.price?.token0ToToken1 ? Number(priceData.data.price.token0ToToken1).toFixed(6) : '1.000000'}
               </div>
               <div className="text-sm text-muted-foreground">
                 Last updated: {new Date().toLocaleTimeString()}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {priceData?.data?.price?.formatted || '1 cUSD = 1.000000 USDC'}
               </div>
               <Badge variant="outline" className="text-xs">
                 Celo Alfajores Testnet
@@ -192,13 +195,16 @@ function LivePriceMonitor() {
           ) : (
             <div className="space-y-2">
               <div className="text-2xl font-bold">
-                ${cetusData?.data?.price ? Number(cetusData.data.price).toFixed(6) : '1.000000'}
+                ${cetusData?.data?.price?.token0ToToken1 ? Number(cetusData.data.price.token0ToToken1).toFixed(6) : '1.000000'}
               </div>
               <div className="text-sm text-muted-foreground">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
+              <div className="text-xs text-muted-foreground">
+                {cetusData?.data?.price?.formatted || '1 USDC = 1.000000 USDY'}
+              </div>
               <Badge variant="outline" className="text-xs">
-                Sui Testnet
+                Sui Devnet
               </Badge>
             </div>
           )}
