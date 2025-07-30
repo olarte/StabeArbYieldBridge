@@ -127,3 +127,44 @@ export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 
 export type ChainStatus = typeof chainStatus.$inferSelect;
 export type InsertChainStatus = z.infer<typeof insertChainStatusSchema>;
+
+// Additional types for DeFi operations
+export interface ArbOpportunity {
+  id: string;
+  pair: string;
+  spread: number;
+  profit: number;
+  profitPercent: string;
+  direction: string;
+  volumeLimit?: number;
+  fromChain: string;
+  toChain: string;
+  minAmount: number;
+  maxAmount: number;
+}
+
+export interface PegStatus {
+  chainlinkFeeds?: {
+    celo?: number;
+    ethereum?: number;
+  };
+  dexPrices?: {
+    celoUniswap?: number;
+    suiCetus?: number;
+  };
+  safety?: {
+    safe: boolean;
+    alerts: string[];
+  };
+  deviations?: any;
+  globalStatus?: any;
+}
+
+export interface SwapResult {
+  id: string;
+  opportunity: ArbOpportunity;
+  timestamp: string;
+  status: 'success' | 'pending' | 'failed';
+  txHash?: string;
+  actualProfit?: number;
+}

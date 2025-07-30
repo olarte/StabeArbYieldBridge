@@ -64,7 +64,8 @@ function PegProtectionStatus() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  const pegStatus: PegStatus = pegData as PegStatus || {};
+  // Extract the actual data from the API response
+  const pegStatus: PegStatus = (pegData as any)?.data || {};
 
   return (
     <Card className="mb-6">
@@ -87,13 +88,13 @@ function PegProtectionStatus() {
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Celo Chainlink</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.chainlinkFeeds?.celo?.price?.toFixed(4) || 'N/A'}
+                ${typeof pegStatus?.chainlinkFeeds?.celo === 'number' ? pegStatus.chainlinkFeeds.celo.toFixed(4) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Ethereum Chainlink</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.chainlinkFeeds?.ethereum?.price?.toFixed(4) || 'N/A'}
+                ${typeof pegStatus?.chainlinkFeeds?.ethereum === 'number' ? pegStatus.chainlinkFeeds.ethereum.toFixed(4) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
