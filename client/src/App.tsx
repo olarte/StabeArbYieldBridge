@@ -12,6 +12,7 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 // @ts-ignore
 import WalletConnect from "@/components/WalletConnect.jsx";
+import SuiWalletConnect from "@/components/SuiWalletConnect";
 import { useState, useEffect } from "react";
 
 // TypeScript interfaces for better type safety
@@ -389,7 +390,10 @@ function ArbitrageTradingPage() {
           </p>
         </div>
 
-        <WalletConnect />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <WalletConnect />
+          <SuiWalletConnect />
+        </div>
         <PegProtectionStatus />
         <LivePriceMonitor />
         <ArbitrageOpportunities />
