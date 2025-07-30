@@ -16,6 +16,11 @@ import SuiWalletConnect from "@/components/SuiWalletConnect";
 import { useState, useEffect } from "react";
 
 // TypeScript interfaces for better type safety
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 interface ArbOpportunity {
   pair: string;
   direction: string;
@@ -176,9 +181,13 @@ function SwapResultsHistory({ swapResults }: { swapResults: SwapResult[] }) {
 }
 
 // Arbitrage Opportunities Component
-function ArbitrageOpportunities() {
+function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: { 
+  walletConnections: any, 
+  suiWalletInfo: any 
+}) {
   const { toast } = useToast();
   const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
+  const [executionSteps, setExecutionSteps] = useState<any[]>([]);
 
   // Fetch arbitrage opportunities
   const { data: arbData, isLoading: arbLoading, refetch: refetchArbs } = useQuery({
@@ -186,24 +195,197 @@ function ArbitrageOpportunities() {
     refetchInterval: 5000, // Refresh every 5 seconds
   });
 
-  // Execute arbitrage mutation
-  const executeArbMutation = useMutation({
-    mutationFn: async (opportunityId: string) => {
-      setSelectedOpportunity(opportunityId);
-      const response = await fetch('/api/swap/execute', {
+  // Register wallet session
+  const registerWalletSession = async () => {
+    if (!walletConnections?.account || !suiWalletInfo?.account) {
+      throw new Error('Both Celo and Sui wallets must be connected');
+    }
+
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const response = await fetch('/api/wallet/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        evmAddress: walletConnections.account,
+        suiAddress: suiWalletInfo.account?.address
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to register wallet session');
+    const result = await response.json();
+    return { sessionId, walletSession: result.data };
+  };
+
+  // Create atomic swap
+  const createAtomicSwap = async (opportunity: any, sessionId: string) => {
+    const response = await fetch('/api/swap/bidirectional-real', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromChain: 'celo',
+        toChain: 'sui', 
+        fromToken: 'cUSD',
+        toToken: 'USDY',
+        amount: 10, // $10 test amount
+        minSpread: 0.01,
+        maxSlippage: 0.03,
+        sessionId,
+        bypassPegProtection: false
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to create swap');
+    return response.json();
+  };
+
+  // Execute swap step with wallet integration
+  const executeSwapStep = async (swapId: string, stepIndex: number) => {
+    const response = await fetch('/api/swap/execute-real', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        swapId,
+        step: stepIndex,
+        useWalletExecution: true
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to execute swap step');
+    return response.json();
+  };
+
+  // Sign and submit transaction
+  const signAndSubmitTransaction = async (swapId: string, stepIndex: number, transactionData: any) => {
+    try {
+      let transactionHash = '';
+      
+      if (transactionData.chain === 'celo' || !transactionData.chain) {
+        // Sign EVM transaction with MetaMask
+        if (!window.ethereum) throw new Error('MetaMask not found');
+        
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [transactionData.transactionData]
+        });
+        
+        transactionHash = txHash;
+      } else if (transactionData.chain === 'sui') {
+        // Sign Sui transaction
+        if (!suiWalletInfo.signAndExecuteTransactionBlock) {
+          throw new Error('Sui wallet does not support transaction signing');
+        }
+        
+        const result = await suiWalletInfo.signAndExecuteTransactionBlock({
+          transactionBlock: transactionData.transactionBlock
+        });
+        
+        transactionHash = result.digest;
+      }
+
+      // Submit transaction hash to backend
+      const submitResponse = await fetch('/api/swap/submit-transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opportunityId, amount: 100 })
+        body: JSON.stringify({
+          swapId,
+          stepIndex,
+          transactionHash,
+          chain: transactionData.chain || 'celo'
+        })
       });
-      if (!response.ok) throw new Error('Failed to execute arbitrage');
-      return response.json();
+
+      if (!submitResponse.ok) throw new Error('Failed to submit transaction');
+      return submitResponse.json();
+    } catch (error) {
+      console.error('Transaction signing failed:', error);
+      throw error;
+    }
+  };
+
+  // Execute complete arbitrage flow
+  const executeArbMutation = useMutation({
+    mutationFn: async (opportunity: any) => {
+      setSelectedOpportunity(opportunity.id);
+      setExecutionSteps([]);
+
+      // Step 1: Register wallet session
+      toast({
+        title: "Starting Arbitrage",
+        description: "Registering wallet session...",
+      });
+
+      const { sessionId } = await registerWalletSession();
+      
+      setExecutionSteps(prev => [...prev, { 
+        step: 'Wallet Session', 
+        status: 'completed', 
+        message: 'Wallets registered successfully' 
+      }]);
+
+      // Step 2: Create atomic swap
+      toast({
+        title: "Creating Swap",
+        description: "Setting up atomic swap...",
+      });
+
+      const swapResult = await createAtomicSwap(opportunity, sessionId);
+      const swapId = swapResult.data.swapId;
+      
+      setExecutionSteps(prev => [...prev, { 
+        step: 'Atomic Swap Created', 
+        status: 'completed', 
+        message: `Swap ID: ${swapId}` 
+      }]);
+
+      // Step 3: Execute each step with wallet signatures
+      const totalSteps = swapResult.data.executionPlan.steps.length;
+      
+      for (let i = 0; i < totalSteps; i++) {
+        const stepName = swapResult.data.executionPlan.steps[i].type;
+        
+        toast({
+          title: `Step ${i + 1}/${totalSteps}`,
+          description: `Executing ${stepName}...`,
+        });
+
+        setExecutionSteps(prev => [...prev, { 
+          step: stepName, 
+          status: 'executing', 
+          message: 'Preparing transaction...' 
+        }]);
+
+        // Execute step to get transaction data
+        const stepResult = await executeSwapStep(swapId, i);
+        
+        if (stepResult.data.walletIntegration?.requiresSignature) {
+          // Sign and submit transaction
+          setExecutionSteps(prev => prev.map((s, idx) => 
+            idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
+          ));
+
+          await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
+          
+          setExecutionSteps(prev => prev.map((s, idx) => 
+            idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
+          ));
+        } else {
+          setExecutionSteps(prev => prev.map((s, idx) => 
+            idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Step completed automatically' } : s
+          ));
+        }
+      }
+
+      return { swapId, steps: totalSteps };
     },
     onSuccess: (data) => {
       toast({
-        title: "Arbitrage Executed",
-        description: `Transaction submitted: ${data.txHash?.slice(0, 10)}...`,
+        title: "Arbitrage Completed!",
+        description: `Swap ${data.swapId} executed successfully with ${data.steps} steps`,
       });
       setSelectedOpportunity(null);
+      setExecutionSteps([]);
       refetchArbs();
     },
     onError: (error) => {
@@ -213,6 +395,7 @@ function ArbitrageOpportunities() {
         variant: "destructive",
       });
       setSelectedOpportunity(null);
+      setExecutionSteps([]);
     },
   });
 
@@ -284,17 +467,42 @@ function ArbitrageOpportunities() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      size="sm"
-                      onClick={() => executeArbMutation.mutate(opp.id)}
-                      disabled={executeArbMutation.isPending || selectedOpportunity === opp.id}
-                      className="w-full"
-                    >
-                      {executeArbMutation.isPending && selectedOpportunity === opp.id 
-                        ? "Executing..." 
-                        : "Execute"
-                      }
-                    </Button>
+                    <div className="space-y-2">
+                      <Button 
+                        size="sm"
+                        onClick={() => executeArbMutation.mutate(opp)}
+                        disabled={
+                          executeArbMutation.isPending || 
+                          selectedOpportunity === opp.id ||
+                          !walletConnections?.account ||
+                          !suiWalletInfo?.account
+                        }
+                        className="w-full"
+                      >
+                        {executeArbMutation.isPending && selectedOpportunity === opp.id 
+                          ? "Executing..." 
+                          : "Execute with Wallets"
+                        }
+                      </Button>
+                      {(!walletConnections?.account || !suiWalletInfo?.account) && (
+                        <div className="text-xs text-red-500 text-center">
+                          Connect both wallets
+                        </div>
+                      )}
+                      {selectedOpportunity === opp.id && executionSteps.length > 0 && (
+                        <div className="text-xs space-y-1">
+                          {executionSteps.map((step, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className={`w-2 h-2 rounded-full ${
+                                step.status === 'completed' ? 'bg-green-500' :
+                                step.status === 'executing' ? 'bg-yellow-500' : 'bg-gray-300'
+                              }`} />
+                              <span className="truncate">{step.step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -305,6 +513,8 @@ function ArbitrageOpportunities() {
     </Card>
   );
 }
+
+
 
 // Live Price Monitor Component
 function LivePriceMonitor() {
@@ -380,6 +590,8 @@ function LivePriceMonitor() {
 // Main Arbitrage Trading Page
 function ArbitrageTradingPage() {
   const [swapResults, setSwapResults] = useState<SwapResult[]>([]);
+  const [walletConnections, setWalletConnections] = useState<any>({});
+  const [suiWalletInfo, setSuiWalletInfo] = useState<any>({});
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -392,12 +604,15 @@ function ArbitrageTradingPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <WalletConnect />
-          <SuiWalletConnect />
+          <WalletConnect onWalletChange={setWalletConnections} />
+          <SuiWalletConnect onWalletChange={setSuiWalletInfo} />
         </div>
         <PegProtectionStatus />
         <LivePriceMonitor />
-        <ArbitrageOpportunities />
+        <ArbitrageOpportunities 
+          walletConnections={walletConnections}
+          suiWalletInfo={suiWalletInfo}
+        />
         <SwapResultsHistory swapResults={swapResults} />
       </div>
     </div>

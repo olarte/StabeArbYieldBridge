@@ -6,7 +6,7 @@ const CHAIN_CONFIG = {
   11155111: { chainName: 'Ethereum Sepolia', currency: 'ETH' }
 };
 
-const WalletConnect = () => {
+const WalletConnect = ({ onWalletChange }) => {
   const [account, setAccount] = useState(null);
   const [chainId, setChainId] = useState(null);
   const [connecting, setConnecting] = useState(false);
@@ -30,6 +30,15 @@ const WalletConnect = () => {
       
       setAccount(accounts[0]);
       setChainId(parseInt(chainId, 16));
+      
+      // Notify parent component of wallet change
+      if (onWalletChange) {
+        onWalletChange({
+          account: accounts[0],
+          chainId: parseInt(chainId, 16),
+          balance: null
+        });
+      }
     } catch (error) {
       console.error('Connection failed:', error);
     } finally {
@@ -42,6 +51,15 @@ const WalletConnect = () => {
     setAccount(null);
     setChainId(null);
     setBalance(null);
+    
+    // Notify parent component of wallet disconnect
+    if (onWalletChange) {
+      onWalletChange({
+        account: null,
+        chainId: null,
+        balance: null
+      });
+    }
   };
 
   // Switch to specific network

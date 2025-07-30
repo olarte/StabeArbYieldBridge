@@ -29,7 +29,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Inner component that uses wallet hooks
-const SuiWalletContent: React.FC = () => {
+const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }> = ({ onWalletChange }) => {
   const {
     connected,
     account,
@@ -37,6 +37,7 @@ const SuiWalletContent: React.FC = () => {
     connecting,
     select,
     chain,
+    signAndExecuteTransactionBlock,
   } = useWallet();
   
   const wallet = (useWallet() as any).wallet;
@@ -224,6 +225,19 @@ const SuiWalletContent: React.FC = () => {
       getAccountObjects();
     }
   }, [connected, account?.address]);
+
+  // Notify parent component when wallet state changes
+  useEffect(() => {
+    if (onWalletChange) {
+      onWalletChange({
+        connected,
+        account,
+        balance,
+        wallet,
+        signAndExecuteTransactionBlock
+      });
+    }
+  }, [connected, account, balance, onWalletChange]);
 
   if (!connected) {
     return (
@@ -434,10 +448,10 @@ const SuiWalletContent: React.FC = () => {
 };
 
 // Main component with provider
-const SuiWalletConnect: React.FC = () => {
+const SuiWalletConnect: React.FC<{ onWalletChange?: (walletInfo: any) => void }> = ({ onWalletChange }) => {
   return (
     <WalletProvider>
-      <SuiWalletContent />
+      <SuiWalletContent onWalletChange={onWalletChange} />
     </WalletProvider>
   );
 };
