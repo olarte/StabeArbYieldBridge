@@ -87,10 +87,82 @@ const CHAIN_CONFIG = {
   }
 }
 
+async function initializeCetusContracts() {
+  const suiConfig = CHAIN_CONFIG.sui.cetus;
+  
+  try {
+    console.log('🌊 Initializing Cetus DEX contracts on Sui Devnet...');
+    
+    // Test Sui connection
+    const chainId = await suiProvider.getChainIdentifier();
+    console.log(`🧪 Testing Sui connection: ${chainId}`);
+    
+    // Check if Cetus package exists
+    try {
+      const packageInfo = await suiProvider.getObject({
+        id: suiConfig.packageId,
+        options: { showContent: true }
+      });
+      
+      if (packageInfo.data) {
+        console.log('✅ Cetus package found on Sui Devnet');
+      }
+    } catch (packageError) {
+      console.log('⚠️ Cetus package not found, using mock configuration');
+    }
+    
+    // Initialize Cetus client configuration
+    cetusContracts = {
+      packageId: suiConfig.packageId,
+      globalConfig: suiConfig.globalConfig,
+      pools: suiConfig.pools,
+      type: 'cetus_v1',
+      client: suiProvider
+    };
+    
+    console.log('✅ Cetus DEX contracts initialized on Sui Devnet');
+    
+  } catch (error) {
+    console.error(`❌ Cetus initialization failed: ${error.message}`);
+    console.log('🔄 Using mock Cetus configuration for development');
+    
+    // Fallback to mock
+    cetusContracts = {
+      packageId: null,
+      globalConfig: null,
+      pools: {},
+      type: 'mock',
+      client: suiProvider
+    };
+  };
+
+// Uniswap V3 ABIs and Celo DEX ABIs
+const UNISWAP_V3_ABIS = {
+  Factory: [
+    'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)',
+    'event PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)'
+  ],
+  Pool: [
+    'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+    'function liquidity() external view returns (uint128)',
+    'function fee() external view returns (uint24)',
+    'function token0() external view returns (address)',
+    'function token1() external view returns (address)',
+    'function tickSpacing() external view returns (int24)'
+  ],
+  SwapRouter: [
+    'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)',
+    'function exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountIn)'
+  ],
+  Quoter: [
+    'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
+    'function quoteExactOutputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountOut, uint160 sqrtPriceLimitX96) external returns (uint256 amountIn)'
+  ]
+};
+
 // Initialize providers and SDKs
 let ethProvider, celoProvider, suiProvider;
 let uniswapContracts = {};
-let cetusContracts = {};
 
 // Cross-chain swap state management
 const swapStates = new Map();
@@ -124,30 +196,6 @@ let pegStatus = {
   swapsPaused: false,
   deviations: {},
   alertThreshold: 0.05 // Increased to 5% for testnet
-};
-
-// Uniswap V3 ABIs and Celo DEX ABIs
-const UNISWAP_V3_ABIS = {
-  Factory: [
-    'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)',
-    'event PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)'
-  ],
-  Pool: [
-    'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
-    'function liquidity() external view returns (uint128)',
-    'function fee() external view returns (uint24)',
-    'function token0() external view returns (address)',
-    'function token1() external view returns (address)',
-    'function tickSpacing() external view returns (int24)'
-  ],
-  SwapRouter: [
-    'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)',
-    'function exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountIn)'
-  ],
-  Quoter: [
-    'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
-    'function quoteExactOutputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountOut, uint160 sqrtPriceLimitX96) external returns (uint256 amountIn)'
-  ]
 };
 
 async function initializeProviders() {
@@ -234,56 +282,6 @@ async function initializeUniswapContracts() {
       };
       console.log('🔄 Using mock contracts as final fallback');
     }
-  }
-}
-
-async function initializeCetusContracts() {
-  const suiConfig = CHAIN_CONFIG.sui.cetus;
-  
-  try {
-    console.log('🌊 Initializing Cetus DEX contracts on Sui Devnet...');
-    
-    // Test Sui connection
-    const chainId = await suiProvider.getChainIdentifier();
-    console.log(`🧪 Testing Sui connection: ${chainId}`);
-    
-    // Check if Cetus package exists
-    try {
-      const packageInfo = await suiProvider.getObject({
-        id: suiConfig.packageId,
-        options: { showContent: true }
-      });
-      
-      if (packageInfo.data) {
-        console.log('✅ Cetus package found on Sui Devnet');
-      }
-    } catch (packageError) {
-      console.log('⚠️ Cetus package not found, using mock configuration');
-    }
-    
-    // Initialize Cetus client configuration
-    cetusContracts = {
-      packageId: suiConfig.packageId,
-      globalConfig: suiConfig.globalConfig,
-      pools: suiConfig.pools,
-      type: 'cetus_v1',
-      client: suiProvider
-    };
-    
-    console.log('✅ Cetus DEX contracts initialized on Sui Devnet');
-    
-  } catch (error) {
-    console.error(`❌ Cetus initialization failed: ${error.message}`);
-    console.log('🔄 Using mock Cetus configuration for development');
-    
-    // Fallback to mock
-    cetusContracts = {
-      packageId: null,
-      globalConfig: null,
-      pools: {},
-      type: 'mock',
-      client: suiProvider
-    };
   }
 }
 
@@ -1181,7 +1179,6 @@ app.get('/api/arbitrage/celo-sui-enhanced', async (req, res) => {
     });
   }
 });
-
 app.get('/api/uniswap/quote', async (req, res) => {
   try {
     const {
@@ -1708,7 +1705,7 @@ async function startServer() {
     }
   }, 300000);
   
-  app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, 'localhost', () => {
     console.log(`🚀 DeFi Bridge API server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 Supported chains: ${Object.keys(CHAIN_CONFIG).join(', ')}`);
@@ -1740,6 +1737,28 @@ async function startServer() {
     console.log(`   curl "http://localhost:${PORT}/api/cetus/price/USDC-USDY"`);
     console.log(`   curl "http://localhost:${PORT}/api/arbitrage/celo-sui-enhanced"`);
     console.log(`💡 Using live DEX data: Uniswap V3 (${uniswapContracts.type}), Cetus (${cetusContracts.type})`);
+  });
+}
+
+startServer().catch(console.error););
+    console.log(`📈 Swap endpoints:`);
+    console.log(`   - POST /api/swap/bidirectional - Create atomic cross-chain swap`);
+    console.log(`   - POST /api/swap/execute - Execute swap steps`);
+    console.log(`   - GET /api/swap/status/:swapId - Check swap progress`);
+    console.log(`   - POST /api/swap/refund - Refund expired swaps`);
+    console.log(`🦄 DEX endpoints:`);
+    console.log(`   - GET /api/uniswap/price/:pair - Get pool price (e.g., cUSD-USDC)`);
+    console.log(`   - GET /api/uniswap/pools/:pair - Compare all fee tiers`);
+    console.log(`   - POST /api/uniswap/swap - Execute swap via Fusion+ or direct`);
+    console.log(`   - GET /api/uniswap/quote - Get swap quote with price impact`);
+    console.log(`📈 Oracle endpoints:`);
+    console.log(`   - GET /api/oracle/peg-status - Multi-chain monitoring`);
+    console.log(`   - GET /api/oracle/chainlink/:pair?chain=ethereum - Single pair check`);
+    console.log(`   - POST /api/oracle/peg-controls - Manual controls`);
+    console.log(`🎯 Test commands:`);
+    console.log(`   curl "http://localhost:${PORT}/api/uniswap/price/cUSD-USDC"`);
+    console.log(`   curl "http://localhost:${PORT}/api/uniswap/quote?tokenIn=cUSD&tokenOut=USDC&amountIn=100"`);
+    console.log(`💡 Using ${uniswapContracts.type === 'mock' ? 'mock data for development' : 'live DEX data'}`);
   });
 }
 

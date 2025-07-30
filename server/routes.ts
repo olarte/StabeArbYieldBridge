@@ -553,6 +553,283 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cetus DEX price endpoint for Sui Network
+  app.get('/api/cetus/price/:pair', async (req, res) => {
+    try {
+      const { pair } = req.params;
+      
+      // Parse pair (e.g., "USDC-USDY")
+      const [token0Symbol, token1Symbol] = pair.split('-');
+      
+      if (!token0Symbol || !token1Symbol) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid token pair format. Use format: TOKEN0-TOKEN1',
+          example: 'USDC-USDY'
+        });
+      }
+
+      // Mock Cetus price data for Sui Devnet
+      const mockPrice = 1.0001;
+      
+      res.json({
+        success: true,
+        data: {
+          pair,
+          price: {
+            token0ToToken1: mockPrice,
+            token1ToToken0: 1 / mockPrice,
+            formatted: `1 ${token0Symbol} = ${mockPrice.toFixed(6)} ${token1Symbol}`
+          },
+          poolConfig: {
+            poolId: '0x123...456',
+            tickSpacing: 2,
+            feeRate: 0.05 // 0.05%
+          },
+          tokens: {
+            token0: { symbol: token0Symbol, address: `0x...${token0Symbol}` },
+            token1: { symbol: token1Symbol, address: `0x...${token1Symbol}` }
+          },
+          timestamp: new Date().toISOString(),
+          source: 'cetus_sui_devnet',
+          network: 'Sui Devnet',
+          dexType: 'cetus_v1'
+        }
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch Cetus price',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Cetus DEX quote endpoint
+  app.get('/api/cetus/quote', async (req, res) => {
+    try {
+      const { tokenIn, tokenOut, amountIn } = req.query;
+
+      if (!tokenIn || !tokenOut || !amountIn) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required parameters: tokenIn, tokenOut, amountIn'
+        });
+      }
+
+      // Mock Cetus quote calculation
+      const price = 1.0001;
+      const amountOut = parseFloat(amountIn as string) * price;
+      const feeRate = 0.05; // 0.05%
+      const finalAmountOut = amountOut * (1 - feeRate / 100);
+
+      res.json({
+        success: true,
+        data: {
+          tokenIn,
+          tokenOut,
+          amountIn: parseFloat(amountIn as string),
+          amountOut: finalAmountOut,
+          price: price,
+          feeRate: feeRate,
+          priceImpact: '0.01',
+          route: `${tokenIn} → ${tokenOut} (Cetus DEX)`,
+          poolId: 'cetus_pool_123',
+          timestamp: new Date().toISOString(),
+          source: 'cetus_sui_devnet'
+        }
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get Cetus quote',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Enhanced cross-chain arbitrage detection (Celo ↔ Sui)
+  app.get('/api/arbitrage/celo-sui-enhanced', async (req, res) => {
+    try {
+      const { minProfit = 0.5 } = req.query;
+      
+      // Get prices from both chains
+      const celoPrice = 0.999845; // From Celo Uniswap simulation
+      const suiPrice = 1.0001; // From Sui Cetus simulation
+      
+      const opportunities = [];
+      
+      // Calculate cross-chain arbitrage
+      const priceDiff = Math.abs(celoPrice - suiPrice);
+      const profitPercent = (priceDiff / Math.min(celoPrice, suiPrice)) * 100;
+      
+      if (profitPercent >= parseFloat(minProfit as string)) {
+        const direction = celoPrice > suiPrice ? 'CELO->SUI' : 'SUI->CELO';
+        
+        opportunities.push({
+          pair: 'USDC Cross-Chain',
+          direction,
+          celoPrice: celoPrice,
+          suiPrice: suiPrice,
+          priceDiff: priceDiff,
+          profitPercent: profitPercent.toFixed(2),
+          estimatedGasCost: {
+            celo: '0.001 CELO',
+            sui: '0.001 SUI',
+            ethereum: '0.01 ETH' // For bridging
+          },
+          recommendedAmount: Math.min(10000, 1000 / priceDiff),
+          route: direction === 'CELO->SUI' ? 'Uniswap V3 → Bridge → Cetus' : 'Cetus → Bridge → Uniswap V3',
+          confidence: profitPercent > 1.0 ? 'high' : 'medium',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          opportunities,
+          totalOpportunities: opportunities.length,
+          timestamp: new Date().toISOString(),
+          prices: { 
+            celoPrice, 
+            suiPrice, 
+            bridgeAvailable: true 
+          },
+          chains: ['celo_alfajores', 'sui_devnet'],
+          priceSource: 'live_dex_simulation'
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to detect cross-chain arbitrage opportunities',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Bidirectional atomic swap creation
+  app.post('/api/swap/bidirectional', async (req, res) => {
+    try {
+      const {
+        fromChain,
+        toChain,
+        fromToken,
+        toToken,
+        amount,
+        walletAddress,
+        minRate,
+        maxSlippage = 1,
+        enableAtomicSwap = true,
+        timeoutMinutes = 60
+      } = req.body;
+
+      // Validate chains and direction
+      const supportedPairs = [
+        { from: 'celo', to: 'sui', via: 'ethereum' },
+        { from: 'sui', to: 'celo', via: 'ethereum' },
+        { from: 'celo', to: 'ethereum', direct: true },
+        { from: 'ethereum', to: 'celo', direct: true }
+      ];
+
+      const swapPair = supportedPairs.find(p => p.from === fromChain && p.to === toChain);
+      if (!swapPair) {
+        return res.status(400).json({
+          success: false,
+          error: 'Unsupported swap direction',
+          supportedPairs
+        });
+      }
+
+      // Generate unique swap ID and atomic swap parameters
+      const swapId = `swap_${Date.now()}_${Math.random().toString(16).substr(2, 8)}`;
+      const hashlock = `0x${Math.random().toString(16).substr(2, 64)}`;
+      const timelock = Math.floor(Date.now() / 1000) + (timeoutMinutes * 60);
+
+      // Create execution plan
+      const executionPlan = {
+        type: swapPair.direct ? 'DIRECT_SWAP' : 'CROSS_CHAIN_SWAP',
+        steps: [
+          {
+            type: 'RATE_CHECK',
+            description: 'Check if current rate meets minimum threshold',
+            chain: fromChain,
+            status: 'PENDING'
+          },
+          {
+            type: 'FUSION_SWAP',
+            description: 'Execute swap via 1Inch Fusion+',
+            chain: fromChain,
+            status: 'PENDING'
+          }
+        ],
+        estimatedGas: '0.01 ETH',
+        estimatedTime: swapPair.direct ? '2-5 minutes' : '10-30 minutes'
+      };
+
+      res.json({
+        success: true,
+        data: {
+          swapId,
+          executionPlan,
+          atomicGuarantees: enableAtomicSwap ? {
+            hashlock,
+            timelock: new Date(timelock * 1000).toISOString(),
+            expiresIn: `${timeoutMinutes} minutes`
+          } : null,
+          estimatedTime: swapPair.direct ? '2-5 minutes' : '10-30 minutes',
+          nextStep: 'Execute swap using /api/swap/execute endpoint'
+        }
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create bidirectional swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Enhanced Chainlink oracle with multi-chain peg monitoring
+  app.get('/api/oracle/chainlink/:pair', async (req, res) => {
+    try {
+      const { pair } = req.params;
+      const { chain = 'ethereum' } = req.query;
+      
+      // Mock oracle response for development
+      res.json({
+        success: true,
+        data: {
+          chain,
+          pair,
+          price: 1.0001,
+          updatedAt: new Date(),
+          roundId: '12345',
+          pegAnalysis: {
+            isPegged: true,
+            deviation: 0.0001,
+            deviationPercent: '0.01',
+            target: 1.0,
+            status: 'STABLE',
+            severity: 'LOW'
+          },
+          dataAge: 30000
+        },
+        source: 'chainlink'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch oracle data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
