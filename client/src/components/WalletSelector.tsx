@@ -56,8 +56,16 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
   // Detect available wallets
   useEffect(() => {
     const detectWallets = () => {
-      const celoDetected = typeof window !== 'undefined' && !!window.ethereum;
-      const suiDetected = typeof window !== 'undefined' && !!window.phantom?.sui;
+      // More specific wallet detection to avoid conflicts
+      const celoDetected = typeof window !== 'undefined' && 
+                          !!window.ethereum && 
+                          !window.ethereum.isPhantom; // Exclude Phantom's ethereum provider
+      
+      const suiDetected = typeof window !== 'undefined' && (
+        !!window.phantom?.sui || // Phantom with Sui support
+        !!window.sui || // Official Sui wallet
+        !!window.suiet // Suiet wallet
+      );
 
       setWalletStates(prev => ({
         ...prev,
@@ -212,6 +220,14 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
                     <p className="text-muted-foreground mb-4">
                       Please install MetaMask browser extension to connect to Celo network
                     </p>
+                    {window.ethereum?.isPhantom && (
+                      <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                          Phantom detected, but MetaMask is recommended for Celo. 
+                          Install MetaMask for the best experience.
+                        </p>
+                      </div>
+                    )}
                     <Button asChild>
                       <a 
                         href="https://metamask.io/download/" 

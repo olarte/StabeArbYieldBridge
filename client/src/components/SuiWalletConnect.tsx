@@ -226,9 +226,9 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
     }
   }, [connected, account?.address]);
 
-  // Notify parent component when wallet state changes
+  // Notify parent component when wallet state changes (only when actually connected)
   useEffect(() => {
-    if (onWalletChange) {
+    if (onWalletChange && connected && account?.address) {
       onWalletChange({
         connected,
         account,
@@ -237,7 +237,7 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
         signAndExecuteTransactionBlock
       });
     }
-  }, [connected, account, balance, onWalletChange]);
+  }, [connected, account?.address, onWalletChange]);
 
   if (!connected) {
     return (

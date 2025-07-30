@@ -12,19 +12,36 @@ const WalletConnect = ({ onWalletChange }) => {
   const [connecting, setConnecting] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  // Connect to MetaMask
+  // Connect specifically to MetaMask for Celo
   const connectWallet = async () => {
     if (!window.ethereum) {
       alert('MetaMask is not installed!');
       return;
     }
 
+    // Force MetaMask selection
+    let provider = window.ethereum;
+    
+    // If multiple providers exist, prioritize MetaMask
+    if (window.ethereum.providers && Array.isArray(window.ethereum.providers)) {
+      const metamask = window.ethereum.providers.find(p => p.isMetaMask && !p.isPhantom);
+      if (metamask) {
+        provider = metamask;
+        console.log('Using MetaMask provider specifically for Celo');
+      }
+    } else if (window.ethereum.isPhantom) {
+      // If only Phantom is available, warn user
+      alert('Phantom detected, but MetaMask is recommended for Celo network. Please install MetaMask for the best experience.');
+      return;
+    }
+
     setConnecting(true);
     try {
-      const accounts = await window.ethereum.request({
+      // Force user to select MetaMask if multiple wallets exist
+      const accounts = await provider.request({
         method: 'eth_requestAccounts',
       });
-      const chainId = await window.ethereum.request({
+      const chainId = await provider.request({
         method: 'eth_chainId',
       });
       
