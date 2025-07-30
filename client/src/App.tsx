@@ -348,7 +348,18 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         const totalSteps = swapResult.data.executionPlan.steps.length;
         
         for (let i = 0; i < totalSteps; i++) {
-          const stepName = swapResult.data.executionPlan.steps[i].type;
+          const currentStep = swapResult.data.executionPlan.steps[i];
+          const stepName = currentStep.type;
+          
+          // Skip already completed steps
+          if (currentStep.status === 'COMPLETED') {
+            setExecutionSteps(prev => [...prev, { 
+              step: stepName, 
+              status: 'completed', 
+              message: 'Already completed' 
+            }]);
+            continue;
+          }
           
           toast({
             title: `Step ${i + 1}/${totalSteps}`,
@@ -361,24 +372,38 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             message: 'Preparing transaction...' 
           }]);
 
-          // Execute step to get transaction data
-          const stepResult = await executeSwapStep(swapId, i);
-          
-          if (stepResult.data.walletIntegration?.requiresSignature) {
-            // Sign and submit transaction
-            setExecutionSteps(prev => prev.map((s, idx) => 
-              idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
-            ));
-
-            await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
+          try {
+            // Execute step to get transaction data
+            const stepResult = await executeSwapStep(swapId, i);
             
+            if (stepResult.data.walletIntegration?.requiresSignature) {
+              // Sign and submit transaction
+              setExecutionSteps(prev => prev.map((s, idx) => 
+                idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
+              ));
+
+              await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
+              
+              setExecutionSteps(prev => prev.map((s, idx) => 
+                idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
+              ));
+            } else {
+              setExecutionSteps(prev => prev.map((s, idx) => 
+                idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Step completed automatically' } : s
+              ));
+            }
+          } catch (stepError) {
+            // If step fails, mark it as failed but continue
             setExecutionSteps(prev => prev.map((s, idx) => 
-              idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
+              idx === prev.length - 1 ? { 
+                ...s, 
+                status: 'failed', 
+                message: stepError instanceof Error ? stepError.message : 'Step failed' 
+              } : s
             ));
-          } else {
-            setExecutionSteps(prev => prev.map((s, idx) => 
-              idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Step completed automatically' } : s
-            ));
+            
+            console.warn(`Step ${i} failed:`, stepError);
+            // Continue to next step instead of stopping entire process
           }
         }
 
@@ -512,9 +537,12 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                             <div key={idx} className="flex items-center gap-1">
                               <span className={`w-2 h-2 rounded-full ${
                                 step.status === 'completed' ? 'bg-green-500' :
-                                step.status === 'executing' ? 'bg-yellow-500' : 'bg-gray-300'
+                                step.status === 'executing' ? 'bg-yellow-500' : 
+                                step.status === 'failed' ? 'bg-red-500' : 'bg-gray-300'
                               }`} />
-                              <span className="truncate">{step.step}</span>
+                              <span className="truncate" title={step.message}>
+                                {step.step} {step.status === 'failed' ? '❌' : ''}
+                              </span>
                             </div>
                           ))}
                         </div>
