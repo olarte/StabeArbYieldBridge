@@ -409,7 +409,8 @@ const CHAIN_CONFIG = {
       USDC: '0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8', // Sepolia USDC (updated)
       DAI: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6',  // Sepolia DAI
       USDT: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT
-      WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'  // Sepolia WETH
+      WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', // Sepolia WETH
+      USDY: '0x96F6eF951840721AdBF46Ac996b59E0235CB985C'  // Sepolia USDY (yield-bearing USDC)
     },
     // Updated Uniswap V3 addresses for Sepolia
     uniswap: {

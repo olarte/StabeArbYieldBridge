@@ -35,8 +35,8 @@ interface ArbitrageScanResult {
 }
 
 export function ArbitrageScanner() {
-  const [pairs, setPairs] = useState("cUSD-USDC,USDC-CELO");
-  const [minSpread, setMinSpread] = useState("0.1");
+  const [pairs, setPairs] = useState("USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY");
+  const [minSpread, setMinSpread] = useState("0.01");
   const [isScanning, setIsScanning] = useState(false);
 
   const { data: scanResult, refetch, isLoading } = useQuery<ArbitrageScanResult>({
@@ -61,7 +61,7 @@ export function ArbitrageScanner() {
           Arbitrage Scanner
         </CardTitle>
         <CardDescription className="text-slate-400">
-          Scan for arbitrage opportunities using Uniswap V3 prices on Celo
+          Scan for arbitrage opportunities using Uniswap V3 prices on Ethereum Sepolia vs Sui Testnet
         </CardDescription>
       </CardHeader>
       
