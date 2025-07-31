@@ -1058,8 +1058,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { ethereumAddress, suiAddress } = req.body;
       console.log(`📝 Transaction history request - Ethereum: ${ethereumAddress}, Sui: ${suiAddress}`);
       
-      // Get all transactions and format them for the frontend
-      const allTransactions = await storage.getTransactions();
+      // Get all transactions from storage and wallet transactions
+      const storedTransactions = await storage.getTransactions();
+      const walletTransactions = (global as any).transactionStorage || [];
+      
+      // Merge both transaction sources
+      const allTransactions = [...storedTransactions, ...walletTransactions];
       
       // Format transactions for frontend display
       const formattedTransactions = allTransactions.map(tx => {
@@ -2524,6 +2528,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to create wallet-based swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // NEW: Record wallet transaction in history
+  app.post('/api/transactions/record', async (req, res) => {
+    try {
+      const {
+        ethereumAddress,
+        suiAddress,
+        transactionHash,
+        chain,
+        fromToken,
+        toToken,
+        amount,
+        profit,
+        status = 'completed'
+      } = req.body;
+
+      console.log(`📝 Recording wallet transaction: ${chain} - ${transactionHash}`);
+
+      const swapId = generateSwapId();
+      const timestamp = new Date().toISOString();
+
+      // Store in memory storage for transaction history
+      const transactionRecord = {
+        id: swapId,
+        ethereumAddress,
+        suiAddress,
+        transactionHash,
+        chain,
+        fromToken,
+        toToken,
+        amount: parseFloat(amount),
+        profit: parseFloat(profit),
+        status,
+        timestamp,
+        type: 'wallet_swap'
+      };
+
+      // Initialize storage if needed
+      if (!(global as any).transactionStorage) {
+        (global as any).transactionStorage = [];
+      }
+
+      // Add to transaction storage
+      (global as any).transactionStorage = [transactionRecord, ...(global as any).transactionStorage].slice(0, 100);
+
+      console.log(`✅ Transaction recorded successfully: ${swapId}`);
+
+      res.json({
+        success: true,
+        data: {
+          transactionId: swapId,
+          recorded: timestamp
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Transaction recording error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to record transaction',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
