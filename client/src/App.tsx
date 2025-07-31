@@ -331,12 +331,41 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         console.log('📤 Sending MetaMask transaction request:', transactionParams);
         
         // This will prompt MetaMask popup for signature
-        transactionHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [transactionParams],
-        });
-        
-        console.log('✅ MetaMask transaction signed with hash:', transactionHash);
+        try {
+          console.log('🔄 Waiting for MetaMask user approval...');
+          console.log('👆 PLEASE CHECK YOUR METAMASK EXTENSION FOR A TRANSACTION APPROVAL POPUP');
+          
+          // Set a reasonable timeout for user interaction
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('MetaMask transaction timeout after 60 seconds')), 60000);
+          });
+          
+          const transactionPromise = window.ethereum.request({
+            method: 'eth_sendTransaction',
+            params: [transactionParams],
+          });
+          
+          transactionHash = await Promise.race([transactionPromise, timeoutPromise]);
+          
+          console.log('✅ MetaMask transaction approved! Hash:', transactionHash);
+          
+          if (!transactionHash) {
+            throw new Error('MetaMask returned empty transaction hash');
+          }
+          
+        } catch (metaMaskError: any) {
+          console.error('❌ MetaMask transaction failed:', metaMaskError);
+          
+          if (metaMaskError.code === 4001) {
+            throw new Error('Transaction rejected by user in MetaMask');
+          } else if (metaMaskError.code === -32002) {
+            throw new Error('MetaMask is already processing a request. Please check your wallet.');
+          } else if (metaMaskError.code === -32603) {
+            throw new Error('MetaMask internal error. Please try again.');
+          } else {
+            throw new Error(`MetaMask error: ${metaMaskError.message || 'Unknown error'}`);
+          }
+        }
         
       } else {
         // Use Sui wallet for Sui chain transactions
