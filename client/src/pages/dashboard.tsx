@@ -17,7 +17,7 @@ export default function Dashboard() {
   console.log('🎯 DASHBOARD COMPONENT LOADED - NEW VERSION WITH YIELD FEATURES');
   
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-50">
+    <div className="min-h-screen bg-background text-foreground">
       {/* VISIBLE INDICATOR FOR NEW VERSION */}
       <div className="fixed top-2 left-2 z-50 bg-red-500 text-white px-3 py-1 text-sm font-bold rounded shadow-lg animate-pulse">
         NEW DASHBOARD v3.0 - YIELD FEATURES ACTIVE
