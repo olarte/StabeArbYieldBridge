@@ -16,7 +16,7 @@ import WalletConnect from "@/components/WalletConnect.jsx";
 import SuiWalletConnect from "@/components/SuiWalletConnect";
 import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
 import suiIcon from "@assets/abfadeb9f40e6ad0db5e9c92c09c40e0_1753983736153.jpg";
 import ethereumIcon from "@assets/download_1753983736153.png";
 
@@ -65,6 +65,132 @@ interface SwapResult {
     total: number;
   };
   lastUpdate?: string;
+}
+
+// Portfolio Balance Component
+function PortfolioBalance() {
+  const { data: portfolioData, isLoading } = useQuery({
+    queryKey: ['/api/portfolio/balance'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const portfolio = (portfolioData as any)?.data || {};
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="w-5 h-5" />
+          Portfolio Balance
+          <Badge variant="outline" className="ml-auto">
+            Last 7 Days
+          </Badge>
+        </CardTitle>
+        <CardDescription>
+          Current balance and weekly performance across all chains
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="h-12 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+              <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Main Balance Display */}
+            <div className="text-center space-y-2">
+              <div className="text-3xl font-bold">
+                ${portfolio.currentBalance?.toFixed(4) || '0.0000'}
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                {portfolio.weeklyChange > 0 ? (
+                  <TrendingUp className="w-4 h-4 text-green-600" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-red-600" />
+                )}
+                <span className={portfolio.weeklyChange > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                  ${portfolio.weeklyChange?.toFixed(4) || '0.0000'} 
+                  ({portfolio.weeklyChangePercent?.toFixed(3) || '0.000'}%)
+                </span>
+                <span className="text-sm text-muted-foreground">this week</span>
+              </div>
+            </div>
+
+            {/* Chain Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 border rounded-lg space-y-2">
+                <div className="flex items-center gap-2">
+                  <img src={ethereumIcon} alt="Ethereum" className="w-5 h-5 rounded-full" />
+                  <span className="font-medium">Ethereum Sepolia</span>
+                </div>
+                <div className="text-xl font-bold">
+                  ${portfolio.chainBalances?.ethereum?.balance?.toFixed(4) || '0.0000'}
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-green-600 font-medium">
+                    +${portfolio.chainBalances?.ethereum?.change?.toFixed(4) || '0.0000'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    ({portfolio.chainBalances?.ethereum?.changePercent?.toFixed(3) || '0.000'}%)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg space-y-2">
+                <div className="flex items-center gap-2">
+                  <img src={suiIcon} alt="Sui" className="w-5 h-5 rounded-full" />
+                  <span className="font-medium">Sui Testnet</span>
+                </div>
+                <div className="text-xl font-bold">
+                  ${portfolio.chainBalances?.sui?.balance?.toFixed(4) || '0.0000'}
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-green-600 font-medium">
+                    +${portfolio.chainBalances?.sui?.change?.toFixed(4) || '0.0000'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    ({portfolio.chainBalances?.sui?.changePercent?.toFixed(3) || '0.000'}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+              <div className="text-center space-y-1">
+                <div className="text-sm text-muted-foreground">Total Profit</div>
+                <div className="text-green-600 font-bold">
+                  ${portfolio.performanceMetrics?.totalProfit?.toFixed(4) || '0.0000'}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-sm text-muted-foreground">Success Rate</div>
+                <div className="font-bold">
+                  {portfolio.performanceMetrics?.successRate || 0}%
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-sm text-muted-foreground">Weekly Trades</div>
+                <div className="font-bold">
+                  {portfolio.performanceMetrics?.weeklyTrades || 0}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-sm text-muted-foreground">Best Swap</div>
+                <div className="text-green-600 font-bold">
+                  ${portfolio.performanceMetrics?.bestSwap?.toFixed(4) || '0.0000'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 // Peg Protection Status Component
@@ -1057,6 +1183,7 @@ function ArbitrageTradingPage() {
         </div>
 
         <WalletSelector onWalletChange={handleWalletChange} />
+        <PortfolioBalance />
         <PegProtectionStatus />
         <LivePriceMonitor />
         <ArbitrageOpportunities 
