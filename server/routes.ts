@@ -1486,6 +1486,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`✅ Sui transaction successful: ${transactionHash}`);
         
+        // Save the successful transaction to history
+        const swapTransaction = {
+          assetPairFrom: 'SUI',
+          assetPairTo: 'USDY',
+          sourceChain: 'sui',
+          targetChain: 'sui',
+          spread: "0.10",
+          status: 'completed',
+          amount: (amount / 1000000).toString(), // Convert from MIST to SUI
+          profit: (amount * 0.001 / 1000000).toString(), // Small test profit
+          agentId: null,
+          txHash: transactionHash
+        };
+
+        // Store transaction in database
+        await storage.createTransaction(swapTransaction);
+        
         res.json({
           success: true,
           data: {
@@ -1543,6 +1560,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const explorerUrl = `https://sepolia.etherscan.io/tx/${transactionHash}`;
         
         console.log(`✅ Ethereum transaction successful: ${transactionHash}`);
+        
+        // Save the successful transaction to history
+        const swapTransaction = {
+          assetPairFrom: 'ETH',
+          assetPairTo: 'USDC',
+          sourceChain: 'ethereum',
+          targetChain: 'ethereum',
+          spread: "0.20",
+          status: 'completed',
+          amount: (Number(amount) / 1e18).toString(), // Convert from wei to ETH
+          profit: (Number(amount) * 0.002 / 1e18).toString(), // Small test profit
+          agentId: null,
+          txHash: transactionHash
+        };
+
+        // Store transaction in database
+        await storage.createTransaction(swapTransaction);
         
         res.json({
           success: true,
@@ -3591,6 +3625,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (allStepsComplete) {
         swapState.status = 'COMPLETED';
         console.log(`🎉 Swap ${swapId} fully completed!`);
+        
+        // Save the completed swap to transaction history
+        try {
+          const swapTransaction = {
+            assetPairFrom: swapState.fromToken,
+            assetPairTo: swapState.toToken,
+            sourceChain: swapState.fromChain,
+            targetChain: swapState.toChain,
+            spread: swapState.minSpread ? swapState.minSpread.toString() : "0.50",
+            status: 'completed',
+            amount: swapState.amount.toString(),
+            profit: (swapState.amount * 0.005).toString(), // Estimated 0.5% profit
+            agentId: null,
+            txHash: txHash // Use the transaction hash from the final step
+          };
+          
+          // Store transaction in database
+          await storage.createTransaction(swapTransaction);
+          console.log(`📝 Saved completed swap ${swapId} to transaction history`);
+          
+        } catch (saveError) {
+          console.error('Failed to save completed swap to history:', saveError);
+        }
       }
 
       swapState.updatedAt = new Date().toISOString();
@@ -5435,6 +5492,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate progress
       const completedSteps = atomicSwap.executionPlan.steps.filter((s: any) => s.status === 'COMPLETED').length;
       const progress = (completedSteps / atomicSwap.executionPlan.steps.length) * 100;
+      
+      // Save to transaction history when atomic swap is fully completed
+      if (progress === 100 && atomicSwap.status === 'COMPLETED') {
+        try {
+          const swapTransaction = {
+            assetPairFrom: atomicSwap.fromToken,
+            assetPairTo: atomicSwap.toToken,
+            sourceChain: atomicSwap.fromChain,
+            targetChain: atomicSwap.toChain,
+            spread: atomicSwap.minSpread ? atomicSwap.minSpread.toString() : "0.75",
+            status: 'completed',
+            amount: atomicSwap.amount.toString(),
+            profit: (atomicSwap.amount * 0.0075).toString(), // Estimated 0.75% profit for atomic swaps
+            agentId: null,
+            txHash: atomicSwap.suiState?.redeemTxHash || atomicSwap.ethereumState?.lockTxHash || `atomic-${swapId}`
+          };
+          
+          // Store transaction in database
+          await storage.createTransaction(swapTransaction);
+          console.log(`📝 Saved completed atomic swap ${swapId} to transaction history`);
+          
+        } catch (saveError) {
+          console.error('Failed to save atomic swap to history:', saveError);
+        }
+      }
 
       res.json({
         success: true,
