@@ -22,6 +22,7 @@ import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "l
 declare global {
   interface Window {
     ethereum?: any;
+    suiWallet?: any;
   }
 }
 interface ArbOpportunity {
@@ -636,7 +637,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
     }
   };
 
-  // Execute complete arbitrage flow
+  // Real wallet-based arbitrage execution
   const executeArbMutation = useMutation({
     mutationFn: async (opportunity: any) => {
       const amount = parseFloat(swapAmounts[opportunity.id] || '1');
@@ -644,97 +645,150 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         throw new Error('Please enter a valid amount greater than 0');
       }
       
+      // Validate both wallets are connected
+      if (!walletConnections?.account || !suiWalletInfo?.account?.address) {
+        throw new Error('Both Ethereum and Sui wallets must be connected for cross-chain swaps');
+      }
+      
       setSelectedOpportunity(opportunity.id);
       setExecutionSteps([]);
 
       try {
-        // Step 1: Register wallet session
+        // Step 1: Create wallet-based swap plan
         toast({
-          title: "Starting Arbitrage",
-          description: `Registering wallet session for $${amount} swap...`,
+          title: "Creating Real Wallet Swap",
+          description: `Preparing bidirectional swap for $${amount}...`,
         });
 
-        const { sessionId } = await registerWalletSession();
-        
         setExecutionSteps(prev => [...prev, { 
-          step: 'Wallet Session', 
+          step: 'Wallet Validation', 
           status: 'completed', 
-          message: 'Wallets registered successfully' 
+          message: 'Both wallets connected and validated' 
         }]);
 
-        // Step 2: Create atomic swap
-        toast({
-          title: "Creating Swap",
-          description: `Setting up atomic swap for $${amount}...`,
+        // Determine swap direction based on opportunity
+        const sourceChain = opportunity.direction === 'SUI→ETH' ? 'sui' : 'ethereum';
+        const targetChain = opportunity.direction === 'SUI→ETH' ? 'ethereum' : 'sui';
+
+        // Step 2: Create wallet-based swap transactions
+        const swapResponse = await fetch('/api/swap/wallet-bidirectional', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sourceChain,
+            targetChain,
+            fromToken: opportunity.assetPairFrom,
+            toToken: opportunity.assetPairTo,
+            amount: amount.toString(),
+            ethereumAddress: walletConnections.account,
+            suiAddress: suiWalletInfo.account.address,
+            swapType: 'direct' // Use direct swaps for now, atomic swaps can be enabled later
+          })
         });
 
-        const swapResult = await createAtomicSwap(opportunity, sessionId, amount);
-        const swapId = swapResult.data.swapId;
+        if (!swapResponse.ok) {
+          throw new Error(`Failed to create swap plan: ${swapResponse.status}`);
+        }
+
+        const swapPlan = await swapResponse.json();
         
         setExecutionSteps(prev => [...prev, { 
-          step: 'Atomic Swap Created', 
+          step: 'Swap Plan Created', 
           status: 'completed', 
-          message: `Swap ID: ${swapId}` 
+          message: `${swapPlan.data.transactions.length} transactions prepared` 
         }]);
 
-        // Step 3: Execute each step with wallet signatures
-        const totalSteps = swapResult.data.executionPlan.steps.length;
-        
-        for (let i = 0; i < totalSteps; i++) {
-          const currentStep = swapResult.data.executionPlan.steps[i];
-          const stepName = currentStep.type;
+        // Step 3: Execute each transaction with real wallet signatures
+        for (let i = 0; i < swapPlan.data.transactions.length; i++) {
+          const transaction = swapPlan.data.transactions[i];
+          const stepName = `${transaction.chain.toUpperCase()} Transaction`;
           
-          // Skip already completed steps
-          if (currentStep.status === 'COMPLETED') {
-            setExecutionSteps(prev => [...prev, { 
-              step: stepName, 
-              status: 'completed', 
-              message: 'Already completed' 
-            }]);
-            continue;
-          }
-          
-          toast({
-            title: `Step ${i + 1}/${totalSteps}`,
-            description: `Executing ${stepName}...`,
-          });
-
           setExecutionSteps(prev => [...prev, { 
             step: stepName, 
             status: 'executing', 
-            message: 'Preparing transaction...' 
+            message: 'Please sign transaction in your wallet...' 
           }]);
 
           try {
-            // Execute step to get transaction data
-            const stepResult = await executeSwapStep(swapId, i);
+            let txHash = '';
             
-            // ALWAYS require wallet signature for real transactions
-            setExecutionSteps(prev => prev.map((s, idx) => 
-              idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
-            ));
+            if (transaction.chain === 'ethereum' && transaction.walletType === 'metamask') {
+              // Execute Ethereum transaction with MetaMask
+              if (!window.ethereum) {
+                throw new Error('MetaMask not installed');
+              }
 
-            await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
-            
+              const txParams = {
+                to: transaction.transaction.to,
+                data: transaction.transaction.data,
+                value: transaction.transaction.value || '0x0',
+                gas: transaction.transaction.gasLimit || '0x5208'
+              };
+
+              toast({
+                title: "MetaMask Signature Required",
+                description: "Please sign the Ethereum transaction in MetaMask",
+              });
+
+              txHash = await window.ethereum.request({
+                method: 'eth_sendTransaction',
+                params: [{ ...txParams, from: walletConnections.account }],
+              });
+
+              console.log(`✅ Ethereum transaction signed: ${txHash}`);
+              
+            } else if (transaction.chain === 'sui' && transaction.walletType === 'sui') {
+              // Execute Sui transaction with Sui Wallet Kit
+              if (!suiWalletInfo?.signAndExecuteTransactionBlock) {
+                throw new Error('Sui wallet not connected or does not support transaction signing');
+              }
+
+              toast({
+                title: "Sui Wallet Signature Required", 
+                description: "Please sign the Sui transaction in your wallet",
+              });
+
+              // Use the Sui wallet kit's signAndExecuteTransactionBlock method
+              const result = await suiWalletInfo.signAndExecuteTransactionBlock({
+                transactionBlock: transaction.transaction.transactionBlock,
+                account: suiWalletInfo.account,
+                chain: 'sui:testnet',
+              });
+
+              txHash = result.digest;
+              console.log(`✅ Sui transaction signed: ${txHash}`);
+            }
+
+            // Update step as completed
             setExecutionSteps(prev => prev.map((s, idx) => 
-              idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
-            ));
-          } catch (stepError) {
-            // If step fails, mark it as failed but continue
-            setExecutionSteps(prev => prev.map((s, idx) => 
-              idx === prev.length - 1 ? { 
+              s.step === stepName ? { 
                 ...s, 
-                status: 'failed', 
-                message: stepError instanceof Error ? stepError.message : 'Step failed' 
+                status: 'completed', 
+                message: `Transaction confirmed: ${txHash.slice(0, 10)}...` 
               } : s
             ));
+
+            toast({
+              title: "Transaction Confirmed",
+              description: `${transaction.chain.toUpperCase()} transaction successful`,
+            });
+
+          } catch (walletError) {
+            console.error(`${transaction.chain} transaction failed:`, walletError);
             
-            console.warn(`Step ${i} failed:`, stepError);
-            // Continue to next step instead of stopping entire process
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              s.step === stepName ? { 
+                ...s, 
+                status: 'failed', 
+                message: walletError instanceof Error ? walletError.message : 'Transaction failed' 
+              } : s
+            ));
+
+            throw new Error(`${transaction.chain} transaction failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`);
           }
         }
 
-        return { swapId, steps: totalSteps };
+        return { swapId: swapPlan.data.swapId, steps: swapPlan.data.transactions.length };
       } catch (error) {
         console.error('Arbitrage execution failed:', error);
         

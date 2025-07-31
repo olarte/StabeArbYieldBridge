@@ -2422,6 +2422,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NEW: Real wallet-based bidirectional swap
+  app.post('/api/swap/wallet-bidirectional', async (req, res) => {
+    try {
+      const {
+        sourceChain,
+        targetChain,
+        fromToken,
+        toToken,
+        amount,
+        ethereumAddress,
+        suiAddress,
+        swapType = 'direct' // 'direct' or 'atomic'
+      } = req.body;
+
+      console.log(`🌉 Creating real wallet-based swap: ${sourceChain} → ${targetChain}`);
+
+      // Import the wallet swap manager
+      const { WalletSwapManager } = await import('./wallet-swap');
+      const swapManager = new WalletSwapManager();
+
+      if (swapType === 'atomic') {
+        // Create atomic cross-chain swap
+        const atomicSwap = await swapManager.createCrossChainAtomicSwap({
+          sourceChain: sourceChain as 'ethereum' | 'sui',
+          targetChain: targetChain as 'ethereum' | 'sui',
+          fromToken,
+          toToken,
+          amount,
+          ethereumAddress,
+          suiAddress,
+          timeoutMinutes: 120
+        });
+
+        res.json({
+          success: true,
+          data: {
+            swapId: atomicSwap.swapId,
+            swapType: 'atomic',
+            secret: atomicSwap.secret,
+            hashlock: atomicSwap.hashlock,
+            timelock: atomicSwap.timelock,
+            steps: atomicSwap.steps,
+            instructions: [
+              'Step 1: Sign the transaction on the source chain to lock your tokens',
+              'Step 2: Wait for confirmation, then sign the claim transaction on the target chain',
+              'Both transactions must be completed within the timelock period'
+            ]
+          }
+        });
+      } else {
+        // Create direct swap transactions
+        let transactions = [];
+
+        if (sourceChain === 'ethereum') {
+          const ethTx = await swapManager.createEthereumSwapTransaction({
+            fromToken,
+            toToken,
+            amount,
+            userAddress: ethereumAddress,
+            slippageTolerance: 1
+          });
+          transactions.push({
+            chain: 'ethereum',
+            transaction: ethTx,
+            walletType: 'metamask'
+          });
+        }
+
+        if (targetChain === 'sui') {
+          const suiTx = await swapManager.createSuiSwapTransaction({
+            fromToken,
+            toToken,
+            amount,
+            userAddress: suiAddress
+          });
+          transactions.push({
+            chain: 'sui',
+            transaction: suiTx,
+            walletType: 'sui'
+          });
+        }
+
+        res.json({
+          success: true,
+          data: {
+            swapId: `wallet_swap_${Date.now()}`,
+            swapType: 'direct',
+            transactions,
+            instructions: [
+              'Sign each transaction with your connected wallet',
+              'MetaMask for Ethereum transactions',
+              'Sui Wallet for Sui transactions'
+            ]
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('Wallet-based swap error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create wallet-based swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Enhanced bidirectional swap for Ethereum Sepolia → Sui Testnet
   app.post('/api/swap/bidirectional-ethereum-sui', async (req, res) => {
     try {
