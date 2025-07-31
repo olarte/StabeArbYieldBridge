@@ -366,3 +366,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Fusion+ Integration Enhanced**: Improved 1Inch Fusion+ swap logic with MEV protection and gas optimization specifically for USDC trading
 - ✅ **Bridge-Ready Architecture**: Added cross-chain bridge configuration supporting Wormhole/LayerZero protocols for USDC transfers
 - ✅ **Yield Optimization Integration**: Integrated Cetus DEX swap to USDY for automatic yield generation on Sui network
+- ✅ **Enhanced AtomicSwapState Class**: Implemented comprehensive atomic swap state management with cross-chain tracking, limit order management, and peg protection
+- ✅ **Advanced State Tracking**: Added Ethereum and Sui state tracking with transaction hashes, gas monitoring, and object ID management
+- ✅ **Intelligent Peg Protection**: Built-in peg deviation monitoring with violation tracking and automatic safety recommendations
+- ✅ **Limit Order Integration**: Enhanced limit order management for both Ethereum (Fusion+) and Sui (Cetus) with status tracking
+- ✅ **Atomic Status Endpoint**: Created /api/swap/atomic-status/:swapId for comprehensive swap monitoring with real-time peg updates

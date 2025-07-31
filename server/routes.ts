@@ -9,6 +9,164 @@ import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schem
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
+// Enhanced swap state for Ethereum-Sui atomic swaps
+class AtomicSwapState {
+  constructor(params) {
+    // Base swap properties
+    this.swapId = params.swapId;
+    this.fromChain = params.fromChain;
+    this.toChain = params.toChain;
+    this.fromToken = params.fromToken;
+    this.toToken = params.toToken;
+    this.amount = params.amount;
+    this.walletSession = params.walletSession;
+    this.minSpread = params.minSpread || 0.5;
+    this.maxSlippage = params.maxSlippage || 1.0;
+    this.enableAtomicSwap = params.enableAtomicSwap || true;
+    this.status = 'INITIATED';
+    this.createdAt = new Date().toISOString();
+    this.updatedAt = new Date().toISOString();
+    
+    // Atomic swap specific properties
+    this.hashlockContract = null;
+    this.sepoliaLockTx = null;
+    this.suiRedeemTx = null;
+    this.refundTimelock = null;
+    this.hashlock = params.hashlock;
+    this.secret = params.secret;
+    this.timelock = params.timelock;
+    
+    // Cross-chain state tracking
+    this.ethereumState = {
+      locked: false,
+      lockTxHash: null,
+      lockAmount: null,
+      lockTimestamp: null,
+      gasUsed: null,
+      contractAddress: null
+    };
+    
+    this.suiState = {
+      redeemed: false,
+      redeemTxHash: null,
+      redeemAmount: null,
+      redeemTimestamp: null,
+      gasUsed: null,
+      objectIds: []
+    };
+    
+    // Limit order management
+    this.limitOrders = {
+      ethereum: {
+        orderId: null,
+        orderData: null,
+        status: 'PENDING',
+        fusionPlus: false
+      },
+      sui: {
+        orderId: null,
+        orderData: null,
+        status: 'PENDING',
+        cetusDex: false
+      },
+      status: 'PENDING'
+    };
+    
+    // Peg protection state
+    this.pegProtection = {
+      initialCheck: null,
+      continuousMonitoring: true,
+      lastCheck: null,
+      violations: [],
+      safeToSwap: true,
+      deviationThreshold: 5.0
+    };
+
+    // Execution plan
+    this.executionPlan = params.executionPlan || null;
+    this.steps = [];
+    this.currentStep = 0;
+  }
+  
+  updateEthereumState(state) {
+    this.ethereumState = { ...this.ethereumState, ...state };
+    this.updatedAt = new Date().toISOString();
+    console.log(`🔗 Ethereum state updated for ${this.swapId}:`, state);
+  }
+  
+  updateSuiState(state) {
+    this.suiState = { ...this.suiState, ...state };
+    this.updatedAt = new Date().toISOString();
+    console.log(`🌊 Sui state updated for ${this.swapId}:`, state);
+  }
+
+  updateLimitOrder(chain, orderData) {
+    if (this.limitOrders[chain]) {
+      this.limitOrders[chain] = { ...this.limitOrders[chain], ...orderData };
+      this.updatedAt = new Date().toISOString();
+      console.log(`📊 ${chain} limit order updated for ${this.swapId}:`, orderData);
+    }
+  }
+
+  updatePegProtection(pegData) {
+    this.pegProtection = { ...this.pegProtection, ...pegData };
+    this.pegProtection.lastCheck = new Date().toISOString();
+    this.updatedAt = new Date().toISOString();
+    
+    // Check for violations
+    if (pegData.deviation && Math.abs(pegData.deviation) > this.pegProtection.deviationThreshold) {
+      this.pegProtection.violations.push({
+        timestamp: new Date().toISOString(),
+        deviation: pegData.deviation,
+        threshold: this.pegProtection.deviationThreshold
+      });
+      this.pegProtection.safeToSwap = false;
+      console.log(`⚠️ Peg violation detected for ${this.swapId}: ${pegData.deviation}%`);
+    }
+  }
+
+  isExpired() {
+    return Date.now() / 1000 > this.timelock;
+  }
+
+  canRefund() {
+    return this.isExpired() && this.ethereumState.locked && !this.suiState.redeemed;
+  }
+
+  getProgress() {
+    if (!this.executionPlan?.steps) return 0;
+    const completedSteps = this.executionPlan.steps.filter(s => s.status === 'COMPLETED').length;
+    return (completedSteps / this.executionPlan.steps.length) * 100;
+  }
+
+  toJSON() {
+    return {
+      swapId: this.swapId,
+      fromChain: this.fromChain,
+      toChain: this.toChain,
+      fromToken: this.fromToken,
+      toToken: this.toToken,
+      amount: this.amount,
+      status: this.status,
+      progress: this.getProgress(),
+      ethereumState: this.ethereumState,
+      suiState: this.suiState,
+      limitOrders: this.limitOrders,
+      pegProtection: this.pegProtection,
+      atomicGuarantees: {
+        hashlock: this.hashlock,
+        timelock: this.timelock,
+        timelockISO: new Date(this.timelock * 1000).toISOString(),
+        canRefund: this.canRefund(),
+        isExpired: this.isExpired()
+      },
+      executionPlan: this.executionPlan,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt
+    };
+  }
+}
+
 // Enhanced chain configurations for Ethereum Sepolia
 const CHAIN_CONFIG = {
   ethereum: {
@@ -1216,14 +1374,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Store swap state for execution tracking
-      const swapStates = (global as any).atomicSwapStates || new Map();
-      swapStates.set(response.data.swapId, {
-        ...response.data,
-        status: 'CREATED',
-        createdAt: new Date().toISOString(),
-        currentStep: 0
+      // Create enhanced atomic swap state
+      const atomicSwap = new AtomicSwapState({
+        swapId: response.data.swapId,
+        fromChain: 'ethereum',
+        toChain: 'sui',
+        fromToken: 'USDC',
+        toToken: 'USDC/USDY',
+        amount: parseFloat(amount),
+        walletSession: { ethereumAddress: walletAddress, suiAddress: null },
+        minSpread: 0.5,
+        maxSlippage: slippageTolerance,
+        enableAtomicSwap: true,
+        hashlock: randomBytes(32).toString('hex'),
+        secret: randomBytes(32).toString('hex'), 
+        timelock: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutes
+        executionPlan: response.data.executionPlan
       });
+
+      atomicSwap.status = 'CREATED';
+      
+      // Initialize peg protection with current spread data
+      atomicSwap.updatePegProtection({
+        initialCheck: {
+          timestamp: new Date().toISOString(),
+          ethereumPrice: sepoliaPrice.data.price.token0ToToken1,
+          suiPrice: suiPrice.data.price.token0ToToken1,
+          spread: spreadPercentage,
+          safeToSwap: spreadPercentage < 5.0
+        },
+        safeToSwap: spreadPercentage < 5.0,
+        deviation: spreadPercentage
+      });
+
+      // Store enhanced swap state
+      const swapStates = (global as any).atomicSwapStates || new Map();
+      swapStates.set(response.data.swapId, atomicSwap);
       (global as any).atomicSwapStates = swapStates;
 
       res.json(response);
@@ -1233,6 +1419,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to create cross-chain USDC swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Enhanced atomic swap status endpoint with state tracking
+  app.get('/api/swap/atomic-status/:swapId', async (req, res) => {
+    try {
+      const { swapId } = req.params;
+      const swapStates = (global as any).atomicSwapStates || new Map();
+      const atomicSwap = swapStates.get(swapId);
+
+      if (!atomicSwap) {
+        return res.status(404).json({
+          success: false,
+          error: 'Atomic swap not found'
+        });
+      }
+
+      // Update peg protection with fresh data if monitoring is enabled
+      if (atomicSwap.pegProtection.continuousMonitoring) {
+        const [sepoliaPrice, suiPrice] = await Promise.all([
+          fetch('http://localhost:5000/api/uniswap/price/USDC-WETH').then(r => r.json()),
+          fetch('http://localhost:5000/api/cetus/price/USDC-USDY').then(r => r.json())
+        ]);
+
+        if (sepoliaPrice.success && suiPrice.success) {
+          const currentSpread = Math.abs(sepoliaPrice.data.price.token0ToToken1 - suiPrice.data.price.token0ToToken1);
+          const currentSpreadPercentage = (currentSpread / sepoliaPrice.data.price.token0ToToken1) * 100;
+          
+          atomicSwap.updatePegProtection({
+            currentCheck: {
+              timestamp: new Date().toISOString(),
+              ethereumPrice: sepoliaPrice.data.price.token0ToToken1,
+              suiPrice: suiPrice.data.price.token0ToToken1,
+              spread: currentSpreadPercentage
+            },
+            deviation: currentSpreadPercentage,
+            safeToSwap: currentSpreadPercentage < atomicSwap.pegProtection.deviationThreshold
+          });
+        }
+      }
+
+      // Check expiration and refund eligibility
+      const timeRemaining = Math.max(0, atomicSwap.timelock - Math.floor(Date.now() / 1000));
+      const canExecute = !atomicSwap.isExpired() && atomicSwap.pegProtection.safeToSwap;
+
+      res.json({
+        success: true,
+        data: {
+          ...atomicSwap.toJSON(),
+          timeRemaining,
+          canExecute,
+          recommendations: {
+            action: atomicSwap.isExpired() ? 'REFUND' : (canExecute ? 'CONTINUE' : 'WAIT'),
+            reason: atomicSwap.isExpired() ? 'Swap has expired' : 
+                   (!atomicSwap.pegProtection.safeToSwap ? 'Peg protection triggered' : 'Safe to proceed')
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Atomic swap status error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get atomic swap status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Demo endpoint to show AtomicSwapState functionality
+  app.post('/api/swap/demo-atomic-state', async (req, res) => {
+    try {
+      const { swapId } = req.body;
+      const swapStates = (global as any).atomicSwapStates || new Map();
+      const atomicSwap = swapStates.get(swapId);
+
+      if (!atomicSwap) {
+        return res.status(404).json({
+          success: false,
+          error: 'Atomic swap not found'
+        });
+      }
+
+      // Demonstrate state update methods
+      console.log('🧪 Demonstrating AtomicSwapState functionality...');
+
+      // Update Ethereum state (simulating transaction completion)
+      atomicSwap.updateEthereumState({
+        locked: true,
+        lockTxHash: '0x' + randomBytes(32).toString('hex'),
+        lockAmount: atomicSwap.amount,
+        lockTimestamp: new Date().toISOString(),
+        gasUsed: '21000',
+        contractAddress: '0x' + randomBytes(20).toString('hex')
+      });
+
+      // Update limit order on Ethereum
+      atomicSwap.updateLimitOrder('ethereum', {
+        orderId: 'fusion_' + randomBytes(8).toString('hex'),
+        orderData: {
+          amount: atomicSwap.amount,
+          price: 1.0001,
+          type: 'fusion_plus'
+        },
+        status: 'FILLED',
+        fusionPlus: true
+      });
+
+      // Update peg protection with violation scenario
+      atomicSwap.updatePegProtection({
+        deviation: 6.2, // Above 5% threshold
+        currentPrice: {
+          ethereum: 1.00062,
+          sui: 0.94440
+        },
+        riskLevel: 'HIGH'
+      });
+
+      // Update Sui state (simulating redemption)
+      atomicSwap.updateSuiState({
+        redeemed: true,
+        redeemTxHash: randomBytes(32).toString('hex'),
+        redeemAmount: atomicSwap.amount * 0.999,
+        redeemTimestamp: new Date().toISOString(),
+        gasUsed: '1000000',
+        objectIds: ['0x' + randomBytes(32).toString('hex')]
+      });
+
+      // Final status update
+      atomicSwap.status = 'COMPLETED';
+
+      res.json({
+        success: true,
+        data: {
+          message: 'AtomicSwapState demonstration completed',
+          swapId: atomicSwap.swapId,
+          finalState: atomicSwap.toJSON(),
+          stateUpdateLog: [
+            '✅ Ethereum state updated with lock transaction',
+            '✅ Fusion+ limit order status updated',
+            '⚠️ Peg violation detected and logged (6.2% > 5.0%)',
+            '✅ Sui state updated with redemption transaction',
+            '✅ Swap status marked as COMPLETED'
+          ],
+          demoFeatures: {
+            crossChainTracking: 'Both Ethereum and Sui states tracked independently',
+            limitOrderManagement: 'Fusion+ and Cetus DEX order tracking',
+            pegProtection: 'Real-time deviation monitoring with violation logging',
+            atomicGuarantees: 'Hashlock, timelock, and refund capabilities',
+            progressTracking: `${atomicSwap.getProgress()}% complete`,
+            expirationHandling: atomicSwap.isExpired() ? 'EXPIRED' : 'ACTIVE'
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('AtomicSwapState demo error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to demonstrate AtomicSwapState',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // List all active atomic swaps
+  app.get('/api/swap/list-atomic', async (req, res) => {
+    try {
+      const swapStates = (global as any).atomicSwapStates || new Map();
+      const swaps = Array.from(swapStates.values()).map(swap => ({
+        swapId: swap.swapId,
+        status: swap.status,
+        fromChain: swap.fromChain,
+        toChain: swap.toChain,
+        amount: swap.amount,
+        progress: swap.getProgress(),
+        timeRemaining: Math.max(0, swap.timelock - Math.floor(Date.now() / 1000)),
+        isExpired: swap.isExpired(),
+        canRefund: swap.canRefund(),
+        pegProtectionSafe: swap.pegProtection.safeToSwap,
+        createdAt: swap.createdAt,
+        updatedAt: swap.updatedAt
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          totalSwaps: swaps.length,
+          activeSwaps: swaps.filter(s => !s.isExpired).length,
+          expiredSwaps: swaps.filter(s => s.isExpired).length,
+          swaps
+        }
+      });
+
+    } catch (error) {
+      console.error('List atomic swaps error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to list atomic swaps',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
