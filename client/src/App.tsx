@@ -327,12 +327,24 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           console.warn('⚠️ Network check failed, continuing anyway:', networkError);
         }
         
+        // Get current gas price from network for Celo
+        let gasPrice = '0x12A05F200'; // 5 gwei default
+        try {
+          const networkGasPrice = await window.ethereum.request({ method: 'eth_gasPrice' });
+          const gasPriceNum = parseInt(networkGasPrice, 16);
+          const adjustedGasPrice = Math.max(gasPriceNum * 1.2, 5000000000); // 20% higher than network, minimum 5 gwei
+          gasPrice = '0x' + Math.floor(adjustedGasPrice).toString(16);
+          console.log('🔥 Using dynamic gas price:', gasPrice, '(', Math.floor(adjustedGasPrice / 1000000000), 'gwei )');
+        } catch (gasPriceError) {
+          console.warn('⚠️ Could not fetch gas price, using default:', gasPrice);
+        }
+
         const transactionParams = {
           to: '0x391f48752acd48271040466d748fcb367f2d2a1f',
           from: walletConnections.account,
-          value: '0x0', // 0 ETH
-          gas: '0x5208', // 21000 gas
-          gasPrice: '0x773594000', // 2 gwei
+          value: '0x0', // 0 ETH/CELO
+          gas: '0x7530', // 30000 gas (higher for Celo)
+          gasPrice: gasPrice,
           data: `0x${Buffer.from(`ArbitrageStep${stepIndex + 1}_${Date.now()}`, 'utf8').toString('hex')}`
         };
         
