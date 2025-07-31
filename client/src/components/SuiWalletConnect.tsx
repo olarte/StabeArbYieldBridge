@@ -193,6 +193,7 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
       const delayedWallets = checkWalletExtensions();
       console.log('SuiWallet: Delayed scan detected wallets:', delayedWallets);
       
+      // Only update if we found new wallets to prevent infinite loops
       if (delayedWallets.length > initialWallets.length) {
         console.log('SuiWallet: Found additional wallets after delay');
         setAvailableWallets(delayedWallets);
