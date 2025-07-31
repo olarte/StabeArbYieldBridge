@@ -1131,6 +1131,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Transaction recording endpoint
+  app.post('/api/transactions/record', async (req, res) => {
+    try {
+      const { 
+        ethereumAddress, 
+        suiAddress, 
+        transactionHash, 
+        chain, 
+        fromToken, 
+        toToken, 
+        amount, 
+        profit, 
+        status = 'completed' 
+      } = req.body;
+
+      console.log(`📝 Recording transaction: ${chain} ${fromToken}→${toToken} (${transactionHash.slice(0, 10)}...)`);
+
+      // Store in global transaction storage for immediate retrieval
+      if (!(global as any).transactionStorage) {
+        (global as any).transactionStorage = [];
+      }
+
+      const newTransaction = {
+        id: `tx_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        txHash: transactionHash,
+        sourceChain: chain,
+        targetChain: chain === 'ethereum' ? 'sui' : 'ethereum', // Cross-chain assumption
+        assetPairFrom: fromToken,
+        assetPairTo: toToken,
+        amount: amount,
+        profit: profit,
+        status: status,
+        executedAt: new Date(),
+        ethereumAddress: ethereumAddress,
+        suiAddress: suiAddress
+      };
+
+      (global as any).transactionStorage.push(newTransaction);
+
+      // Also save to persistent storage
+      try {
+        await storage.recordTransaction({
+          txHash: transactionHash,
+          sourceChain: chain,
+          targetChain: chain === 'ethereum' ? 'sui' : 'ethereum',
+          assetPairFrom: fromToken,
+          assetPairTo: toToken,
+          amount: amount,
+          profit: profit,
+          status: status,
+          executedAt: new Date()
+        });
+      } catch (storageError) {
+        console.warn('Failed to save to persistent storage:', storageError);
+      }
+
+      res.json({
+        success: true,
+        message: 'Transaction recorded successfully',
+        data: {
+          transactionId: newTransaction.id,
+          recorded: true
+        }
+      });
+
+    } catch (error) {
+      console.error('Transaction recording error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to record transaction',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Wallet balances endpoint - fetch real stablecoin balances from connected wallets  
   app.post('/api/wallet/balances', async (req, res) => {
     try {

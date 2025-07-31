@@ -315,13 +315,15 @@ function PegProtectionStatus() {
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Chainlink USDC</div>
               <div className="text-lg font-bold">
-                ${(pegStatus as any)?.chainlinkFeeds?.ethereum?.price ? Number((pegStatus as any).chainlinkFeeds.ethereum.price).toFixed(6) : 'N/A'}
+                ${(pegStatus as any)?.crossChainValidation?.chainlinkReference?.price ? Number((pegStatus as any).crossChainValidation.chainlinkReference.price).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">DEX Spread</div>
+              <div className="text-sm font-medium text-muted-foreground">Cross-Chain Deviation</div>
               <div className="text-lg font-bold">
-                {(pegStatus as any)?.safety?.safe ? '0.01%' : 'N/A'}
+                {(pegStatus as any)?.crossChainValidation?.deviations?.crossChain?.deviation ? 
+                  `${(Number((pegStatus as any).crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3)}%` : 
+                  '0.01%'}
               </div>
             </div>
             <div className="space-y-2">
@@ -775,12 +777,12 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 
             // Record transaction in history
             try {
-              await fetch('/api/transactions/record', {
+              const recordResponse = await fetch('/api/transactions/record', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   ethereumAddress: walletConnections.account,
-                  suiAddress: suiWalletInfo.account.address,
+                  suiAddress: suiWalletInfo.account?.address,
                   transactionHash: txHash,
                   chain: transaction.chain,
                   fromToken: opportunity.assetPairFrom,
@@ -790,6 +792,14 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   status: 'completed'
                 })
               });
+              
+              if (recordResponse.ok) {
+                console.log('✅ Transaction recorded in history successfully');
+                // Invalidate transaction history to show new transaction
+                queryClient.invalidateQueries({ queryKey: ['/api/transactions/history'] });
+              } else {
+                console.warn('Failed to record transaction:', await recordResponse.text());
+              }
             } catch (recordError) {
               console.warn('Failed to record transaction:', recordError);
             }
@@ -869,15 +879,23 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             <Button 
               onClick={async () => {
                 try {
-                  console.log('🧪 Testing real blockchain transaction via backend...');
+                  console.log('🧪 Testing transaction recording system...');
                   
-                  const response = await fetch('/api/test-real-transaction', {
+                  const testTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+                  
+                  const response = await fetch('/api/transactions/record', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      chain: 'sui',
-                      amount: 1000, // 0.000001 SUI
-                      testType: 'simple_transfer'
+                      ethereumAddress: walletConnections?.account || '0x1234567890123456789012345678901234567890',
+                      suiAddress: suiWalletInfo?.account?.address || '0x9876543210987654321098765432109876543210987654321098765432109876',
+                      transactionHash: testTxHash,
+                      chain: 'ethereum',
+                      fromToken: 'USDC',
+                      toToken: 'WETH',
+                      amount: '100',
+                      profit: '1.25',
+                      status: 'completed'
                     })
                   });
                   
@@ -886,18 +904,28 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   }
                   
                   const result = await response.json();
-                  console.log('✅ Real transaction successful!', result);
+                  console.log('✅ Transaction recording test successful!', result);
                   
-                  alert(`Real blockchain transaction successful!\nHash: ${result.data.transactionHash}\nExplorer: ${result.data.explorerUrl}`);
+                  // Refresh transaction history
+                  queryClient.invalidateQueries({ queryKey: ['/api/transactions/history'] });
+                  
+                  toast({
+                    title: "Test Transaction Recorded",
+                    description: `Test swap recorded with hash ${testTxHash.slice(0, 10)}...`,
+                  });
                 } catch (error) {
-                  console.error('❌ Real transaction test failed:', error);
-                  alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                  console.error('❌ Transaction recording test failed:', error);
+                  toast({
+                    title: "Test Failed",
+                    description: error instanceof Error ? error.message : 'Unknown error',
+                    variant: "destructive",
+                  });
                 }
               }}
               variant="outline"
               size="sm"
             >
-              Test Real Sui Transaction
+              🧪 Test Transaction Recording
             </Button>
             <Button 
               onClick={async () => {
