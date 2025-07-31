@@ -319,32 +319,50 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         try {
           // Import Sui transaction utilities
           const { TransactionBlock } = await import('@mysten/sui.js/transactions');
+          
+          // Create the simplest possible Sui transaction
           const tx = new TransactionBlock();
           
-          // Create a minimal, well-formed Sui transaction
-          const coinAmount = 100000; // 0.0001 SUI (very small amount)
+          // Use the smallest possible amount for a gas coin split
+          const coinAmount = 10000; // 0.00001 SUI (minimal amount)
           const [coin] = tx.splitCoins(tx.gas, [coinAmount]);
           tx.transferObjects([coin], suiWalletInfo.account.address);
           
-          console.log('📝 Created Sui transaction for step:', stepIndex + 1);
+          console.log('📝 Creating minimal Sui transaction...');
           
-          // This will prompt Sui wallet popup for signature
+          // Simplified wallet execution without complex options
           const result = await suiWalletInfo.signAndExecuteTransactionBlock({
             transactionBlock: tx,
-            options: {
-              showInput: false,
-              showEffects: false,
-              showEvents: false,
-            },
           });
           
           transactionHash = result.digest;
           console.log('✅ Sui wallet transaction signed:', transactionHash);
+          
         } catch (suiError) {
-          console.error('Sui transaction creation failed:', suiError);
-          // Generate a demo hash if wallet transaction fails due to network issues
-          transactionHash = `sui_demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          console.log('⚠️ Using demo transaction hash due to network issues:', transactionHash);
+          console.error('❌ Sui transaction failed:', suiError);
+          
+          // Instead of using demo hash, try an even simpler approach
+          try {
+            console.log('🔄 Attempting ultra-simple Sui transaction...');
+            const { TransactionBlock } = await import('@mysten/sui.js/transactions');
+            const simpleTx = new TransactionBlock();
+            
+            // Just move gas to self (simplest possible transaction)
+            const [gasCoin] = simpleTx.splitCoins(simpleTx.gas, [1]);
+            simpleTx.transferObjects([gasCoin], suiWalletInfo.account.address);
+            
+            const simpleResult = await suiWalletInfo.signAndExecuteTransactionBlock({
+              transactionBlock: simpleTx,
+            });
+            
+            transactionHash = simpleResult.digest;
+            console.log('✅ Simple Sui transaction succeeded:', transactionHash);
+            
+          } catch (finalError) {
+            console.error('❌ All Sui transaction attempts failed:', finalError);
+            // Show user-friendly error instead of demo hash
+            throw new Error('Sui wallet transaction failed. Please try again or check your wallet connection.');
+          }
         }
       }
       
