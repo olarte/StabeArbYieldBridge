@@ -1186,6 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/portfolio/balance', async (req, res) => {
     try {
       const { ethereumAddress, suiAddress } = req.body;
+      console.log(`💰 Portfolio balance request - Ethereum: ${ethereumAddress || 'not connected'}, Sui: ${suiAddress || 'not connected'}`);
       
       // Get real transaction history from the same data source
       const swapHistory = [
@@ -1231,19 +1232,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (alchemyKey) {
                 const provider = new ethers.JsonRpcProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyKey}`);
                 
-                // USDC contract on Sepolia testnet
-                const usdcAddress = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+                // Stablecoin contracts on Sepolia testnet
+                const stablecoinContracts = {
+                  usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+                  usdt: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06',
+                  dai: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357'
+                };
+                
                 const erc20Abi = [
                   'function balanceOf(address owner) view returns (uint256)',
                   'function decimals() view returns (uint8)'
                 ];
                 
-                const usdcContract = new ethers.Contract(usdcAddress, erc20Abi, provider);
-                const usdcBalance = await usdcContract.balanceOf(ethereumAddress);
-                const usdcDecimals = await usdcContract.decimals();
-                
-                walletBalances.ethereum.usdc = parseFloat(ethers.formatUnits(usdcBalance, usdcDecimals));
-                console.log(`💰 Portfolio - Ethereum USDC balance: ${walletBalances.ethereum.usdc}`);
+                for (const [token, address] of Object.entries(stablecoinContracts)) {
+                  try {
+                    const contract = new ethers.Contract(address, erc20Abi, provider);
+                    const balance = await contract.balanceOf(ethereumAddress);
+                    const decimals = await contract.decimals();
+                    const formattedBalance = parseFloat(ethers.formatUnits(balance, decimals));
+                    
+                    if (token === 'usdc') walletBalances.ethereum.usdc = formattedBalance;
+                    else if (token === 'usdt') walletBalances.ethereum.usdt = formattedBalance;
+                    else if (token === 'dai') walletBalances.ethereum.dai = formattedBalance;
+                    
+                    console.log(`💰 Portfolio - Ethereum ${token.toUpperCase()} balance: ${formattedBalance}`);
+                  } catch (tokenError) {
+                    console.warn(`Could not fetch ${token.toUpperCase()} balance:`, tokenError);
+                  }
+                }
               }
             } catch (error) {
               console.error('Error fetching Ethereum balances for portfolio:', error);
@@ -1259,16 +1275,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Get all coins for the address
               const allCoins = await suiClient.getAllCoins({ owner: suiAddress });
               
-              // USDC and USDY contract addresses on Sui testnet
-              const usdcType = '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN';
-              const usdyType = '0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::coin::COIN';
+              // Stablecoin contract types on Sui testnet
+              const stablecoinTypes = {
+                usdc: ['0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN', 'USDC'],
+                usdy: ['0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::coin::COIN', 'USDY'],
+                usdt: ['0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN', 'USDT']
+              };
               
-              // Sum up USDC and USDY balances
+              // Sum up stablecoin balances
               for (const coin of allCoins.data) {
-                if (coin.coinType.includes('USDC') || coin.coinType === usdcType) {
-                  walletBalances.sui.usdc += parseFloat(coin.balance) / 1000000; // Assuming 6 decimals
-                } else if (coin.coinType.includes('USDY') || coin.coinType === usdyType) {
-                  walletBalances.sui.usdy += parseFloat(coin.balance) / 1000000; // Assuming 6 decimals  
+                const balance = parseFloat(coin.balance) / 1000000; // Assuming 6 decimals
+                
+                for (const [token, [contractType, symbol]] of Object.entries(stablecoinTypes)) {
+                  if (coin.coinType.includes(symbol) || coin.coinType === contractType) {
+                    if (token === 'usdc') walletBalances.sui.usdc += balance;
+                    else if (token === 'usdy') walletBalances.sui.usdy += balance;
+                    else if (token === 'usdt') walletBalances.sui.usdt += balance;
+                  }
                 }
               }
               
@@ -1294,6 +1317,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate current balance from real wallet balances + profits (no fallback)
       const currentBalance = totalWalletBalance + totalProfit;
+      
+      console.log(`💰 Portfolio summary - Total wallet balance: $${totalWalletBalance.toFixed(4)}, Historical profits: $${totalProfit.toFixed(4)}, Final balance: $${currentBalance.toFixed(4)}`);
       
       // Calculate weekly change (all swaps happened this week)
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
