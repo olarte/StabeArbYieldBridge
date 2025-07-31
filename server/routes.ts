@@ -2192,7 +2192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Updated Uniswap V3 price endpoint for Ethereum Sepolia
+  // Enhanced Uniswap V3 price fetching for Ethereum Sepolia
   app.get('/api/uniswap/price/:pair', async (req, res) => {
     try {
       const { pair } = req.params;
@@ -2207,7 +2207,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({
           success: false,
           error: 'Invalid token pair for Ethereum Sepolia',
-          availableTokens: Object.keys(CHAIN_CONFIG.ethereum.tokens)
+          availableTokens: Object.keys(CHAIN_CONFIG.ethereum.tokens),
+          examples: ['USDC-WETH', 'USDC-USDT'],
+          note: 'Use Ethereum Sepolia testnet token pairs only'
         });
       }
 
@@ -2224,30 +2226,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fee
           );
 
-          console.log(`🔍 Found pool address: ${poolAddress}`);
-
           if (poolAddress === ethers.ZeroAddress) {
-            console.log('❌ Pool not found, using Chainlink fallback');
-            throw new Error('Pool not found on Sepolia');
+            return res.status(404).json({
+              success: false,
+              error: 'Pool not found on Sepolia for this pair and fee tier',
+              suggestion: 'Try different fee tiers: 500 (0.05%), 3000 (0.3%), 10000 (1%)',
+              availableFees: [500, 3000, 10000],
+              note: 'Pool may not exist on Sepolia testnet for this token combination',
+              fallbackAction: 'Use Chainlink oracle pricing instead'
+            });
           }
 
-          // Get pool contract and fetch data with better error handling
+          // Get pool contract and fetch data with enhanced error handling
           const poolContract = new ethers.Contract(poolAddress, UNISWAP_V3_ABIS.Pool, ethProvider);
           
-          // Fetch data with individual try-catch for better debugging
-          const slot0 = await poolContract.slot0();
-          const liquidity = await poolContract.liquidity();
-          const token0 = await poolContract.token0();
-          const token1 = await poolContract.token1();
+          // Fetch essential pool data
+          const [slot0, liquidity, token0, token1] = await Promise.all([
+            poolContract.slot0(),
+            poolContract.liquidity(),
+            poolContract.token0(),
+            poolContract.token1()
+          ]);
           
-          console.log(`✅ Pool data fetched successfully for ${pair}`);
+          console.log(`✅ Pool data fetched successfully for ${pair} at ${poolAddress}`);
 
-          // Calculate price from sqrtPriceX96 - handle BigInt properly
+          // Calculate price from sqrtPriceX96 with enhanced precision
           const sqrtPriceX96 = slot0.sqrtPriceX96;
           const price = calculatePriceFromSqrtPriceX96(sqrtPriceX96, token0, token1, token0Address, token1Address);
 
-          // Convert BigInt values to string for JSON serialization
-          const responseData = {
+          // Enhanced response with complete pool information
+          return res.json({
             success: true,
             data: {
               pair,
@@ -2256,43 +2264,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
               price: {
                 token0ToToken1: price.price0,
                 token1ToToken0: price.price1,
-                formatted: `1 ${token0Symbol} = ${price.price0.toFixed(6)} ${token1Symbol}`
+                formatted: `1 ${token0Symbol} = ${price.price0.toFixed(6)} ${token1Symbol}`,
+                inverseFormatted: `1 ${token1Symbol} = ${price.price1.toFixed(6)} ${token0Symbol}`
               },
               poolStats: {
                 sqrtPriceX96: sqrtPriceX96.toString(),
                 tick: Number(slot0.tick),
                 liquidity: liquidity.toString(),
+                liquidityFormatted: (Number(liquidity) / 1e18).toFixed(4),
                 unlocked: slot0.unlocked,
-                feeProtocol: Number(slot0.feeProtocol)
+                feeProtocol: Number(slot0.feeProtocol),
+                observationIndex: Number(slot0.observationIndex),
+                observationCardinality: Number(slot0.observationCardinality)
               },
               tokens: {
                 token0: { address: token0, symbol: token0Symbol },
                 token1: { address: token1, symbol: token1Symbol }
               },
-              timestamp: new Date().toISOString(),
-              source: 'uniswap_v3_ethereum_sepolia',
-              network: 'Ethereum Sepolia Testnet',
-              chainId: 11155111
+              metadata: {
+                timestamp: new Date().toISOString(),
+                source: 'uniswap_v3_ethereum_sepolia',
+                network: 'Ethereum Sepolia Testnet',
+                chainId: 11155111,
+                poolVersion: 'v3',
+                dataFreshness: 'real-time'
+              }
             }
-          };
-
-          return res.json(responseData);
+          });
           
         } catch (contractError) {
           console.error('🔴 Sepolia Uniswap V3 call failed:', contractError.message);
           
+          // Enhanced error response with debugging information
           return res.status(500).json({
             success: false,
             error: 'Uniswap V3 contract call failed on Sepolia',
             details: contractError.message,
-            suggestion: 'Check if the pool exists or try a different fee tier',
-            network: 'Ethereum Sepolia Testnet'
+            suggestions: [
+              'Verify pool exists for this token pair',
+              'Try different fee tiers (500, 3000, 10000)',
+              'Check network connectivity to Sepolia',
+              'Use Chainlink oracle fallback pricing'
+            ],
+            debugging: {
+              tokenPair: `${token0Symbol}-${token1Symbol}`,
+              addresses: { token0Address, token1Address },
+              requestedFee: Number(fee),
+              network: 'Ethereum Sepolia Testnet',
+              timestamp: new Date().toISOString()
+            }
           });
         }
       }
 
-      // Fallback using Chainlink oracle prices
-      console.log('⚠️ Using Chainlink oracle fallback for Sepolia pricing');
+      // Enhanced fallback using Chainlink oracle prices
+      console.log('⚠️ Using enhanced Chainlink oracle fallback for Sepolia pricing');
       const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
       const fallbackPrice = typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
       
@@ -2303,14 +2329,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           price: {
             token0ToToken1: fallbackPrice,
             token1ToToken0: 1 / fallbackPrice,
-            formatted: `1 ${token0Symbol} = ${fallbackPrice.toFixed(6)} ${token1Symbol}`
+            formatted: `1 ${token0Symbol} = ${fallbackPrice.toFixed(6)} ${token1Symbol}`,
+            confidence: 'oracle-based'
           },
-          poolAddress: 'chainlink_fallback',
+          poolAddress: 'chainlink_oracle_fallback',
           source: 'chainlink_oracle_ethereum_sepolia',
-          note: 'Fallback pricing from Chainlink oracle on Ethereum Sepolia',
-          network: 'Ethereum Sepolia Testnet',
-          chainId: 11155111,
-          timestamp: new Date().toISOString()
+          metadata: {
+            fallbackReason: 'Uniswap V3 pool data unavailable',
+            oracleChain: 'ethereum',
+            network: 'Ethereum Sepolia Testnet',
+            chainId: 11155111,
+            timestamp: new Date().toISOString(),
+            dataType: 'oracle_fallback'
+          },
+          notice: 'Using Chainlink oracle pricing due to pool unavailability'
         }
       });
 
@@ -2320,7 +2352,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: 'Failed to fetch Uniswap V3 price on Ethereum Sepolia',
         details: error instanceof Error ? error.message : 'Unknown error',
-        network: 'Ethereum Sepolia Testnet'
+        troubleshooting: {
+          network: 'Ethereum Sepolia Testnet',
+          timestamp: new Date().toISOString(),
+          suggestions: [
+            'Check network connectivity',
+            'Verify token addresses are correct',
+            'Try supported token pairs: USDC-WETH, USDC-USDT'
+          ]
+        }
       });
     }
   });
