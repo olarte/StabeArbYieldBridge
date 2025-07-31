@@ -342,7 +342,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           const gasPriceNum = parseInt(networkGasPrice, 16);
           const adjustedGasPrice = Math.max(gasPriceNum * 2.0, 100000000000); // 100% higher than network, minimum 100 gwei
           gasPrice = '0x' + Math.floor(adjustedGasPrice).toString(16);
-          nonce = currentNonce;
+          nonce = typeof currentNonce === 'string' ? currentNonce : '0x' + currentNonce.toString(16);
           
           console.log('🔥 Using dynamic gas price:', gasPrice, '(', Math.floor(adjustedGasPrice / 1000000000), 'gwei )');
           console.log('🔢 Transaction nonce:', nonce);
@@ -362,6 +362,13 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         };
         
         console.log('📤 Sending MetaMask transaction request:', transactionParams);
+        console.log('📋 Transaction parameters validation:');
+        console.log('  - To address:', transactionParams.to);
+        console.log('  - From address:', transactionParams.from);
+        console.log('  - Gas price:', transactionParams.gasPrice);
+        console.log('  - Gas limit:', transactionParams.gas);
+        console.log('  - Nonce:', transactionParams.nonce);
+        console.log('  - Data length:', transactionParams.data?.length || 0);
         
         // This will prompt MetaMask popup for signature
         try {
