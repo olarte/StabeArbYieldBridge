@@ -93,9 +93,9 @@ function PegProtectionStatus() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Celo Chainlink</div>
+              <div className="text-sm font-medium text-muted-foreground">Ethereum Chainlink</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.chainlinkFeeds?.celo ? Number(pegStatus.chainlinkFeeds.celo).toFixed(4) : 'N/A'}
+                ${pegStatus?.chainlinkFeeds?.ethereum ? Number(pegStatus.chainlinkFeeds.ethereum).toFixed(4) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
@@ -221,9 +221,9 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fromChain: 'celo',
+        fromChain: 'ethereum',
         toChain: 'sui', 
-        fromToken: 'cUSD',
+        fromToken: 'USDC',
         toToken: 'USDY',
         amount: amount,
         minSpread: 0.01,
@@ -470,7 +470,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           step: stepIndex + 1,
           txHash: transactionHash,
           chain: stepChain,
-          walletAddress: stepChain === 'celo' ? walletConnections?.account : suiWalletInfo?.account?.address
+          walletAddress: stepChain === 'ethereum' ? walletConnections?.account : suiWalletInfo?.account?.address
         })
       });
       
@@ -628,7 +628,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           <Badge variant="secondary">{opportunities.length} Active</Badge>
         </CardTitle>
         <CardDescription>
-          Real-time arbitrage opportunities between Uniswap V3 (Celo) and Cetus (Sui)
+          Real-time arbitrage opportunities between Uniswap V3 (Ethereum Sepolia) and Cetus (Sui)
         </CardDescription>
       </CardHeader>
       <CardContent>

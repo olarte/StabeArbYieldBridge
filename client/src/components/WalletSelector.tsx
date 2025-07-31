@@ -25,39 +25,39 @@ interface WalletInfo {
 }
 
 interface WalletSelectorProps {
-  onWalletChange?: (walletType: 'celo' | 'sui', walletInfo: any) => void;
+  onWalletChange?: (walletType: 'ethereum' | 'sui', walletInfo: any) => void;
 }
 
 const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
   const [walletStates, setWalletStates] = useState<{
-    celo: WalletInfo;
+    ethereum: WalletInfo;
     sui: WalletInfo;
   }>({
-    celo: {
+    ethereum: {
       name: 'MetaMask',
       icon: '🦊',
-      description: 'Connect to Celo Alfajores testnet',
-      network: 'Celo Alfajores',
+      description: 'Connect to Ethereum Sepolia testnet',
+      network: 'Ethereum Sepolia',
       detected: false,
       connectionStatus: 'disconnected'
     },
     sui: {
       name: 'Phantom Wallet',
       icon: '👻',
-      description: 'Connect to Sui Devnet',
-      network: 'Sui Devnet',
+      description: 'Connect to Sui Testnet',
+      network: 'Sui Testnet',
       detected: false,
       connectionStatus: 'disconnected'
     }
   });
 
-  const [selectedTab, setSelectedTab] = useState<'celo' | 'sui'>('celo');
+  const [selectedTab, setSelectedTab] = useState<'ethereum' | 'sui'>('ethereum');
 
   // Detect available wallets
   useEffect(() => {
     const detectWallets = () => {
       // More specific wallet detection to avoid conflicts
-      const celoDetected = typeof window !== 'undefined' && 
+      const ethereumDetected = typeof window !== 'undefined' && 
                           !!window.ethereum && 
                           !window.ethereum.isPhantom; // Exclude Phantom's ethereum provider
       
@@ -69,7 +69,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
 
       setWalletStates(prev => ({
         ...prev,
-        celo: { ...prev.celo, detected: celoDetected },
+        ethereum: { ...prev.ethereum, detected: ethereumDetected },
         sui: { ...prev.sui, detected: suiDetected }
       }));
     };
@@ -82,18 +82,18 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
   }, []);
 
   // Handle wallet state changes from child components
-  const handleCeloWalletChange = (walletInfo: any) => {
+  const handleEthereumWalletChange = (walletInfo: any) => {
     setWalletStates(prev => ({
       ...prev,
-      celo: {
-        ...prev.celo,
+      ethereum: {
+        ...prev.ethereum,
         connectionStatus: walletInfo.account ? 'connected' : 'disconnected',
         account: walletInfo.account
       }
     }));
     
     if (onWalletChange) {
-      onWalletChange('celo', walletInfo);
+      onWalletChange('ethereum', walletInfo);
     }
   };
 
@@ -123,7 +123,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
     }
   };
 
-  const bothWalletsConnected = walletStates.celo.connectionStatus === 'connected' && 
+  const bothWalletsConnected = walletStates.ethereum.connectionStatus === 'connected' && 
                               walletStates.sui.connectionStatus === 'connected';
 
   return (
@@ -149,18 +149,18 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🦊</span>
                 <div>
-                  <div className="font-medium">{walletStates.celo.name}</div>
-                  <div className="text-sm text-muted-foreground">{walletStates.celo.network}</div>
+                  <div className="font-medium">{walletStates.ethereum.name}</div>
+                  <div className="text-sm text-muted-foreground">{walletStates.ethereum.network}</div>
                 </div>
               </div>
-              {getConnectionBadge(walletStates.celo.connectionStatus)}
+              {getConnectionBadge(walletStates.ethereum.connectionStatus)}
             </div>
-            {walletStates.celo.account && (
+            {walletStates.ethereum.account && (
               <div className="text-xs text-muted-foreground font-mono">
-                {walletStates.celo.account.slice(0, 6)}...{walletStates.celo.account.slice(-4)}
+                {walletStates.ethereum.account.slice(0, 6)}...{walletStates.ethereum.account.slice(-4)}
               </div>
             )}
-            {!walletStates.celo.detected && (
+            {!walletStates.ethereum.detected && (
               <div className="text-xs text-red-500 mt-1">
                 ⚠️ MetaMask not detected
               </div>
@@ -192,11 +192,11 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
         </div>
 
         {/* Wallet Connection Tabs */}
-        <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'celo' | 'sui')}>
+        <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'ethereum' | 'sui')}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="celo" className="flex items-center gap-2">
-              🦊 Connect Celo Wallet
-              {walletStates.celo.connectionStatus === 'connected' && <span className="w-2 h-2 bg-green-500 rounded-full" />}
+            <TabsTrigger value="ethereum" className="flex items-center gap-2">
+              🦊 Connect Ethereum Wallet
+              {walletStates.ethereum.connectionStatus === 'connected' && <span className="w-2 h-2 bg-green-500 rounded-full" />}
             </TabsTrigger>
             <TabsTrigger value="sui" className="flex items-center gap-2">
               👻 Connect Sui Wallet
@@ -204,26 +204,26 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="celo" className="mt-4">
+          <TabsContent value="ethereum" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">🦊 MetaMask Wallet</CardTitle>
                 <CardDescription>
-                  Connect to Celo Alfajores testnet for cUSD/USDC trading
+                  Connect to Ethereum Sepolia testnet for USDC/USDT trading
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {!walletStates.celo.detected ? (
+                {!walletStates.ethereum.detected ? (
                   <div className="text-center p-6">
                     <div className="text-4xl mb-4">🦊</div>
                     <h3 className="text-lg font-medium mb-2">MetaMask Required</h3>
                     <p className="text-muted-foreground mb-4">
-                      Please install MetaMask browser extension to connect to Celo network
+                      Please install MetaMask browser extension to connect to Ethereum Sepolia network
                     </p>
                     {window.ethereum?.isPhantom && (
                       <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
                         <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                          Phantom detected, but MetaMask is recommended for Celo. 
+                          Phantom detected, but MetaMask is recommended for Ethereum. 
                           Install MetaMask for the best experience.
                         </p>
                       </div>
@@ -239,7 +239,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
                     </Button>
                   </div>
                 ) : (
-                  <WalletConnect onWalletChange={handleCeloWalletChange} />
+                  <WalletConnect onWalletChange={handleEthereumWalletChange} />
                 )}
               </CardContent>
             </Card>
@@ -250,7 +250,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
               <CardHeader>
                 <CardTitle className="text-lg">👻 Phantom Wallet</CardTitle>
                 <CardDescription>
-                  Connect to Sui Devnet for USDC/USDY trading
+                  Connect to Sui Testnet for USDC/USDY trading
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -298,7 +298,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
                 <span>Connect both wallets to enable one-click swap execution</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                Progress: {walletStates.celo.connectionStatus === 'connected' ? '1' : '0'}/2 wallets connected
+                Progress: {walletStates.ethereum.connectionStatus === 'connected' ? '1' : '0'}/2 wallets connected
               </div>
             </div>
           )}

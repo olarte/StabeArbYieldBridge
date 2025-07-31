@@ -77,11 +77,6 @@
   font-weight: 500;
 }
 
-.network-badge.celo {
-  background: #fef3c7;
-  color: #92400e;
-}
-
 .network-badge.ethereum {
   background: #dbeafe;
   color: #1e40af;
