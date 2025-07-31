@@ -309,3 +309,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Cetus DEX Integration**: Initialized Cetus DEX contracts for Sui Testnet with API endpoint configuration
 - ✅ **Live Pool Verification**: Confirmed USDC/WETH pool exists at address 0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50 on Sepolia
 - ✅ **Production-Ready Provider System**: Complete blockchain provider initialization with error handling and fallback mechanisms
+- ✅ **Updated Supported Pairs Configuration**: Replaced Celo-based supported pairs with direct Ethereum Sepolia ↔ Sui Testnet bridge
+- ✅ **Enhanced Bidirectional Swap Configuration**: Updated both /api/swap/bidirectional-real and /api/swap/bidirectional endpoints with native Ethereum-Sui routing
+- ✅ **Streamlined Execution Plans**: Simplified cross-chain execution from 7-step Celo routing to 5-step native Ethereum-Sui bridge with improved gas estimates
+- ✅ **Direct Bridge Architecture**: Eliminated intermediate Ethereum routing in favor of direct native bridge between Ethereum Sepolia and Sui Testnet
+- ✅ **Production Bridge Configuration**: Updated all swap endpoints to support native Ethereum-Sui bridge with enhanced fee structure and timing estimates

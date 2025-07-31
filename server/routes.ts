@@ -1383,10 +1383,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timeoutMinutes = 60
       } = req.body;
 
-      // Validate supported chain pairs
+      // Updated supported chain pairs for Ethereum-Sui bridge
       const supportedPairs = [
-        { from: 'celo', to: 'sui', via: 'ethereum' },
-        { from: 'sui', to: 'celo', via: 'ethereum' }
+        { from: 'ethereum', to: 'sui', via: 'native' },  // Direct Ethereum to Sui
+        { from: 'sui', to: 'ethereum', via: 'native' }   // Direct Sui to Ethereum
       ];
 
       const swapPair = supportedPairs.find(p => p.from === fromChain && p.to === toChain);
@@ -1394,7 +1394,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({
           success: false,
           error: 'Unsupported swap direction',
-          supportedPairs: supportedPairs.map(p => `${p.from} → ${p.to}`)
+          supportedPairs: supportedPairs.map(p => `${p.from} → ${p.to}`),
+          note: 'Now supporting direct Ethereum Sepolia ↔ Sui Testnet bridge'
         });
       }
 
@@ -1419,69 +1420,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString()
       };
 
-      // Create comprehensive execution plan
+      // Create execution plan with Sepolia focus
       const executionPlan = {
-        type: 'BIDIRECTIONAL_ATOMIC_SWAP',
-        route: `${fromChain.toUpperCase()} → ${swapPair.via.toUpperCase()} → ${toChain.toUpperCase()}`,
+        type: 'ETHEREUM_SUI_ATOMIC_SWAP',
+        route: `${fromChain.toUpperCase()} → ${toChain.toUpperCase()}`,
+        bridge: 'Native Ethereum-Sui Bridge',
         steps: [
           {
-            type: 'SPREAD_CHECK',
-            description: `Verify ${minSpread}% minimum spread between chains`,
-            chain: 'both',
-            status: 'COMPLETED'
-          },
-          {
-            type: 'LIMIT_ORDER_CREATE',
-            description: 'Create 1Inch limit orders with threshold execution',
+            type: 'WALLET_VERIFICATION',
+            description: 'Verify wallet balances on both chains',
             chain: 'both',
             status: 'PENDING'
           },
           {
-            type: 'HASHLOCK_DEPOSIT',
-            description: `Lock ${amount} ${fromToken} on ${fromChain} with hashlock`,
+            type: 'TOKEN_APPROVAL',
+            description: `Approve ${fromToken} spending on ${fromChain}`,
             chain: fromChain,
-            hashlock: hashlock,
-            timelock: timelock,
-            status: 'PENDING'
+            status: 'PENDING',
+            requiresSignature: true
           },
           {
             type: 'FUSION_SWAP_SOURCE',
-            description: `Swap ${fromToken} → USDC on ${fromChain} via Fusion+`,
+            description: `Swap ${fromToken} → bridge token via 1Inch Fusion+`,
             chain: fromChain,
-            dex: fromChain === 'celo' ? 'uniswap_v3' : 'cetus',
-            status: 'PENDING'
+            dex: fromChain === 'ethereum' ? 'uniswap_v3' : 'cetus',
+            relay: fromChain === 'ethereum' ? 'sepolia_fusion_relay' : 'sui_native',
+            status: 'PENDING',
+            requiresSignature: true
           },
           {
             type: 'BRIDGE_TRANSFER',
-            description: `Bridge USDC from ${fromChain} to ${toChain}`,
-            chain: swapPair.via,
-            status: 'PENDING'
+            description: `Bridge from ${fromChain} to ${toChain}`,
+            chain: 'both',
+            bridge: 'ethereum_sui_native',
+            status: 'PENDING',
+            requiresSignature: true
           },
           {
             type: 'FUSION_SWAP_DEST',
-            description: `Swap USDC → ${toToken} on ${toChain} via Fusion+`,
+            description: `Swap bridge token → ${toToken} on ${toChain}`,
             chain: toChain,
-            dex: toChain === 'celo' ? 'uniswap_v3' : 'cetus',
-            status: 'PENDING'
-          },
-          {
-            type: 'HASHLOCK_CLAIM',
-            description: `Claim ${toToken} on ${toChain} with secret reveal`,
-            chain: toChain,
-            requiresSecret: true,
-            status: 'PENDING'
+            dex: toChain === 'ethereum' ? 'uniswap_v3' : 'cetus',
+            status: 'PENDING',
+            requiresSignature: true
           }
         ],
         estimatedGas: {
-          [fromChain]: fromChain === 'celo' ? '0.01 CELO' : '0.001 SUI',
-          [toChain]: toChain === 'celo' ? '0.01 CELO' : '0.001 SUI',
-          bridge: '0.05 ETH'
+          ethereum: '0.01 ETH',
+          sui: '0.002 SUI',
+          bridge: '0.005 ETH'
         },
-        estimatedTime: '15-45 minutes',
+        estimatedTime: '15-30 minutes',
         estimatedFees: {
           dexFees: '0.3%',
-          bridgeFees: '0.1%',
-          gasFees: '$2-5',
+          bridgeFees: '0.05%',
+          gasFees: '$3-8',
           totalFees: '~0.5-1%'
         }
       };
@@ -2445,12 +2438,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timeoutMinutes = 60
       } = req.body;
 
-      // Validate chains and direction
+      // Updated supported chain pairs for Ethereum-Sui bridge
       const supportedPairs = [
-        { from: 'celo', to: 'sui', via: 'ethereum' },
-        { from: 'sui', to: 'celo', via: 'ethereum' },
-        { from: 'celo', to: 'ethereum', direct: true },
-        { from: 'ethereum', to: 'celo', direct: true }
+        { from: 'ethereum', to: 'sui', via: 'native', direct: false },  // Direct Ethereum to Sui
+        { from: 'sui', to: 'ethereum', via: 'native', direct: false },   // Direct Sui to Ethereum
+        { from: 'ethereum', to: 'ethereum', direct: true },              // Ethereum internal swaps
+        { from: 'sui', to: 'sui', direct: true }                        // Sui internal swaps
       ];
 
       const swapPair = supportedPairs.find(p => p.from === fromChain && p.to === toChain);
@@ -2458,7 +2451,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({
           success: false,
           error: 'Unsupported swap direction',
-          supportedPairs
+          supportedPairs: supportedPairs.map(p => `${p.from} → ${p.to}`),
+          note: 'Now supporting direct Ethereum Sepolia ↔ Sui Testnet bridge'
         });
       }
 
