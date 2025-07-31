@@ -131,8 +131,13 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
         console.log('SuiWallet: Total window keys count:', windowKeys.length);
         console.log('SuiWallet: Sample window keys:', windowKeys.slice(0, 30));
         
-        // Enhanced Suiet-specific detection
-        const suietVariations = ['suiet', 'Suiet', 'SUIET', 'suietWallet', 'SuietWallet'];
+        // Enhanced Suiet-specific detection with additional methods
+        const suietVariations = [
+          'suiet', 'Suiet', 'SUIET', 'suietWallet', 'SuietWallet',
+          // Additional patterns Suiet might use
+          '__SUIET__', 'window.suietWallet', 'suietProvider'
+        ];
+        
         suietVariations.forEach(variation => {
           if ((window as any)[variation]) {
             const suietObj = (window as any)[variation];
@@ -145,6 +150,18 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
             });
           }
         });
+        
+        // Additional Suiet detection: Check for wallet standard implementation
+        if (typeof window !== 'undefined' && (window as any).addEventListener) {
+          // Listen for wallet events that Suiet might dispatch
+          const checkSuietEvent = () => {
+            const walletStandard = (window as any)['wallet-standard:app-ready'];
+            if (walletStandard) {
+              console.log('SuiWallet: Wallet standard detected, checking for Suiet...');
+            }
+          };
+          checkSuietEvent();
+        }
         
         // Look for wallet-related keys
         const walletPatterns = ['wallet', 'sui', 'coin', 'crypto', 'web3', 'ethereum', 'metamask'];
@@ -283,10 +300,15 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
               </div>
             ) : (
               <div style={{ color: '#FF9800' }}>
-                ⚠️ No Sui wallet extensions detected. Please install:
+                ⚠️ No Sui wallet extensions detected. 
+                <br /><strong>If you have Suiet installed:</strong>
+                <br />• Refresh this page after ensuring Suiet is enabled
+                <br />• Try using the "📱 Connect Sui (Built-in)" button below
+                <br />
+                <br /><strong>Or install a Sui wallet:</strong>
+                <br />• <a href="https://chrome.google.com/webstore/detail/suiet-sui-wallet/khpkpbbcccdmmclmpigdgddabeilkdpd" target="_blank" style={{ color: '#64B5F6' }}>Suiet Wallet (Recommended)</a>
                 <br />• <a href="https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil" target="_blank" style={{ color: '#64B5F6' }}>Sui Wallet</a>
-                <br />• <a href="https://chrome.google.com/webstore/detail/suiet-sui-wallet/khpkpbbcccdmmclmpigdgddabeilkdpd" target="_blank" style={{ color: '#64B5F6' }}>Suiet Wallet</a>
-                <br />• <a href="https://chrome.google.com/webstore/detail/martian-aptos-wallet/efbglgofoippbgcjepnhiblaibcnclgk" target="_blank" style={{ color: '#64B5F6' }}>Martian Wallet</a>
+                <br />• <a href="https://phantom.app/" target="_blank" style={{ color: '#64B5F6' }}>Phantom Wallet</a>
               </div>
             )}
           </div>
@@ -303,19 +325,37 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
                 console.log('window.suietWallet:', (window as any).suietWallet);
                 console.log('window.SuietWallet:', (window as any).SuietWallet);
                 
-                // Check all window properties for Suiet-related objects
+                // Enhanced Suiet debugging
                 const allKeys = Object.getOwnPropertyNames(window);
                 const suietKeys = allKeys.filter(k => k.toLowerCase().includes('suiet'));
                 console.log('SuiWallet: Suiet-related keys in window:', suietKeys);
                 
-                // Check if Suiet extension content script has injected anything
-                const scripts = document.querySelectorAll('script[src*="suiet"]');
-                console.log('SuiWallet: Suiet-related scripts:', scripts.length);
+                // Check document for Suiet-related elements
+                const suietElements = document.querySelectorAll('[id*="suiet"], [class*="suiet"]');
+                console.log('SuiWallet: Suiet DOM elements:', suietElements.length);
                 
-                // Check for Chrome extension content script injection
+                // Check for extension manifest
                 if ((window as any).chrome && (window as any).chrome.runtime) {
                   console.log('SuiWallet: Chrome runtime available');
+                  try {
+                    // Check if Suiet extension is available
+                    const extensionCheck = (window as any).chrome.runtime.getManifest;
+                    if (extensionCheck) {
+                      console.log('SuiWallet: Can access extension manifest');
+                    }
+                  } catch (e) {
+                    console.log('SuiWallet: Cannot access extension details');
+                  }
                 }
+                
+                // Try alternative Suiet detection methods
+                console.log('SuiWallet: Checking alternative Suiet patterns...');
+                const alternativeChecks = ['__suiet__', 'suietProvider', 'SuietProvider'];
+                alternativeChecks.forEach(check => {
+                  if ((window as any)[check]) {
+                    console.log(`SuiWallet: Found alternative Suiet at window.${check}`);
+                  }
+                });
               }
               
               setShowModal(true);
