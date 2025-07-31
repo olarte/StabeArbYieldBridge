@@ -1336,8 +1336,8 @@ function ArbitrageTradingPage() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={ArbitrageTradingPage} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/" component={Dashboard} />
+      <Route path="/trading" component={ArbitrageTradingPage} />
       <Route component={NotFound} />
     </Switch>
   );
