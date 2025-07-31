@@ -121,21 +121,22 @@ async function getCetusPoolPrice(tokenA: string, tokenB: string): Promise<number
     }
     
     // Fallback to Chainlink
-    const chainlinkPrice = await getChainlinkPrice('ethereum', 'USDC');
-    return chainlinkPrice.price;
+    const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
+    return typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
   } catch (error) {
     console.error(`Cetus ${tokenA}/${tokenB} price error:`, error);
     // Fallback to Chainlink oracle
-    const chainlinkPrice = await getChainlinkPrice('ethereum', 'USDC');
-    return chainlinkPrice.price;
+    const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
+    return typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
   }
 }
 
 // Get mock price with Chainlink fallback
 async function getMockPrice(tokenA: string, tokenB: string): Promise<number> {
   try {
-    const chainlinkPrice = await getChainlinkPrice('ethereum', 'USDC');
-    return chainlinkPrice.price;
+    const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
+    const finalPrice = typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
+    return finalPrice;
   } catch (error) {
     console.error('Chainlink fallback failed:', error);
     return 1.0; // Last resort fallback
