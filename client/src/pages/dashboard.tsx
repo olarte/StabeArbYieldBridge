@@ -14,8 +14,14 @@ import SimpleYieldScanner from "@/components/arbitrage/simple-yield-scanner";
 import TestYield from "@/components/test-yield";
 
 export default function Dashboard() {
+  console.log('🎯 DASHBOARD COMPONENT LOADED - NEW VERSION WITH YIELD FEATURES');
+  
   return (
     <div className="min-h-screen bg-slate-900 text-slate-50">
+      {/* CACHE BUST MARKER - YIELD VERSION */}
+      <div className="fixed top-0 right-0 z-50 bg-green-500 text-white px-2 py-1 text-xs">
+        YIELD v2.0 - {new Date().getTime()}
+      </div>
       <Header />
       
       <div className="flex">

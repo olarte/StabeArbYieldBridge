@@ -1344,6 +1344,9 @@ function Router() {
 }
 
 function App() {
+  // Force browser cache refresh
+  console.log('🚀 StableArbYieldBridge v2.0 - Dashboard Mode Active:', new Date().toISOString());
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
