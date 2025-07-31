@@ -1233,140 +1233,20 @@ app.post('/api/swap/bidirectional-real', async (req, res) => {
   }
 });
 
-// 8. Execute real atomic swap steps with enhanced wallet monitoring
-app.post('/api/swap/execute-real', async (req, res) => {
-  try {
-    const { swapId, step = 0, force = false, useWalletExecution = true } = req.body;
-
-    const swapState = swapStates.get(swapId);
-    if (!swapState) {
-      return res.status(404).json({
-        success: false,
-        error: 'Swap not found'
-      });
-    }
-
-    // Check if swap expired
-    const currentTime = Math.floor(Date.now() / 1000);
-    if (currentTime > swapState.timelock) {
-      swapState.updateStatus('EXPIRED');
-      return res.status(408).json({
-        success: false,
-        error: 'Swap expired',
-        timelock: swapState.timelock,
-        currentTime,
-        refundInstructions: 'Use /api/swap/refund-real endpoint'
-      });
-    }
-
-    // Validate step index
-    if (step < 0 || step >= swapState.executionPlan.steps.length) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid step index',
-        validRange: `0-${swapState.executionPlan.steps.length - 1}`
-      });
-    }
-
-    const currentStep = swapState.executionPlan.steps[step];
-    
-    // Check if step already completed
-    if (currentStep.status === 'COMPLETED' && !force) {
-      return res.status(400).json({
-        success: false,
-        error: 'Step already completed',
-        step: currentStep,
-        suggestion: 'Use force=true to re-execute or proceed to next step'
-      });
-    }
-
-    // Re-check spread for critical steps
-    if (['FUSION_SWAP_SOURCE', 'FUSION_SWAP_DEST'].includes(currentStep.type) && !force) {
-      const freshSpreadCheck = await checkCrossChainSpread(
-        swapState.fromChain,
-        swapState.toChain,
-        swapState.fromToken,
-        swapState.toToken,
-        swapState.minSpread
-      );
-
-      if (!freshSpreadCheck.meetsThreshold) {
-        return res.status(400).json({
-          success: false,
-          error: 'Spread below threshold at execution time',
-          currentSpread: freshSpreadCheck.spread,
-          requiredSpread: swapState.minSpread,
-          suggestion: 'Wait for better spread or use force=true to proceed anyway'
-        });
-      }
-    }
-
-    console.log(`🔄 Executing step ${step}: ${currentStep.type} for swap ${swapId}`);
-
-    // Execute the step with enhanced wallet integration
-    const executionResult = useWalletExecution ? 
-      await executeAtomicSwapStepWithWallets(swapState, step) :
-      await executeAtomicSwapStep(swapState, step);
-    
-    // Update step status
-    currentStep.status = executionResult.status;
-    currentStep.result = executionResult;
-    currentStep.executedAt = executionResult.executedAt;
-
-    // Add to swap history
-    swapState.addStep({
-      stepIndex: step,
-      type: currentStep.type,
-      status: executionResult.status,
-      result: executionResult
-    });
-
-    // Check if all steps completed
-    const allStepsComplete = swapState.executionPlan.steps.every(s => s.status === 'COMPLETED');
-    if (allStepsComplete) {
-      swapState.updateStatus('COMPLETED');
-      console.log(`✅ Swap ${swapId} completed successfully`);
-    } else if (executionResult.status === 'FAILED') {
-      swapState.updateStatus('FAILED');
-      console.log(`❌ Swap ${swapId} failed at step ${step}`);
-    }
-
-    res.json({
-      success: true,
-      data: {
-        swapId,
-        currentStep: step,
-        stepResult: executionResult,
-        swapStatus: swapState.status,
-        nextStep: allStepsComplete ? null : step + 1,
-        isComplete: allStepsComplete,
-        timeRemaining: Math.max(0, swapState.timelock - currentTime),
-        executionProgress: {
-          completed: swapState.executionPlan.steps.filter(s => s.status === 'COMPLETED').length,
-          total: swapState.executionPlan.steps.length,
-          percentage: Math.round((swapState.executionPlan.steps.filter(s => s.status === 'COMPLETED').length / swapState.executionPlan.steps.length) * 100)
-        },
-        walletIntegration: useWalletExecution ? {
-          enabled: true,
-          requiresSignature: executionResult.requiresWalletSignature || false,
-          nextAction: executionResult.nextAction || null,
-          transactionData: executionResult.transactionData || null
-        } : { enabled: false }
-      }
-    });
-
-  } catch (error) {
-    console.error('Wallet swap execution error:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to execute wallet-integrated swap step',
-      details: error.message,
-      suggestion: 'Check wallet connection and try again'
-    });
-  }
+// 8. Execute real atomic swap steps with enhanced wallet monitoring - DISABLED: Conflicts with server/routes.ts
+app.post('/api/swap/execute-real-DISABLED', async (req, res) => {
+  console.log('❌ DISABLED endpoint called - use server/routes.ts instead');
+  return res.status(410).json({
+    success: false,
+    error: 'This endpoint has been disabled to prevent conflicts',
+    message: 'Use the correct endpoint in server/routes.ts'
+  });
 });
 
-// Submit signed transaction from frontend
+// DISABLED: Original execute-real endpoint implementation removed to prevent conflicts with server/routes.ts
+// The corrected implementation with proper wallet routing is in server/routes.ts
+
+// 9. Submit signed transaction from frontend
 app.post('/api/swap/submit-transaction', async (req, res) => {
   try {
     const { 

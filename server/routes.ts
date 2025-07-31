@@ -1379,8 +1379,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Execute atomic swap step endpoint
+  // Execute atomic swap step endpoint - CORRECT IMPLEMENTATION
   app.post("/api/swap/execute-real", async (req, res) => {
+    console.log(`🔧 CORRECT endpoint called from server/routes.ts`);
     try {
       const { swapId, step = 0, force = false } = req.body;
 
