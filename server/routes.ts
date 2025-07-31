@@ -17,9 +17,9 @@ async function executeRealCeloTransaction(step: any, swapState: any) {
 
   // Setup Celo provider (Alfajores testnet) - try multiple endpoints
   const celoRpcUrls = [
-    'https://alfajores-forno.celo-mainnet.org',
-    'https://celo-alfajores.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-    'https://celo-alfajores-rpc.allthatnode.com'
+    'https://alfajores-forno.celo-testnet.org',
+    'https://celo-alfajores-rpc.allthatnode.com',
+    'https://alfajores.forno.celo.org'
   ];
   
   let provider;
