@@ -16,6 +16,8 @@ import WalletConnect from "@/components/WalletConnect.jsx";
 import SuiWalletConnect from "@/components/SuiWalletConnect";
 import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
+import suiIcon from "@assets/abfadeb9f40e6ad0db5e9c92c09c40e0_1753983736153.jpg";
+import ethereumIcon from "@assets/download_1753983736153.png";
 
 // TypeScript interfaces for better type safety
 declare global {
@@ -667,12 +669,37 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice 
-                          ? 'Sui Testnet → Ethereum Sepolia'
-                          : 'Ethereum Sepolia → Sui Testnet'
-                        }
-                      </Badge>
+                      {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? (
+                        // Sui → Ethereum direction
+                        <div className="flex items-center gap-1">
+                          <img 
+                            src={suiIcon} 
+                            alt="Sui" 
+                            className="w-5 h-5 rounded-full"
+                          />
+                          <span className="text-xs text-muted-foreground">→</span>
+                          <img 
+                            src={ethereumIcon} 
+                            alt="Ethereum" 
+                            className="w-5 h-5 rounded-full"
+                          />
+                        </div>
+                      ) : (
+                        // Ethereum → Sui direction
+                        <div className="flex items-center gap-1">
+                          <img 
+                            src={ethereumIcon} 
+                            alt="Ethereum" 
+                            className="w-5 h-5 rounded-full"
+                          />
+                          <span className="text-xs text-muted-foreground">→</span>
+                          <img 
+                            src={suiIcon} 
+                            alt="Sui" 
+                            className="w-5 h-5 rounded-full"
+                          />
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
