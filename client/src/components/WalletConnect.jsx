@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './WalletConnect.css';
 
 const CHAIN_CONFIG = {
-  44787: { chainName: 'Celo Alfajores', currency: 'CELO' },
-  11155111: { chainName: 'Ethereum Sepolia', currency: 'ETH' }
+  11155111: { chainName: 'Ethereum Sepolia', currency: 'ETH' },
+  44787: { chainName: 'Celo Alfajores', currency: 'CELO' } // Legacy support
 };
 
 const WalletConnect = ({ onWalletChange }) => {
@@ -12,7 +12,7 @@ const WalletConnect = ({ onWalletChange }) => {
   const [connecting, setConnecting] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  // Connect specifically to MetaMask for Celo
+  // Connect specifically to MetaMask for Ethereum Sepolia
   const connectWallet = async () => {
     if (!window.ethereum) {
       alert('MetaMask is not installed!');
@@ -27,11 +27,11 @@ const WalletConnect = ({ onWalletChange }) => {
       const metamask = window.ethereum.providers.find(p => p.isMetaMask && !p.isPhantom);
       if (metamask) {
         provider = metamask;
-        console.log('Using MetaMask provider specifically for Celo');
+        console.log('Using MetaMask provider specifically for Ethereum Sepolia');
       }
     } else if (window.ethereum.isPhantom) {
       // If only Phantom is available, warn user
-      alert('Phantom detected, but MetaMask is recommended for Celo network. Please install MetaMask for the best experience.');
+      alert('Phantom detected, but MetaMask is recommended for Ethereum network. Please install MetaMask for the best experience.');
       return;
     }
 
@@ -140,9 +140,9 @@ const WalletConnect = ({ onWalletChange }) => {
     return CHAIN_CONFIG[chainId]?.chainName || `Chain ID: ${chainId}`;
   };
 
-  // Check if current network is supported
+  // Check if current network is supported (prioritize Ethereum Sepolia)
   const isNetworkSupported = () => {
-    return chainId && (chainId === 44787 || chainId === 11155111);
+    return chainId && (chainId === 11155111 || chainId === 44787);
   };
 
   // Format address for display
@@ -209,7 +209,7 @@ const WalletConnect = ({ onWalletChange }) => {
       <div className="wallet-connect">
         <div className="connect-card">
           <h3>🦊 Connect Your Wallet</h3>
-          <p>Connect MetaMask to start trading on Celo & Ethereum</p>
+          <p>Connect MetaMask to start trading on Ethereum & Sui networks</p>
           <button 
             onClick={connectWallet} 
             disabled={connecting}
@@ -220,8 +220,8 @@ const WalletConnect = ({ onWalletChange }) => {
           <div className="supported-networks">
             <small>Supported Networks:</small>
             <div className="network-list">
-              <span className="network-badge celo">🟡 Celo Alfajores</span>
               <span className="network-badge ethereum">🔵 Ethereum Sepolia</span>
+              <span className="network-badge celo">🟡 Celo Alfajores (Legacy)</span>
             </div>
           </div>
         </div>
@@ -277,18 +277,18 @@ const WalletConnect = ({ onWalletChange }) => {
           <h4>🌐 Switch Network</h4>
           <div className="network-buttons">
             <button
-              onClick={() => handleNetworkSwitch(44787)}
-              disabled={chainId === 44787}
-              className={`network-btn celo ${chainId === 44787 ? 'active' : ''}`}
-            >
-              🟡 Celo Alfajores
-            </button>
-            <button
               onClick={() => handleNetworkSwitch(11155111)}
               disabled={chainId === 11155111}
               className={`network-btn ethereum ${chainId === 11155111 ? 'active' : ''}`}
             >
               🔵 Ethereum Sepolia
+            </button>
+            <button
+              onClick={() => handleNetworkSwitch(44787)}
+              disabled={chainId === 44787}
+              className={`network-btn celo ${chainId === 44787 ? 'active' : ''}`}
+            >
+              🟡 Celo Alfajores (Legacy)
             </button>
           </div>
         </div>

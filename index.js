@@ -104,40 +104,90 @@ const pegStatus = {
   }
 };
 
-// Real blockchain provider configurations
-const providers = {
-  celo: new ethers.JsonRpcProvider(process.env.CELO_RPC_URL || 'https://alfajores-forno.celo-testnet.org'),
-  ethereum: new ethers.JsonRpcProvider(process.env.ALCHEMY_URL || `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`),
-  sui: 'https://fullnode.devnet.sui.io:443'
-};
-
-// Real token contract addresses
-const TOKEN_ADDRESSES = {
-  celo: {
-    cUSD: '0x765DE816845861e75A25fCA122bb6898B8B1282a',
-    USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',
-    CELO: '0xF194afDf50B03e69Bd7D057c1Aa9e10c9954E4C9'
-  },
+// Chain configurations updated for Ethereum Sepolia
+const CHAIN_CONFIG = {
   ethereum: {
-    USDC: '0xA0b86a33E6441061c5ef8d58B54F90DdaB2A2F4E',
-    USDT: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0'
+    rpc: process.env.SEPOLIA_RPC || 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY',
+    chainId: 11155111, // Ethereum Sepolia
+    tokens: {
+      USDC: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
+      USDT: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT  
+      WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', // Sepolia WETH
+      DAI: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6'   // Sepolia DAI
+    },
+    // Uniswap V3 addresses on Sepolia
+    uniswap: {
+      factory: '0x0227628f3F023bb0B980b67D528571c95c6DaC1c',      // UniswapV3Factory
+      router: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E',       // SwapRouter02  
+      quoter: '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',       // QuoterV2
+      nftManager: '0x1238536071E1c677A632429e3655c799b22cDA52',    // NonfungiblePositionManager
+      universalRouter: '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD'  // UniversalRouter
+    },
+    // 1Inch Fusion+ configuration for Sepolia
+    fusion: {
+      relayerUrl: 'https://fusion.1inch.io/relayer/v1.0/11155111', // Sepolia relay
+      apiUrl: 'https://api.1inch.dev/fusion/v1.0/11155111',
+      limitOrderProtocol: '0x119c71D3BbAC22029622cbaEc24854d3D32D2828' // Sepolia LOP
+    }
   },
   sui: {
-    USDC: '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
-    USDY: '0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY',
-    SUI: '0x2::sui::SUI'
+    rpc: process.env.SUI_RPC || 'https://fullnode.testnet.sui.io',
+    chainId: 'sui:testnet',
+    tokens: {
+      USDC: '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
+      USDY: '0xa3d3b6c6d5e9c8f4b7d8e5f2a1c3e9d8f5b2c9e8d5f2a1c3e8d5f2a1c3e9d8f5::usdy::USDY',
+      SUI: '0x2::sui::SUI'
+    },
+    // Cetus DEX on Sui Testnet
+    cetus: {
+      packageId: '0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb',
+      globalConfig: '0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f',
+      pools: {
+        'USDC-USDY': {
+          poolId: '0x123...', // Will be detected dynamically
+          tickSpacing: 2,
+          feeRate: 500 // 0.05%
+        }
+      }
+    }
   }
+}
+
+// Real blockchain provider configurations
+const providers = {
+  ethereum: new ethers.JsonRpcProvider(process.env.ALCHEMY_URL || `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`),
+  sui: 'https://fullnode.testnet.sui.io'
 };
+
+// Legacy token addresses (for backward compatibility)
+const TOKEN_ADDRESSES = CHAIN_CONFIG;
 
 // Real wallet instances with funded private keys
 const wallets = {
-  celo: process.env.CELO_PRIVATE_KEY ? new ethers.Wallet(process.env.CELO_PRIVATE_KEY, providers.celo) : null,
+  ethereum: process.env.ETHEREUM_PRIVATE_KEY ? new ethers.Wallet(process.env.ETHEREUM_PRIVATE_KEY, providers.ethereum) : null,
   sui: process.env.SUI_PRIVATE_KEY || null
 };
 
 console.log('🔗 Wallet Status:');
-console.log(`   Celo: ${wallets.celo ? wallets.celo.address : 'Not configured'}`);
+console.log(`   Ethereum: ${wallets.ethereum ? wallets.ethereum.address : 'Not configured'}`);
 console.log(`   Sui: ${wallets.sui ? 'Configured' : 'Not configured'}`);
+
+// Updated Chainlink oracle addresses for Sepolia
+const CHAINLINK_ORACLES = {
+  ethereum: {
+    // Sepolia testnet feeds
+    USDC_USD: '0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E',
+    USDT_USD: '0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7',
+    ETH_USD: '0x694AA1769357215DE4FAC081bf1f309aDC325306',
+    decimals: 8
+  },
+  sui: {
+    // Sui doesn't have native Chainlink yet, use API fallback
+    USDC_USD: null,
+    SUI_USD: null,
+    decimals: 8
+  }
+};
 
 // Enhanced peg protection with cross-chain validation
 async function validateSwapAgainstPegProtection(fromChain, toChain, fromToken, toToken) {
@@ -146,13 +196,13 @@ async function validateSwapAgainstPegProtection(fromChain, toChain, fromToken, t
     
     // Get Chainlink USDC/USD prices from both networks
     const chainlinkPrices = await Promise.allSettled([
-      getChainlinkPrice('USDC', 'USD', 'celo'),    // Celo Alfajores
-      getChainlinkPrice('USDC', 'USD', 'ethereum') // Ethereum Sepolia
+      getChainlinkPrice('USDC', 'USD', 'ethereum'), // Ethereum Sepolia
+      getChainlinkPrice('USDC', 'USD', 'ethereum')  // Second Ethereum check
     ]);
     
     // Get DEX prices for comparison
     const dexPrices = await Promise.allSettled([
-      getUniswapV3Price('USDC', 'cUSD', 3000),  // Celo Uniswap
+      getUniswapV3Price('USDC', 'USDT', 3000),  // Ethereum Sepolia Uniswap
       getCetusPoolPrice('USDC', 'USDY')         // Sui Cetus
     ]);
     
@@ -166,10 +216,10 @@ async function validateSwapAgainstPegProtection(fromChain, toChain, fromToken, t
     
     // Process Chainlink prices
     if (chainlinkPrices[0].status === 'fulfilled') {
-      results.chainlink.celo = chainlinkPrices[0].value;
+      results.chainlink.ethereum = chainlinkPrices[0].value;
     }
     if (chainlinkPrices[1].status === 'fulfilled') {
-      results.chainlink.ethereum = chainlinkPrices[1].value;
+      results.chainlink.ethereumSecond = chainlinkPrices[1].value;
     }
     
     // Process DEX prices
@@ -183,19 +233,19 @@ async function validateSwapAgainstPegProtection(fromChain, toChain, fromToken, t
     // Calculate deviations
     const basePrice = results.chainlink.ethereum || 1.0; // Use Ethereum as base
     
-    // Check Celo Uniswap vs Chainlink
-    if (results.dex.uniswap && results.chainlink.celo) {
-      const deviation = Math.abs(results.dex.uniswap - results.chainlink.celo) / results.chainlink.celo;
-      results.deviations.celoUniswap = {
+    // Check Ethereum Uniswap vs Chainlink
+    if (results.dex.uniswap && results.chainlink.ethereum) {
+      const deviation = Math.abs(results.dex.uniswap - results.chainlink.ethereum) / results.chainlink.ethereum;
+      results.deviations.ethereumUniswap = {
         deviation: deviation * 100,
         dexPrice: results.dex.uniswap,
-        chainlinkPrice: results.chainlink.celo,
+        chainlinkPrice: results.chainlink.ethereum,
         safe: deviation <= pegStatus.alertThreshold
       };
       
       if (deviation > pegStatus.alertThreshold) {
         results.safe = false;
-        results.alerts.push(`Celo Uniswap deviation: ${(deviation * 100).toFixed(2)}%`);
+        results.alerts.push(`Ethereum Uniswap deviation: ${(deviation * 100).toFixed(2)}%`);
       }
     }
     

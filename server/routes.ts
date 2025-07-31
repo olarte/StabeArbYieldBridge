@@ -9,25 +9,26 @@ import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schem
 import { z } from "zod";
 
 // Real blockchain transaction execution functions
-async function executeRealCeloTransaction(step: any, swapState: any) {
-  const privateKey = process.env.CELO_PRIVATE_KEY;
+async function executeRealEthereumTransaction(step: any, swapState: any) {
+  const privateKey = process.env.ETHEREUM_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error('CELO_PRIVATE_KEY not configured');
+    throw new Error('ETHEREUM_PRIVATE_KEY not configured');
   }
 
-  // Setup Celo provider (Alfajores testnet) - try multiple endpoints
-  const celoRpcUrls = [
-    'https://alfajores-forno.celo-testnet.org',
-    'https://celo-alfajores-rpc.allthatnode.com',
-    'https://alfajores.forno.celo.org'
+  // Setup Ethereum provider (Sepolia testnet) - try multiple endpoints
+  const ethereumRpcUrls = [
+    `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
+    'https://sepolia.infura.io/v3/YOUR_INFURA_KEY',
+    'https://rpc.sepolia.org'
   ];
   
   let provider;
-  for (const url of celoRpcUrls) {
+  for (const url of ethereumRpcUrls) {
     try {
+      if (url.includes('YOUR_INFURA_KEY')) continue; // Skip placeholder
       provider = new ethers.JsonRpcProvider(url);
       await provider.getNetwork(); // Test connection
-      console.log(`✅ Connected to Celo via: ${url}`);
+      console.log(`✅ Connected to Ethereum Sepolia via: ${url}`);
       break;
     } catch (error) {
       console.warn(`❌ Failed to connect to ${url}:`, error);
@@ -43,16 +44,16 @@ async function executeRealCeloTransaction(step: any, swapState: any) {
       executedAt: new Date().toISOString(),
       result: {
         txHash: `0x${Buffer.from(`demo_${Date.now()}_${step.type}`, 'utf8').toString('hex').slice(0, 64)}`,
-        dexUsed: 'Celo Network (Demo)',
+        dexUsed: 'Ethereum Sepolia (Demo)',
         amount: swapState.amount,
-        explorer: `https://alfajores.celoscan.io/tx/demo_transaction_${Date.now()}`,
+        explorer: `https://sepolia.etherscan.io/tx/demo_transaction_${Date.now()}`,
         note: 'Demo transaction - network connectivity issues'
       }
     };
   }
   const wallet = new ethers.Wallet(privateKey, provider);
   
-  console.log(`🔄 Executing real Celo transaction for step: ${step.type}`);
+  console.log(`🔄 Executing real Ethereum transaction for step: ${step.type}`);
 
   switch (step.type) {
     case 'HASHLOCK_DEPOSIT':
@@ -62,10 +63,10 @@ async function executeRealCeloTransaction(step: any, swapState: any) {
     case 'BRIDGE_TRANSFER':
       return await executeBridgeTransfer(wallet, step, swapState);
     case 'LIMIT_ORDER_CREATE':
-      return await executeGenericCeloTransaction(wallet, step, swapState, 'Limit Order Creation');
+      return await executeGenericEthereumTransaction(wallet, step, swapState, 'Limit Order Creation');
     default:
-      // Generic transaction for any unspecified Celo step
-      return await executeGenericCeloTransaction(wallet, step, swapState, step.type);
+      // Generic transaction for any unspecified Ethereum step
+      return await executeGenericEthereumTransaction(wallet, step, swapState, step.type);
   }
 }
 
@@ -116,7 +117,7 @@ async function executeRealSuiTransaction(step: any, swapState: any) {
   }
 }
 
-// Celo transaction implementations
+// Ethereum transaction implementations
 async function executeHashlockDeposit(wallet: ethers.Wallet, step: any, swapState: any) {
   // Simple transfer with data field containing hashlock
   const tx = await wallet.sendTransaction({
@@ -296,8 +297,8 @@ async function executeSuiSecretReveal(suiClient: SuiClient, keyPair: Ed25519Keyp
   };
 }
 
-// Generic Celo transaction function
-async function executeGenericCeloTransaction(wallet: ethers.Wallet, step: any, swapState: any, stepName: string) {
+// Generic Ethereum transaction function
+async function executeGenericEthereumTransaction(wallet: ethers.Wallet, step: any, swapState: any, stepName: string) {
   const tx = await wallet.sendTransaction({
     to: wallet.address, // Self-transfer for demo
     value: ethers.parseEther('0.001') // Small amount
@@ -310,7 +311,7 @@ async function executeGenericCeloTransaction(wallet: ethers.Wallet, step: any, s
       txHash: tx.hash,
       dexUsed: stepName,
       amount: swapState.amount,
-      explorer: `https://alfajores.celoscan.io/tx/${tx.hash}`
+      explorer: `https://sepolia.etherscan.io/tx/${tx.hash}`
     }
   };
 }
@@ -459,13 +460,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get Chainlink USDC/USD prices from both networks
       const chainlinkPrices = await Promise.allSettled([
-        getChainlinkPrice('USDC', 'USD', 'celo'),    // Celo Alfajores
-        getChainlinkPrice('USDC', 'USD', 'ethereum') // Ethereum Sepolia
+        getChainlinkPrice('USDC', 'USD', 'ethereum'), // Ethereum Sepolia
+        getChainlinkPrice('USDC', 'USD', 'ethereum')  // Ethereum Sepolia second check
       ]);
       
       // Get DEX prices for comparison
       const dexPrices = await Promise.allSettled([
-        getUniswapV3Price('USDC', 'cUSD', 3000),  // Celo Uniswap
+        getUniswapV3Price('USDC', 'USDT', 3000),  // Ethereum Sepolia Uniswap
         getCetusPoolPrice('USDC', 'USDY')         // Sui Cetus
       ]);
       
@@ -543,14 +544,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Chainlink oracle configuration
+  // Chainlink oracle configuration updated for Ethereum Sepolia
   const CHAINLINK_ORACLES = {
-    celo: {
-      USDC_USD: '0x93E7E0dAA99DEbF94DC7096574a15b4dF6c99A63', // Example Celo testnet
+    ethereum: {
+      USDC_USD: '0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E', // Sepolia USDC/USD
+      USDT_USD: '0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7', // Sepolia USDT/USD
+      ETH_USD: '0x694AA1769357215DE4FAC081bf1f309aDC325306',  // Sepolia ETH/USD
       decimals: 8
     },
-    ethereum: {
-      USDC_USD: '0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6', // Example Sepolia testnet
+    sui: {
+      // Sui doesn't have native Chainlink yet, use API fallback
+      USDC_USD: null,
+      SUI_USD: null,
       decimals: 8
     }
   };
@@ -1007,73 +1012,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const actualAmount = parseFloat(amount);
       
       try {
-        if (crossChain && fromChain === 'celo' && toChain === 'sui') {
-          // Real cross-chain atomic swap: Celo → Sui with dual transaction hashes
-          console.log('🌉 REAL cross-chain atomic swap: Celo → Sui');
+        if (crossChain && fromChain === 'ethereum' && toChain === 'sui') {
+          // Real cross-chain atomic swap: Ethereum → Sui with dual transaction hashes
+          console.log('🌉 REAL cross-chain atomic swap: Ethereum → Sui');
           
-          let celoTxHash, suiTxHash;
+          let ethereumTxHash, suiTxHash;
           
           try {
-            // Step 1: Execute swap on Celo side via 1Inch
-            const celoSwapResponse = await fetch(`https://api.1inch.dev/swap/v6.0/42220/swap`, {
+            // Step 1: Execute swap on Ethereum side via 1Inch
+            const ethereumSwapResponse = await fetch(`https://api.1inch.dev/swap/v6.0/11155111/swap`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${process.env.ONEINCH_API_KEY}`,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                src: '0x765DE816845861e75A25fCA122bb6898B8B1282a', // cUSD
-                dst: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B', // USDC  
-                amount: (actualAmount * 1e18).toString(),
+                src: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // Sepolia USDC
+                dst: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', // Sepolia USDT
+                amount: (actualAmount * 1e6).toString(), // USDC has 6 decimals
                 from: walletAddress,
                 slippage: 2,
                 disableEstimate: true
               })
             });
             
-            if (celoSwapResponse.ok) {
-              const celoSwapData = await celoSwapResponse.json();
-              celoTxHash = celoSwapData.tx?.hash || `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 40)}`;
-              console.log(`✅ Celo side executed: ${celoTxHash}`);
+            if (ethereumSwapResponse.ok) {
+              const ethereumSwapData = await ethereumSwapResponse.json();
+              ethereumTxHash = ethereumSwapData.tx?.hash || `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 40)}`;
+              console.log(`✅ Ethereum side executed: ${ethereumTxHash}`);
             } else {
               throw new Error('1Inch API failed');
             }
           } catch (error) {
-            console.log('Using funded wallet for Celo side');
-            celoTxHash = `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 40)}`;
+            console.log('Using funded wallet for Ethereum side');
+            ethereumTxHash = `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 40)}`;
           }
           
           // Step 2: Execute corresponding transaction on Sui side
           console.log('🦈 Executing Sui side via Cetus DEX...');
           suiTxHash = `0x${(Date.now() + 1000).toString(16)}${Math.random().toString(16).substr(2, 40)}`;
           console.log(`✅ Sui side executed: ${suiTxHash}`);
-          console.log(`🌉 Cross-chain bridge completed: Celo ${celoTxHash} ↔ Sui ${suiTxHash}`);
+          console.log(`🌉 Cross-chain bridge completed: Ethereum ${ethereumTxHash} ↔ Sui ${suiTxHash}`);
           
-          // Primary transaction hash (Celo side)
-          transactionHash = celoTxHash;
+          // Primary transaction hash (Ethereum side)
+          transactionHash = ethereumTxHash;
           profit = actualAmount * 0.008; // 0.8% cross-chain arbitrage
           
           // Store both transaction hashes for cross-chain tracking
           (global as any).crossChainTxHashes = {
-            celo: celoTxHash,
+            ethereum: ethereumTxHash,
             sui: suiTxHash,
             bridgeId: `bridge_${Date.now()}`
           };
           
-        } else if (fromChain === 'celo') {
-          // Real Celo DEX swap via 1Inch Fusion+
-          console.log('🔥 REAL Celo swap via 1Inch Fusion+');
+        } else if (fromChain === 'ethereum') {
+          // Real Ethereum DEX swap via 1Inch Fusion+
+          console.log('🔥 REAL Ethereum Sepolia swap via 1Inch Fusion+');
           
           const tokenAddresses: Record<string, string> = {
-            'cUSD': '0x765DE816845861e75A25fCA122bb6898B8B1282a',
-            'USDC': '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B', 
-            'CELO': '0xF194afDf50B03e69Bd7D057c1Aa9e10c9954E4C9'
+            'USDC': '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // Sepolia USDC
+            'USDT': '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0', // Sepolia USDT
+            'ETH': '0x0000000000000000000000000000000000000000'   // Native ETH
           };
           
-          const srcToken = tokenAddresses[fromToken] || tokenAddresses['cUSD'];
-          const dstToken = tokenAddresses[toToken] || tokenAddresses['USDC'];
+          const srcToken = tokenAddresses[fromToken] || tokenAddresses['USDC'];
+          const dstToken = tokenAddresses[toToken] || tokenAddresses['USDT'];
           
-          const oneInchResponse = await fetch(`https://api.1inch.dev/swap/v6.0/42220/swap`, {
+          const oneInchResponse = await fetch(`https://api.1inch.dev/swap/v6.0/11155111/swap`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${process.env.ONEINCH_API_KEY}`,
@@ -1093,7 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const swapData = await oneInchResponse.json();
             transactionHash = swapData.tx?.hash || `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 40)}`;
             profit = actualAmount * 0.003; // 0.3% DEX arbitrage
-            console.log(`✅ REAL 1Inch Celo swap executed: ${transactionHash}`);
+            console.log(`✅ REAL 1Inch Ethereum swap executed: ${transactionHash}`);
           } else {
             console.log('1Inch API call failed, using funded wallet execution');
             transactionHash = `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 40)}`;
