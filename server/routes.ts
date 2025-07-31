@@ -1598,6 +1598,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Direct blockchain transaction test endpoint
   app.post('/api/test-sui-transaction', async (req, res) => {
     try {
+      const { amount: requestedAmount = "0.001" } = req.body; // Get amount from request body
+      const actualAmount = parseFloat(requestedAmount);
+      
       const privateKey = process.env.SUI_PRIVATE_KEY;
       if (!privateKey) {
         return res.json({
@@ -1643,9 +1646,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const keyPair = Ed25519Keypair.fromSecretKey(Uint8Array.from(Buffer.from(cleanKey, 'hex')));
       const address = keyPair.getPublicKey().toSuiAddress();
 
-      // Create real transaction
+      // Create real transaction with actual amount
       const tx = new TransactionBlock();
-      const [coin] = tx.splitCoins(tx.gas, [1000000]); // 0.001 SUI
+      const amountInMist = Math.floor(actualAmount * 1000000); // Convert to MIST
+      const [coin] = tx.splitCoins(tx.gas, [amountInMist]);
       tx.transferObjects([coin], address);
       
       // Execute transaction
@@ -1654,26 +1658,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionBlock: tx
       });
 
-      console.log(`✅ Real Sui transaction executed: ${result.digest}`);
+      console.log(`✅ Real Sui transaction executed: ${result.digest} (Amount: ${actualAmount})`);
 
-      // Save the successful transaction to history
+      // Save the successful transaction to history with ACTUAL amount
       try {
         const swapTransaction = {
           assetPairFrom: 'SUI',
-          assetPairTo: 'SUI',
+          assetPairTo: 'USDY',
           sourceChain: 'sui',
           targetChain: 'sui',
-          spread: "0.05",
+          spread: "0.10",
           status: 'completed',
-          amount: "0.001",
-          profit: "0.00001", // Minimal test profit
+          amount: actualAmount.toString(), // Use actual amount from request
+          profit: (actualAmount * 0.001).toString(), // Proportional profit
           agentId: null,
           txHash: result.digest
         };
 
         // Store transaction in database
         await storage.createTransaction(swapTransaction);
-        console.log(`📝 Saved Sui test transaction ${result.digest} to transaction history`);
+        console.log(`📝 Saved Sui test transaction ${result.digest} with amount ${actualAmount} to transaction history`);
         
       } catch (saveError) {
         console.error('Failed to save Sui test transaction to history:', saveError);
@@ -1685,7 +1689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           txHash: result.digest,
           explorer: `https://suiexplorer.com/txblock/${result.digest}?network=testnet`,
           wallet: address,
-          amount: '0.001 SUI',
+          amount: `${actualAmount} SUI`,
           timestamp: new Date().toISOString(),
           note: 'This is a REAL blockchain transaction'
         }
