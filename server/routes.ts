@@ -3219,6 +3219,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             assetPairFrom: 'USDC',
             assetPairTo: 'USDC',
             currentSpread: spreadAnalysis.spread.toString(),
+            uniswapPrice: spreadAnalysis.ethereumPrice.toFixed(6), // Frontend expects uniswapPrice
+            competitorPrice: spreadAnalysis.suiPrice.toFixed(6),   // Frontend expects competitorPrice
             ethereumPrice: spreadAnalysis.ethereumPrice.toFixed(6),
             suiPrice: spreadAnalysis.suiPrice.toFixed(6),
             estimatedProfit: spreadAnalysis.estimatedProfit,
@@ -3284,6 +3286,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 assetPairFrom: token0,
                 assetPairTo: token1,
                 currentSpread: spread.toFixed(4),
+                uniswapPrice: ethereumPrice.toFixed(6), // Frontend expects uniswapPrice
+                competitorPrice: suiPrice.toFixed(6),   // Frontend expects competitorPrice
                 ethereumPrice: ethereumPrice.toFixed(6),
                 suiPrice: suiPrice.toFixed(6),
                 estimatedProfit: (spread * 0.7).toFixed(2), // Account for fees

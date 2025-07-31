@@ -660,13 +660,13 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span>${Number(opp.uniswapPrice).toFixed(6)}</span>
+                      <span>${(opp.uniswapPrice && !isNaN(Number(opp.uniswapPrice))) ? Number(opp.uniswapPrice).toFixed(6) : 'N/A'}</span>
                       <span className="text-xs text-muted-foreground">Sepolia</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span>${Number(opp.competitorPrice).toFixed(6)}</span>
+                      <span>${(opp.competitorPrice && !isNaN(Number(opp.competitorPrice))) ? Number(opp.competitorPrice).toFixed(6) : 'N/A'}</span>
                       <span className="text-xs text-muted-foreground">Sui</span>
                     </div>
                   </TableCell>
