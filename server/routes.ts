@@ -5398,6 +5398,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return mockPrices[token] || 1.0;
   }
 
+  // Enhanced swap with yield routing
+  app.post('/api/swap/sepolia-sui-yield', async (req, res) => {
+    try {
+      const {
+        fromChain = 'ethereum',
+        toChain = 'sui',
+        fromToken,
+        toToken,
+        amount,
+        sessionId,
+        enableYieldRouting = true,
+        yieldStrategy = 'USDY', // or 'SCALLOP'
+        holdingPeriod = 30, // days
+        minSpread = 0.3
+      } = req.body;
+
+      // Validate yield routing options
+      const supportedYieldStrategies = ['USDY', 'SCALLOP', 'SUI_STAKING'];
+      if (enableYieldRouting && !supportedYieldStrategies.includes(yieldStrategy)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Unsupported yield strategy',
+          supportedStrategies: supportedYieldStrategies
+        });
+      }
+
+      // Get current yield rates
+      const yieldRates = await getSuiYieldRates();
+      const selectedYield = yieldRates[yieldStrategy as keyof typeof yieldRates];
+
+      // Calculate enhanced returns with yield
+      const baseSpread = await analyzeCrossChainSpread('ethereum', 'sui', fromToken, toToken, minSpread);
+      const yieldBonus = selectedYield ? 
+        calculateYieldBonus(selectedYield.apy, holdingPeriod) : 0;
+      
+      const baseProfitNum = (typeof baseSpread?.estimatedProfit === 'number' && !isNaN(baseSpread.estimatedProfit)) ? baseSpread.estimatedProfit : 0;
+      const yieldBonusNum = (typeof yieldBonus === 'number' && !isNaN(yieldBonus)) ? yieldBonus : 0;
+      const totalExpectedReturn = baseProfitNum + yieldBonusNum;
+      
+      console.log('🔍 Yield routing debug:', {
+        baseProfitNum,
+        yieldBonusNum,
+        totalExpectedReturn,
+        totalType: typeof totalExpectedReturn
+      });
+
+      // Create yield-enhanced execution plan
+      const executionPlan = createYieldEnhancedExecutionPlan({
+        baseSwap: { fromChain, toChain, fromToken, toToken, amount },
+        yieldStrategy,
+        yieldData: selectedYield,
+        holdingPeriod,
+        sessionId
+      });
+
+      res.json({
+        success: true,
+        data: {
+          swapType: 'YIELD_ENHANCED_CROSS_CHAIN',
+          baseArbitrage: {
+            spread: baseSpread?.spread || 0,
+            profit: baseSpread?.estimatedProfit || 0
+          },
+          yieldEnhancement: {
+            strategy: yieldStrategy,
+            apy: selectedYield?.apy,
+            expectedYield: yieldBonus,
+            holdingPeriod: `${holdingPeriod} days`
+          },
+          totalExpectedReturn: (typeof totalExpectedReturn === 'number' ? totalExpectedReturn : 0).toFixed(2),
+          executionPlan,
+          riskAssessment: {
+            arbitrageRisk: 'LOW',
+            yieldRisk: selectedYield?.riskLevel || 'MEDIUM',
+            overallRisk: 'LOW-MEDIUM'
+          },
+          estimatedTimeline: {
+            arbitrageExecution: '25-45 minutes',
+            yieldSetup: '5-10 minutes',
+            totalSetup: '30-55 minutes',
+            holdingPeriod: `${holdingPeriod} days`
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Yield-enhanced swap error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create yield-enhanced swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Create yield-enhanced execution plan
+  function createYieldEnhancedExecutionPlan(params: any) {
+    const { baseSwap, yieldStrategy, yieldData, holdingPeriod } = params;
+    
+    const baseSteps = [
+      {
+        type: 'SEPOLIA_SWAP',
+        description: `Swap ${baseSwap.fromToken} on Sepolia Uniswap V3`,
+        chain: 'ethereum',
+        dex: 'uniswap_v3',
+        status: 'PENDING'
+      },
+      {
+        type: 'CROSS_CHAIN_BRIDGE',
+        description: 'Bridge tokens to Sui',
+        chain: 'both',
+        estimatedTime: '15-25 minutes',
+        status: 'PENDING'
+      },
+      {
+        type: 'SUI_SWAP',
+        description: `Swap to ${baseSwap.toToken} on Sui Cetus`,
+        chain: 'sui',
+        dex: 'cetus',
+        status: 'PENDING'
+      }
+    ];
+
+    // Add yield-specific steps
+    if (yieldStrategy === 'USDY') {
+      baseSteps.push({
+        type: 'USDY_MINT',
+        description: 'Convert USDC to USDY for yield',
+        chain: 'sui',
+        protocol: 'USDY',
+        apy: yieldData?.apy,
+        status: 'PENDING'
+      });
+    } else if (yieldStrategy === 'SCALLOP') {
+      baseSteps.push({
+        type: 'SCALLOP_DEPOSIT',
+        description: 'Deposit to Scallop lending protocol',
+        chain: 'sui',
+        protocol: 'Scallop',
+        apy: yieldData?.apy,
+        status: 'PENDING'
+      });
+    }
+
+    baseSteps.push({
+      type: 'YIELD_MONITORING',
+      description: `Monitor yield for ${holdingPeriod} days`,
+      chain: 'sui',
+      automated: true,
+      status: 'PENDING'
+    });
+
+    return {
+      type: 'YIELD_ENHANCED_ARBITRAGE',
+      steps: baseSteps,
+      estimatedGas: {
+        ethereum: '0.02 ETH',
+        sui: '0.005 SUI',
+        bridge: '0.01 ETH'
+      },
+      estimatedFees: {
+        totalFees: '~1.2%',
+        breakdown: {
+          dexFees: '0.6%',
+          bridgeFees: '0.1%',
+          yieldProtocolFees: '0.1%',
+          gasFees: '0.4%'
+        }
+      }
+    };
+  }
+
+  // Calculate yield bonus
+  function calculateYieldBonus(apy: number, holdingPeriodDays: number): number {
+    const dailyRate = apy / 365 / 100;
+    return (Math.pow(1 + dailyRate, holdingPeriodDays) - 1) * 100;
+  }
+
   // Cetus DEX price endpoint for Sui Network - REAL integration
   app.get('/api/cetus/price/:pair', async (req, res) => {
     try {
