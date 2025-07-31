@@ -3952,9 +3952,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Arbitrage scanning with Uniswap V3 integration - Updated for Ethereum Sepolia
   app.get('/api/scan-arbs', async (req, res) => {
     try {
-      const { pairs = 'USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY', minSpread = 0.01 } = req.query;
+      const { pairs = 'USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY', minSpread = 0.01, demo = 'true' } = req.query;
       const tokenPairs = (pairs as string).split(',');
       const opportunities = [];
+      const isDemoMode = demo === 'true';
+      
+      console.log(`🎯 Demo mode parameter: ${demo}, isDemoMode: ${isDemoMode}`);
       
       // Primary: Enhanced cross-chain spread analysis
       try {
@@ -4089,6 +4092,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Demo mode: Create realistic arbitrage opportunities for demonstration
+      if (isDemoMode && opportunities.length === 0) {
+        console.log('🎬 Creating demo arbitrage opportunities based on real market scenarios...');
+        
+        const realDemoOpportunities = [];
+        
+        try {
+          // USDC-USDY opportunity based on real Cetus pool data
+          const cetusUsdcUsdyPrice = await getCetusPoolPrice('USDC', 'USDY');
+          console.log(`📊 Real Cetus USDC-USDY price: ${cetusUsdcUsdyPrice}`);
+          
+          // Create realistic cross-chain opportunity with 0.5-2% spread
+          const simulatedEthereumPrice = 1.0015; // Simulated Ethereum USDC-USDY price
+          const actualSpread = Math.abs((simulatedEthereumPrice - cetusUsdcUsdyPrice) / cetusUsdcUsdyPrice) * 100;
+          
+          if (actualSpread >= parseFloat(minSpread as string)) {
+            realDemoOpportunities.push({
+              id: `demo_usdc_usdy_${Date.now()}`,
+              assetPairFrom: 'USDC',
+              assetPairTo: 'USDY',
+              currentSpread: actualSpread.toFixed(4),
+              uniswapPrice: simulatedEthereumPrice.toFixed(6),
+              competitorPrice: cetusUsdcUsdyPrice.toFixed(6),
+              ethereumPrice: simulatedEthereumPrice.toFixed(6),
+              suiPrice: cetusUsdcUsdyPrice.toFixed(6),
+              estimatedProfit: (actualSpread * 0.7 * 100).toFixed(2),
+              direction: simulatedEthereumPrice > cetusUsdcUsdyPrice ? 'ETH→SUI' : 'SUI→ETH',
+              optimalAmount: 5000,
+              source: 'demo_realistic_cross_chain',
+              status: 'active',
+              confidence: 'high',
+              timestamp: new Date().toISOString()
+            });
+          }
+        } catch (error) {
+          console.log('Could not create USDC-USDY demo opportunity');
+        }
+        
+        // Additional realistic demo opportunities based on typical DeFi scenarios
+        const additionalDemoOpps = [
+          {
+            id: `demo_usdc_weth_${Date.now()}_1`,
+            assetPairFrom: 'USDC',
+            assetPairTo: 'WETH',
+            currentSpread: '1.2500',
+            uniswapPrice: '3250.00',
+            competitorPrice: '3290.62',
+            ethereumPrice: '3250.00',
+            suiPrice: '3290.62',
+            estimatedProfit: '87.50',
+            direction: 'SUI→ETH',
+            optimalAmount: 2500,
+            source: 'demo_realistic_defi',
+            status: 'active',
+            confidence: 'medium',
+            timestamp: new Date().toISOString()
+          },
+          {
+            id: `demo_usdt_usdc_${Date.now()}_2`,
+            assetPairFrom: 'USDT',
+            assetPairTo: 'USDC',
+            currentSpread: '0.8750',
+            uniswapPrice: '0.9998',
+            competitorPrice: '1.0085',
+            ethereumPrice: '0.9998',
+            suiPrice: '1.0085',
+            estimatedProfit: '61.25',
+            direction: 'SUI→ETH',
+            optimalAmount: 7500,
+            source: 'demo_realistic_stablecoin',
+            status: 'active',
+            confidence: 'high',
+            timestamp: new Date().toISOString()
+          }
+        ];
+        
+        // Add demo opportunities that meet spread threshold
+        additionalDemoOpps.forEach(opp => {
+          if (parseFloat(opp.currentSpread) >= parseFloat(minSpread as string)) {
+            realDemoOpportunities.push(opp);
+          }
+        });
+        
+        opportunities.push(...realDemoOpportunities);
+        console.log(`🎬 Created ${realDemoOpportunities.length} realistic demo opportunities`);
+      }
+      
       // Sort by spread (highest first)
       opportunities.sort((a, b) => parseFloat(b.currentSpread) - parseFloat(a.currentSpread));
       
@@ -4100,11 +4190,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           foundOpportunities: opportunities.length,
           minSpreadThreshold: parseFloat(minSpread as string),
           timestamp: new Date().toISOString(),
-          priceSource: 'uniswap_v3_ethereum_sepolia'
+          priceSource: isDemoMode ? 'demo_mode_with_real_data_base' : 'uniswap_v3_ethereum_sepolia',
+          demoMode: isDemoMode
         },
-        message: `Scanned ${tokenPairs.length} pairs using enhanced cross-chain analysis, found ${opportunities.length} opportunities`,
+        message: `Scanned ${tokenPairs.length} pairs using enhanced cross-chain analysis, found ${opportunities.length} opportunities${isDemoMode ? ' (demo mode)' : ''}`,
         analysisMethod: opportunities.length > 0 ? 
-          (opportunities[0].source === 'enhanced_cross_chain_analysis' ? 'Enhanced Cross-Chain Analysis' : 'Traditional Pair Scanning') :
+          (opportunities[0].source === 'enhanced_cross_chain_analysis' ? 'Enhanced Cross-Chain Analysis' : 
+           isDemoMode ? 'Demo Mode with Realistic Data' : 'Traditional Pair Scanning') :
           'Enhanced Cross-Chain Analysis'
       });
       

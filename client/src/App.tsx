@@ -488,11 +488,11 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
     }
   };
 
-  // Fetch arbitrage opportunities with enhanced parameters
+  // Fetch arbitrage opportunities with enhanced parameters (demo mode enabled)
   const { data: arbData, isLoading: arbLoading, refetch: refetchArbs } = useQuery({
     queryKey: ['/api/scan-arbs'],
     queryFn: () => 
-      fetch('/api/scan-arbs?pairs=USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY&minSpread=0.01')
+      fetch('/api/scan-arbs?pairs=USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY&minSpread=0.01&demo=true')
         .then(res => res.json()),
     refetchInterval: 5000, // Refresh every 5 seconds
   });
