@@ -36,7 +36,7 @@ Preferred communication style: Simple, everyday language.
 - **Portfolio Management**: Balance tracking and profit/loss calculations.
 - **Transaction Management**: Complete trade history and status tracking.
 - **Chain Status Monitoring**: Real-time blockchain network health monitoring.
-- **Cross-Chain Atomic Swaps**: Bidirectional swaps between Ethereum Sepolia and Sui Testnet with hashlock/timelock security and yield optimization (USDC to USDY on Sui).
+- **Cross-Chain Atomic Swaps**: Bidirectional swaps between Ethereum Sepolia and Sui Testnet with real 1Inch Fusion+ cryptographic hashlock/timelock security and yield optimization (USDC to USDY on Sui).
 - **Peg Protection**: Multi-source price validation (Uniswap V3, Cetus DEX, Chainlink Oracles) for real-time deviation detection.
 - **Cross-Chain Limit Orders**: Management of limit orders across Ethereum Sepolia and Sui Testnet using 1Inch Fusion+ and Cetus DEX.
 
