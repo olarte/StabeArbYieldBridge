@@ -10,6 +10,8 @@ import { UniswapPrices } from "@/components/uniswap/uniswap-prices";
 import { ArbitrageScanner } from "@/components/arbitrage/arbitrage-scanner";
 import YieldEnhancedScanner from "@/components/arbitrage/yield-enhanced-scanner";
 import YieldOpportunities from "@/components/arbitrage/yield-opportunities";
+import SimpleYieldScanner from "@/components/arbitrage/simple-yield-scanner";
+import TestYield from "@/components/test-yield";
 
 export default function Dashboard() {
   return (
@@ -39,9 +41,12 @@ export default function Dashboard() {
               <ActiveAgents />
             </div>
 
+            {/* Test Yield Component */}
+            <TestYield />
+            
             {/* Yield-Enhanced Features */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <YieldEnhancedScanner />
+              <SimpleYieldScanner />
               <YieldOpportunities />
             </div>
 
