@@ -8,6 +8,8 @@ import { ActiveAgents } from "@/components/arbitrage/active-agents";
 import { RecentTransactions } from "@/components/transactions/recent-transactions";
 import { UniswapPrices } from "@/components/uniswap/uniswap-prices";
 import { ArbitrageScanner } from "@/components/arbitrage/arbitrage-scanner";
+import YieldEnhancedScanner from "@/components/arbitrage/yield-enhanced-scanner";
+import YieldOpportunities from "@/components/arbitrage/yield-opportunities";
 
 export default function Dashboard() {
   return (
@@ -37,7 +39,13 @@ export default function Dashboard() {
               <ActiveAgents />
             </div>
 
-            {/* Arbitrage Scanner */}
+            {/* Yield-Enhanced Features */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <YieldEnhancedScanner />
+              <YieldOpportunities />
+            </div>
+
+            {/* Traditional Arbitrage Scanner */}
             <ArbitrageScanner />
 
             {/* Recent Transactions */}
