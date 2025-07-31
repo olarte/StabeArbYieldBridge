@@ -2772,45 +2772,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           };
         } else if (currentStep.chain === 'celo' || currentStep.chain === 'ethereum') {
-          // Return transaction data for MetaMask execution
+          // Return REAL transaction data for MetaMask execution
+          const usdcAmount = (swapState.amount * 1000000).toString(16); // Amount in USDC smallest unit (6 decimals)
           executionResult = {
             status: 'PENDING_SIGNATURE',
             requiresWalletSignature: true,
             walletType: 'metamask',
-            chain: 'celo',
+            chain: 'ethereum',
             transactionData: {
-              to: '0x391F48752acD48271040466d748FcB367f2d2a1F', // Default recipient
-              value: '0x38D7EA4C68000', // 0.001 ETH in wei
-              gasLimit: '0x7530', // 30000
-              data: `0x${Buffer.from(`${currentStep.type}_${Date.now()}`, 'utf8').toString('hex')}`,
-              description: currentStep.description
+              to: '0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8', // Real USDC contract address on Sepolia
+              value: '0x0', // No ETH transfer, only token
+              gasLimit: '0xC350', // 50000 gas for token operations
+              data: currentStep.type === 'FUSION_SWAP_SOURCE' 
+                ? `0xa9059cbb000000000000000000000000391f48752acd48271040466d748fcb367f2d2a1f000000000000000000000000000000000000000000000000000000000${usdcAmount}` // Real ERC20 transfer
+                : `0x095ea7b3000000000000000000000000391f48752acd48271040466d748fcb367f2d2a1f000000000000000000000000000000000000000000000000000000000${usdcAmount}`, // Real ERC20 approval
+              description: `${currentStep.description} - Real USDC transaction on Ethereum Sepolia`
             }
           };
         } else if (currentStep.chain === 'sui') {
-          // Return transaction data for Sui wallet execution
+          // Return REAL transaction data for Sui wallet execution
           executionResult = {
             status: 'PENDING_SIGNATURE',
             requiresWalletSignature: true,
             walletType: 'sui',
             chain: 'sui',
             transactionData: {
-              type: 'sui_transaction',
-              amount: 1000000, // 0.001 SUI in MIST
-              description: currentStep.description,
+              type: 'sui_token_transfer',
+              coinType: '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN', // Real USDC coin type on Sui
+              amount: swapState.amount * 1000000, // Real amount in smallest unit
+              recipient: '0x391f48752acd48271040466d748fcb367f2d2a1f', // Real recipient address
+              description: `${currentStep.description} - Real USDC transaction on Sui Testnet`,
               stepType: currentStep.type
             }
           };
         } else if (currentStep.chain === 'both') {
-          // Handle "both" chain steps (like limit orders)
+          // "Both" chain steps require sequential wallet signatures
           executionResult = {
-            status: 'COMPLETED',
-            executedAt: new Date().toISOString(),
-            result: {
-              txHash: `both_${Buffer.from(`${currentStep.type}_${Date.now()}`, 'utf8').toString('hex').slice(0, 64)}`,
-              message: `${currentStep.type} completed on both chains`,
-              chains: ['celo', 'sui'],
-              dexUsed: 'Multi-Chain Operations',
-              amount: swapState.amount
+            status: 'PENDING_SIGNATURE',
+            requiresWalletSignature: true,
+            walletType: 'both', // Indicates both wallets needed
+            chain: 'both',
+            transactionData: {
+              step1: {
+                walletType: 'metamask',
+                chain: 'ethereum',
+                to: '0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8', // Real USDC contract on Sepolia
+                value: '0x0',
+                gasLimit: '0xC350', // 50000 gas
+                data: '0xa9059cbb000000000000000000000000391f48752acd48271040466d748fcb367f2d2a1f0000000000000000000000000000000000000000000000000de0b6b3a7640000', // ERC20 transfer
+                description: `${currentStep.type} - Ethereum side`
+              },
+              step2: {
+                walletType: 'sui',
+                chain: 'sui',
+                type: 'sui_transfer',
+                amount: swapState.amount * 1000000, // Convert to MIST
+                description: `${currentStep.type} - Sui side`
+              },
+              message: `${currentStep.type} requires both Ethereum and Sui wallet signatures`
             }
           };
         } else {
