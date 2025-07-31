@@ -18,13 +18,17 @@ function Router() {
 }
 
 function App() {
-  // Force browser cache refresh
-  console.log('🚀 StableArbYieldBridge v2.0 - Dashboard Mode Active:', new Date().toISOString());
+  // Force browser cache refresh - NEW CLEAN VERSION
+  console.log('🚀 StableArbYieldBridge v3.0 - CLEAN DASHBOARD VERSION:', new Date().toISOString());
+  console.log('🔥 OLD DARK MODE REMOVED - ONLY DASHBOARD LOADS NOW');
   
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        <div style={{ background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4)', padding: '2px', position: 'fixed', top: 0, right: 0, zIndex: 9999, fontSize: '10px', color: 'white' }}>
+          CLEAN v3.0 - {Date.now()}
+        </div>
         <Router />
       </TooltipProvider>
     </QueryClientProvider>
