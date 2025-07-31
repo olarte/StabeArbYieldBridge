@@ -2221,6 +2221,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced USDC/DAI price fetching for Sepolia (must be before general :pair route)
+  app.get('/api/uniswap/price/USDC-DAI', async (req, res) => {
+    try {
+      const { fee = 3000 } = req.query;
+      
+      console.log(`🔍 Enhanced USDC/DAI endpoint triggered (fee: ${fee})`);
+      console.log(`🔧 Uniswap contracts type: ${uniswapContracts.type}`);
+
+      if (uniswapContracts.type.includes('uniswap_v3_sepolia')) {
+        try {
+          const usdcAddress = CHAIN_CONFIG.ethereum.tokens.USDC;
+          const daiAddress = CHAIN_CONFIG.ethereum.tokens.DAI;
+          
+          // Get pool address
+          const poolAddress = await uniswapContracts.factory.getPool(
+            usdcAddress,
+            daiAddress,
+            fee
+          );
+
+          if (poolAddress === ethers.ZeroAddress) {
+            console.log('USDC/DAI pool not found on Sepolia, using fallback');
+            throw new Error('Pool not found - using fallback pricing');
+          }
+
+          // Get pool contract and fetch current state
+          const poolContract = new ethers.Contract(poolAddress, UNISWAP_V3_ABIS.Pool, ethProvider);
+          const [slot0, liquidity, token0, token1] = await Promise.all([
+            poolContract.slot0(),
+            poolContract.liquidity(),
+            poolContract.token0(),
+            poolContract.token1()
+          ]);
+
+          // Calculate price from sqrtPriceX96
+          const sqrtPriceX96 = slot0.sqrtPriceX96;
+          const price = calculatePriceFromSqrtPriceX96(sqrtPriceX96, token0, token1, usdcAddress, daiAddress);
+          
+          // Get quote for 1000 USDC -> DAI
+          let quote = null;
+          try {
+            const quoteResult = await uniswapContracts.quoter.quoteExactInputSingle.staticCall(
+              usdcAddress,
+              daiAddress,
+              fee,
+              ethers.parseUnits('1000', 6), // 1000 USDC
+              0
+            );
+            quote = {
+              input: '1000 USDC',
+              output: `${ethers.formatUnits(quoteResult, 18)} DAI`,
+              rate: (Number(ethers.formatUnits(quoteResult, 18)) / 1000).toFixed(6)
+            };
+          } catch (quoteError) {
+            console.log('Quote failed:', quoteError.message);
+          }
+
+          return res.json({
+            success: true,
+            data: {
+              pair: 'USDC-DAI',
+              poolAddress,
+              fee: fee / 10000,
+              price: {
+                usdcToDai: price.price0,
+                daiToUsdc: price.price1,
+                formatted: `1 USDC = ${price.price0.toFixed(6)} DAI`
+              },
+              quote,
+              poolStats: {
+                sqrtPriceX96: sqrtPriceX96.toString(),
+                tick: slot0.tick.toString(),
+                liquidity: liquidity.toString(),
+                feeGrowthGlobal0X128: slot0.feeProtocol
+              },
+              tokens: {
+                token0: { 
+                  address: token0, 
+                  symbol: token0.toLowerCase() === usdcAddress.toLowerCase() ? 'USDC' : 'DAI',
+                  decimals: token0.toLowerCase() === usdcAddress.toLowerCase() ? 6 : 18
+                },
+                token1: { 
+                  address: token1, 
+                  symbol: token1.toLowerCase() === usdcAddress.toLowerCase() ? 'USDC' : 'DAI',
+                  decimals: token1.toLowerCase() === usdcAddress.toLowerCase() ? 6 : 18
+                }
+              },
+              timestamp: new Date().toISOString(),
+              source: 'uniswap_v3_ethereum_sepolia',
+              network: 'Ethereum Sepolia',
+              chainId: 11155111
+            }
+          });
+          
+        } catch (contractError) {
+          console.error('🔴 Sepolia USDC/DAI price fetch failed:', contractError.message);
+          console.log('⚠️ Falling back to mock pricing due to pool unavailability');
+          // Don't return here - let it fall through to the mock fallback below
+        }
+      }
+
+      // Fallback to mock price
+      res.json({
+        success: true,
+        data: {
+          pair: 'USDC-DAI',
+          price: {
+            usdcToDai: 1.0001,
+            daiToUsdc: 0.9999,
+            formatted: '1 USDC = 1.0001 DAI'
+          },
+          source: 'mock_fallback',
+          note: 'Mock data - real Uniswap V3 not available',
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('USDC/DAI price error:', error.message);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch USDC/DAI price',
+        details: error.message
+      });
+    }
+  });
+
   // Enhanced Uniswap V3 price fetching for Ethereum Sepolia
   app.get('/api/uniswap/price/:pair', async (req, res) => {
     try {
@@ -2256,14 +2383,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
           if (poolAddress === ethers.ZeroAddress) {
-            return res.status(404).json({
-              success: false,
-              error: 'Pool not found on Sepolia for this pair and fee tier',
-              suggestion: 'Try different fee tiers: 500 (0.05%), 3000 (0.3%), 10000 (1%)',
-              availableFees: [500, 3000, 10000],
-              note: 'Pool may not exist on Sepolia testnet for this token combination',
-              fallbackAction: 'Use Chainlink oracle pricing instead'
-            });
+            console.log(`⚠️ Pool not found for ${pair} on Sepolia, throwing error for fallback`);
+            throw new Error(`Pool not found for ${pair} on Sepolia testnet`);
           }
 
           // Get pool contract and fetch data with enhanced error handling
@@ -2393,6 +2514,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+
 
   // Uniswap V3 quote endpoint
   app.get('/api/uniswap/quote', async (req, res) => {
