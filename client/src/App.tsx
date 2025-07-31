@@ -282,11 +282,11 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       let transactionHash = '';
       
       // Determine which wallet to use based on step type/chain
-      const stepChain = transactionData?.chain || transactionData?.walletType || 'celo';
+      const stepChain = transactionData?.chain || transactionData?.walletType || 'ethereum';
       console.log(`🔗 Step ${stepIndex + 1} will use chain: ${stepChain}`);
       
-      if (stepChain === 'celo') {
-        // Use MetaMask for Celo chain transactions
+      if (stepChain === 'ethereum' || stepChain === 'celo') {
+        // Use MetaMask for Ethereum Sepolia chain transactions
         console.log('🔍 MetaMask connection check:', {
           windowEthereum: !!window.ethereum,
           walletConnectionsAccount: walletConnections?.account,
@@ -305,23 +305,23 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         
         console.log('✅ MetaMask connection validated successfully');
         
-        console.log(`📱 Step ${stepIndex + 1}: Prompting MetaMask signature for Celo transaction...`);
+        console.log(`📱 Step ${stepIndex + 1}: Prompting MetaMask signature for Ethereum transaction...`);
         console.log('📋 MetaMask transaction will be sent to account:', walletConnections.account);
         console.log('🔍 About to start MetaMask transaction flow...');
         
-        // Ensure we're connected to the right network (Celo Alfajores) - non-blocking
+        // Ensure we're connected to the right network (Ethereum Sepolia) - non-blocking
         try {
           const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-          console.log('🔗 Current chain ID:', chainId, 'Expected: 0xa4ec (Celo Alfajores)');
+          console.log('🔗 Current chain ID:', chainId, 'Expected: 0xaa36a7 (Ethereum Sepolia)');
           
-          // If not on Celo Alfajores, switch networks but don't block on it
-          if (chainId !== '0xa4ec') {
-            console.log('🔄 Attempting to switch to Celo Alfajores network...');
+          // If not on Ethereum Sepolia, switch networks but don't block on it
+          if (chainId !== '0xaa36a7') {
+            console.log('🔄 Attempting to switch to Ethereum Sepolia network...');
             try {
               await Promise.race([
                 window.ethereum.request({
                   method: 'wallet_switchEthereumChain',
-                  params: [{ chainId: '0xa4ec' }],
+                  params: [{ chainId: '0xaa36a7' }],
                 }),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Network switch timeout')), 5000))
               ]);
@@ -334,7 +334,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           console.warn('⚠️ Network check failed, continuing anyway:', networkError);
         }
         
-        // Get current gas price and nonce for Celo
+        // Get current gas price and nonce for Ethereum
         let gasPrice = '0x174876E800'; // 100 gwei default (higher for Celo)
         let nonce;
         try {
@@ -661,7 +661,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   <TableCell>
                     <div className="flex flex-col">
                       <span>${Number(opp.uniswapPrice).toFixed(6)}</span>
-                      <span className="text-xs text-muted-foreground">Celo</span>
+                      <span className="text-xs text-muted-foreground">Sepolia</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -756,7 +756,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 // Live Price Monitor Component
 function LivePriceMonitor() {
   const { data: priceData, isLoading: priceLoading } = useQuery({
-    queryKey: ['/api/uniswap/price/cUSD-USDC'],
+    queryKey: ['/api/uniswap/price/USDC-WETH'],
     refetchInterval: 3000, // Refresh every 3 seconds
   });
 
@@ -769,8 +769,8 @@ function LivePriceMonitor() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">🦄 Uniswap V3 (Celo)</CardTitle>
-          <CardDescription>cUSD/USDC Price Feed</CardDescription>
+          <CardTitle className="text-lg">🦄 Uniswap V3 (Sepolia)</CardTitle>
+          <CardDescription>USDC/WETH Price Feed</CardDescription>
         </CardHeader>
         <CardContent>
           {priceLoading ? (
@@ -784,10 +784,10 @@ function LivePriceMonitor() {
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
               <div className="text-xs text-muted-foreground">
-                {(priceData as any)?.data?.price?.formatted || '1 cUSD = 1.000000 USDC'}
+                {(priceData as any)?.data?.price?.formatted || '1 USDC = 1.000000 WETH'}
               </div>
               <Badge variant="outline" className="text-xs">
-                Celo Alfajores Testnet
+                Ethereum Sepolia Testnet
               </Badge>
             </div>
           )}

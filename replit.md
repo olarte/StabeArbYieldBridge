@@ -357,3 +357,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Gas Optimization Features**: 250k gas limit for Fusion+ orders, 200k for direct swaps with dynamic gas price optimization
 - ✅ **Frontend Wallet Integration Ready**: Both swap modes return properly structured transaction data for MetaMask signature collection with complete ABI encoding parameters
 - ✅ **Production-Ready Fallback System**: Seamless switching between Fusion+ MEV protection and direct Uniswap V3 execution based on user preference and availability
+- ✅ **Legacy Code Cleanup**: Removed all cUSD/cEUR references from frontend and backend, simplified application to focus purely on USDC trading
+- ✅ **Network Migration Complete**: Updated all chain references from "Celo" to "Ethereum Sepolia" for simplified USDC-focused arbitrage
+- ✅ **UI Consistency**: Updated wallet connection labels, price monitor components, and arbitrage table to reflect Ethereum Sepolia integration
+- ✅ **Simplified Architecture**: Eliminated legacy Celo Alfajores complexity to streamline user experience around USDC cross-chain arbitrage

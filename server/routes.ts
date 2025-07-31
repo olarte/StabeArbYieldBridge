@@ -1066,7 +1066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/oracle/peg-status', async (req, res) => {
     try {
       // Force fresh validation
-      const validation = await validateSwapAgainstPegProtection('celo', 'sui', 'USDC', 'USDY');
+      const validation = await validateSwapAgainstPegProtection('ethereum', 'sui', 'USDC', 'USDY');
       
       // Update last validation timestamp
       pegStatus.crossChainValidation.lastValidation = new Date().toISOString();
