@@ -16,6 +16,7 @@ import WalletConnect from "@/components/WalletConnect.jsx";
 import SuiWalletConnect from "@/components/SuiWalletConnect";
 import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
+import { ExternalLink } from "lucide-react";
 import suiIcon from "@assets/abfadeb9f40e6ad0db5e9c92c09c40e0_1753983736153.jpg";
 import ethereumIcon from "@assets/download_1753983736153.png";
 
@@ -845,6 +846,7 @@ function PreviousSwapsExecuted() {
                 <TableHead>Swap Direction</TableHead>
                 <TableHead>Amount Swapped</TableHead>
                 <TableHead>Profit</TableHead>
+                <TableHead>Transaction Links</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -852,41 +854,75 @@ function PreviousSwapsExecuted() {
             <TableBody>
               {(swapHistory as any)?.data?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No completed swaps yet. Execute arbitrage opportunities to see history here.
                   </TableCell>
                 </TableRow>
               ) : (
-                (swapHistory as any)?.data?.map((swap: any, index: number) => (
-                  <TableRow key={swap.id || index}>
-                    <TableCell className="font-medium">
-                      {swap.assetPairFrom}/{swap.assetPairTo}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
-                          {swap.sourceChain}
-                        </span>
-                        →
-                        <span className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
-                          {swap.targetChain}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>${Number(swap.amount || 0).toFixed(2)}</TableCell>
-                    <TableCell className={Number(swap.profit || 0) > 0 ? "text-green-600 font-medium" : "text-red-600"}>
-                      ${Number(swap.profit || 0).toFixed(3)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(swap.timestamp || swap.createdAt).toLocaleDateString()} {new Date(swap.timestamp || swap.createdAt).toLocaleTimeString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={swap.status === 'completed' ? 'default' : swap.status === 'failed' ? 'destructive' : 'secondary'}>
-                        {swap.status || 'completed'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
+                (swapHistory as any)?.data?.map((swap: any, index: number) => {
+                  // Helper function to shorten transaction hash
+                  const shortenHash = (hash: string) => {
+                    if (!hash) return '';
+                    return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+                  };
+
+                  // Helper function to get explorer URL
+                  const getExplorerUrl = (hash: string, chain: string) => {
+                    if (!hash) return '#';
+                    if (chain === 'ethereum') {
+                      return `https://sepolia.etherscan.io/tx/${hash}`;
+                    } else if (chain === 'sui') {
+                      return `https://testnet.suivision.xyz/txblock/${hash}`;
+                    }
+                    return '#';
+                  };
+
+                  return (
+                    <TableRow key={swap.id || index}>
+                      <TableCell className="font-medium">
+                        {swap.assetPairFrom}/{swap.assetPairTo}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                            {swap.sourceChain}
+                          </span>
+                          →
+                          <span className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
+                            {swap.targetChain}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>${Number(swap.amount || 0).toFixed(2)}</TableCell>
+                      <TableCell className={Number(swap.profit || 0) > 0 ? "text-green-600 font-medium" : "text-red-600"}>
+                        ${Number(swap.profit || 0).toFixed(3)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {swap.txHash && (
+                            <a
+                              href={getExplorerUrl(swap.txHash, swap.sourceChain)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs"
+                            >
+                              {shortenHash(swap.txHash)}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(swap.timestamp || swap.createdAt).toLocaleDateString()} {new Date(swap.timestamp || swap.createdAt).toLocaleTimeString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={swap.status === 'completed' ? 'default' : swap.status === 'failed' ? 'destructive' : 'secondary'}>
+                          {swap.status || 'completed'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
