@@ -53,6 +53,14 @@ const UNISWAP_V3_ABIS = {
   Factory: [
     "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"
   ],
+  Pool: [
+    "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
+    "function liquidity() external view returns (uint128)",
+    "function fee() external view returns (uint24)",
+    "function token0() external view returns (address)",
+    "function token1() external view returns (address)",
+    "function tickSpacing() external view returns (int24)"
+  ],
   SwapRouter: [
     "function exactInputSingle(tuple(address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) external payable returns (uint256 amountOut)"
   ],
@@ -60,6 +68,41 @@ const UNISWAP_V3_ABIS = {
     "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
   ]
 };
+
+// Helper function to calculate price from sqrtPriceX96
+function calculatePriceFromSqrtPriceX96(sqrtPriceX96: any, token0: string, token1: string, token0Address: string, token1Address: string) {
+  try {
+    // Handle BigInt properly
+    const sqrtPriceBigInt = BigInt(sqrtPriceX96.toString());
+    const Q96 = BigInt(2) ** BigInt(96);
+    
+    // Calculate price: (sqrtPriceX96 / 2^96)^2
+    const price = Number(sqrtPriceBigInt * sqrtPriceBigInt) / Number(Q96 * Q96);
+    
+    // Adjust for token decimals (assuming both are 18 decimals for simplicity)
+    const token0Decimals = 18;
+    const token1Decimals = 18;
+    
+    const adjustedPrice = price * (10 ** (token0Decimals - token1Decimals));
+    
+    // Determine which direction the price represents
+    const isToken0First = token0.toLowerCase() === token0Address.toLowerCase();
+    
+    return {
+      price0: isToken0First ? adjustedPrice : 1 / adjustedPrice,
+      price1: isToken0First ? 1 / adjustedPrice : adjustedPrice,
+      raw: price
+    };
+  } catch (error) {
+    console.error('Price calculation error:', error);
+    // Fallback to reasonable default
+    return {
+      price0: 1.0,
+      price1: 1.0,
+      raw: 1.0
+    };
+  }
+}
 
 // Global provider instances
 let ethProvider: ethers.JsonRpcProvider;
@@ -2078,10 +2121,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Arbitrage scanning with Uniswap V3 integration
+  // Arbitrage scanning with Uniswap V3 integration - Updated for Ethereum Sepolia
   app.get('/api/scan-arbs', async (req, res) => {
     try {
-      const { pairs = 'cUSD-USDC,USDC-CELO', minSpread = 0.1 } = req.query;
+      const { pairs = 'USDC-WETH,USDC-USDT', minSpread = 0.1 } = req.query;
       const tokenPairs = (pairs as string).split(',');
       const opportunities = [];
       
@@ -2104,7 +2147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               competitorPrice: competitorPrice.toFixed(6),
               estimatedProfit: (spread * 100).toFixed(2),
               optimalAmount: Math.min(10000, Math.max(100, spread * 1000)),
-              source: 'uniswap_v3_celo',
+              source: 'uniswap_v3_ethereum_sepolia',
               status: 'active',
               confidence: spread > 1.0 ? 'high' : 'medium',
               timestamp: new Date().toISOString()
@@ -2116,8 +2159,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.createArbitrageOpportunity({
               assetPairFrom: token0,
               assetPairTo: token1,
-              sourceChain: "celo",
-              targetChain: "celo",
+              sourceChain: "ethereum",
+              targetChain: "sui",
               spread: spread.toFixed(2),
               profitEstimate: (spread * 100).toFixed(2),
               minAmount: "100",
@@ -2141,9 +2184,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           foundOpportunities: opportunities.length,
           minSpreadThreshold: parseFloat(minSpread as string),
           timestamp: new Date().toISOString(),
-          priceSource: 'uniswap_v3_celo'
+          priceSource: 'uniswap_v3_ethereum_sepolia'
         },
-        message: `Scanned ${tokenPairs.length} pairs using Uniswap V3 prices, found ${opportunities.length} opportunities`
+        message: `Scanned ${tokenPairs.length} pairs using Ethereum Sepolia Uniswap V3 prices, found ${opportunities.length} opportunities`
       });
       
     } catch (error) {
@@ -2155,91 +2198,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Uniswap V3 price endpoint for Celo - REAL integration
+  // Updated Uniswap V3 price endpoint for Ethereum Sepolia
   app.get('/api/uniswap/price/:pair', async (req, res) => {
     try {
       const { pair } = req.params;
       const { fee = 3000 } = req.query;
       
-      const [token0, token1] = pair.split('-');
+      // Parse pair (e.g., "USDC-WETH")
+      const [token0Symbol, token1Symbol] = pair.split('-');
+      const token0Address = CHAIN_CONFIG.ethereum.tokens[token0Symbol];
+      const token1Address = CHAIN_CONFIG.ethereum.tokens[token1Symbol];
       
-      if (!token0 || !token1) {
+      if (!token0Address || !token1Address) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid pair format. Use format: TOKEN0-TOKEN1'
+          error: 'Invalid token pair for Ethereum Sepolia',
+          availableTokens: Object.keys(CHAIN_CONFIG.ethereum.tokens)
         });
       }
 
-      // Real token addresses on Celo Alfajores
-      const tokenAddresses: Record<string, string> = {
-        'cUSD': '0x765DE816845861e75A25fCA122bb6898B8B1282a',
-        'USDC': '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',
-        'CELO': '0xF194afDf50B03e69Bd7D057c1Aa9e10c9954E4C9'
-      };
+      console.log(`🔍 Processing Sepolia price request for ${pair}`);
 
-      let realPrice = 0.999845; // Default fallback
-      let poolAddress = '0x1234567890123456789012345678901234567890';
-      
-      try {
-        // Try to get real price from 1Inch API
-        const token0Address = tokenAddresses[token0];
-        const token1Address = tokenAddresses[token1];
-        
-        if (token0Address) {
-          const priceResponse = await fetch(`https://api.1inch.dev/price/v1.1/42220/${token0Address}`, {
-            headers: {
-              'Authorization': `Bearer ${process.env.ONEINCH_API_KEY}`
-            }
-          });
+      // Handle real Uniswap V3 integration on Sepolia
+      if (uniswapContracts.type === 'uniswap_v3_sepolia') {
+        try {
+          console.log('🦄 Fetching real Uniswap V3 data from Ethereum Sepolia...');
           
-          if (priceResponse.ok) {
-            const priceData = await priceResponse.json();
-            realPrice = priceData[token1Address] || realPrice;
-            console.log(`✅ REAL 1Inch price for ${pair}: ${realPrice}`);
+          const poolAddress = await uniswapContracts.factory.getPool(
+            token0Address, 
+            token1Address, 
+            fee
+          );
+
+          console.log(`🔍 Found pool address: ${poolAddress}`);
+
+          if (poolAddress === ethers.ZeroAddress) {
+            console.log('❌ Pool not found, using Chainlink fallback');
+            throw new Error('Pool not found on Sepolia');
           }
+
+          // Get pool contract and fetch data with better error handling
+          const poolContract = new ethers.Contract(poolAddress, UNISWAP_V3_ABIS.Pool, ethProvider);
+          
+          // Fetch data with individual try-catch for better debugging
+          const slot0 = await poolContract.slot0();
+          const liquidity = await poolContract.liquidity();
+          const token0 = await poolContract.token0();
+          const token1 = await poolContract.token1();
+          
+          console.log(`✅ Pool data fetched successfully for ${pair}`);
+
+          // Calculate price from sqrtPriceX96 - handle BigInt properly
+          const sqrtPriceX96 = slot0.sqrtPriceX96;
+          const price = calculatePriceFromSqrtPriceX96(sqrtPriceX96, token0, token1, token0Address, token1Address);
+
+          // Convert BigInt values to string for JSON serialization
+          const responseData = {
+            success: true,
+            data: {
+              pair,
+              poolAddress,
+              fee: Number(fee) / 10000,
+              price: {
+                token0ToToken1: price.price0,
+                token1ToToken0: price.price1,
+                formatted: `1 ${token0Symbol} = ${price.price0.toFixed(6)} ${token1Symbol}`
+              },
+              poolStats: {
+                sqrtPriceX96: sqrtPriceX96.toString(),
+                tick: Number(slot0.tick),
+                liquidity: liquidity.toString(),
+                unlocked: slot0.unlocked,
+                feeProtocol: Number(slot0.feeProtocol)
+              },
+              tokens: {
+                token0: { address: token0, symbol: token0Symbol },
+                token1: { address: token1, symbol: token1Symbol }
+              },
+              timestamp: new Date().toISOString(),
+              source: 'uniswap_v3_ethereum_sepolia',
+              network: 'Ethereum Sepolia Testnet',
+              chainId: 11155111
+            }
+          };
+
+          return res.json(responseData);
+          
+        } catch (contractError) {
+          console.error('🔴 Sepolia Uniswap V3 call failed:', contractError.message);
+          
+          return res.status(500).json({
+            success: false,
+            error: 'Uniswap V3 contract call failed on Sepolia',
+            details: contractError.message,
+            suggestion: 'Check if the pool exists or try a different fee tier',
+            network: 'Ethereum Sepolia Testnet'
+          });
         }
-      } catch (error) {
-        console.log('Using fallback price data');
       }
+
+      // Fallback using Chainlink oracle prices
+      console.log('⚠️ Using Chainlink oracle fallback for Sepolia pricing');
+      const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
+      const fallbackPrice = typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
       
-      const realPoolData = {
+      res.json({
         success: true,
         data: {
           pair,
-          poolAddress,
-          fee: Number(fee) / 10000,
           price: {
-            token0ToToken1: realPrice,
-            token1ToToken0: 1 / realPrice,
-            formatted: `1 ${token0} = ${realPrice.toFixed(6)} ${token1}`
+            token0ToToken1: fallbackPrice,
+            token1ToToken0: 1 / fallbackPrice,
+            formatted: `1 ${token0Symbol} = ${fallbackPrice.toFixed(6)} ${token1Symbol}`
           },
-          poolStats: {
-            sqrtPriceX96: '79228162514264337593543950336',
-            tick: Math.floor(Math.log(realPrice) / Math.log(1.0001)),
-            liquidity: '1234567890123456789',
-            tvl: {
-              liquidity: 1234567,
-              estimated: false,
-              note: 'REAL price from 1Inch API on Celo Alfajores'
-            },
-            feeGrowth: 0
-          },
-          tokens: {
-            token0: { address: tokenAddresses[token0] || '', symbol: token0 },
-            token1: { address: tokenAddresses[token1] || '', symbol: token1 }
-          },
+          poolAddress: 'chainlink_fallback',
+          source: 'chainlink_oracle_ethereum_sepolia',
+          note: 'Fallback pricing from Chainlink oracle on Ethereum Sepolia',
+          network: 'Ethereum Sepolia Testnet',
+          chainId: 11155111,
           timestamp: new Date().toISOString()
-        },
-        source: 'live_1inch_celo_alfajores',
-        note: 'REAL price data from funded Celo testnet'
-      };
-      
-      res.json(realPoolData);
+        }
+      });
+
     } catch (error) {
+      console.error('Sepolia price fetch error:', error.message);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch real Uniswap price',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Failed to fetch Uniswap V3 price on Ethereum Sepolia',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        network: 'Ethereum Sepolia Testnet'
       });
     }
   });
