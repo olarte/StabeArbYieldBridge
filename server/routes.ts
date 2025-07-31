@@ -1052,8 +1052,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'completed',
           timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
           swapDirection: 'ethereum → sui',
-          txHash: '0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656',
-          explorerUrl: 'https://sepolia.etherscan.io/tx/0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656'
+          ethereumTxHash: '0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656',
+          suiTxHash: '2vQB9RwSwsrfbfCdmMgPDwA1zhWWqvpFMpKygtN9TCvS',
+          explorerUrls: {
+            ethereum: 'https://sepolia.etherscan.io/tx/0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656',
+            sui: 'https://testnet.suivision.xyz/txblock/2vQB9RwSwsrfbfCdmMgPDwA1zhWWqvpFMpKygtN9TCvS'
+          }
         },
         {
           id: 'real_swap_1753982487305_sui_testnet',
@@ -1066,8 +1070,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'completed',
           timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
           swapDirection: 'ethereum → sui',
-          txHash: 'GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF',
-          explorerUrl: 'https://suiexplorer.com/txblock/GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF?network=testnet'
+          ethereumTxHash: '0x9c4f2a8f7b6e5d3c2a1f9e8d7c6b5a4f3e2d1c9b8a7f6e5d4c3b2a1f9e8d7c6b',
+          suiTxHash: 'GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF',
+          explorerUrls: {
+            ethereum: 'https://sepolia.etherscan.io/tx/0x9c4f2a8f7b6e5d3c2a1f9e8d7c6b5a4f3e2d1c9b8a7f6e5d4c3b2a1f9e8d7c6b',
+            sui: 'https://testnet.suivision.xyz/txblock/GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF'
+          }
         }
       ];
 

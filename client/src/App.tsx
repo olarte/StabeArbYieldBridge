@@ -898,8 +898,33 @@ function PreviousSwapsExecuted() {
                         ${Number(swap.profit || 0).toFixed(3)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {swap.txHash && (
+                        <div className="flex flex-col gap-1">
+                          {swap.ethereumTxHash && (
+                            <a
+                              href={swap.explorerUrls?.ethereum || `https://sepolia.etherscan.io/tx/${swap.ethereumTxHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs"
+                            >
+                              <span className="text-xs text-gray-500">ETH:</span>
+                              {shortenHash(swap.ethereumTxHash)}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          {swap.suiTxHash && (
+                            <a
+                              href={swap.explorerUrls?.sui || `https://testnet.suivision.xyz/txblock/${swap.suiTxHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-xs"
+                            >
+                              <span className="text-xs text-gray-500">SUI:</span>
+                              {shortenHash(swap.suiTxHash)}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          {/* Fallback for legacy single txHash */}
+                          {!swap.ethereumTxHash && !swap.suiTxHash && swap.txHash && (
                             <a
                               href={getExplorerUrl(swap.txHash, swap.sourceChain)}
                               target="_blank"
