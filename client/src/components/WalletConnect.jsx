@@ -79,36 +79,34 @@ const WalletConnect = ({ onWalletChange }) => {
     }
   };
 
-  // Switch to specific network
+  // Switch to Ethereum Sepolia only
   const handleNetworkSwitch = async (targetChainId) => {
+    // Only allow Ethereum Sepolia (11155111)
+    if (targetChainId !== 11155111) {
+      alert('Only Ethereum Sepolia testnet is supported. Please switch to Ethereum Sepolia.');
+      return;
+    }
+
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+        params: [{ chainId: '0xaa36a7' }], // Sepolia chainId in hex
       });
     } catch (error) {
       if (error.code === 4902) {
-        // Chain not added to wallet
+        // Chain not added to wallet, add Ethereum Sepolia
         try {
-          const config = targetChainId === 44787 
-            ? {
-                chainId: '0xaef3',
-                chainName: 'Celo Alfajores Testnet',
-                nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
-                rpcUrls: ['https://alfajores-forno.celo-testnet.org'],
-                blockExplorerUrls: ['https://alfajores-blockscout.celo-testnet.org/']
-              }
-            : {
-                chainId: '0xaa36a7',
-                chainName: 'Ethereum Sepolia',
-                nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-                rpcUrls: ['https://sepolia.infura.io/v3/'],
+          const sepoliaConfig = {
+            chainId: '0xaa36a7',
+            chainName: 'Ethereum Sepolia',
+            nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+            rpcUrls: ['https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'],
                 blockExplorerUrls: ['https://sepolia.etherscan.io/']
-              };
+          };
           
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
-            params: [config],
+            params: [sepoliaConfig],
           });
         } catch (addError) {
           console.error('Failed to add network:', addError);
@@ -140,9 +138,9 @@ const WalletConnect = ({ onWalletChange }) => {
     return CHAIN_CONFIG[chainId]?.chainName || `Chain ID: ${chainId}`;
   };
 
-  // Check if current network is supported (prioritize Ethereum Sepolia)
+  // Check if current network is supported (Ethereum Sepolia only)
   const isNetworkSupported = () => {
-    return chainId && (chainId === 11155111 || chainId === 44787);
+    return chainId === 11155111; // Only Ethereum Sepolia
   };
 
   // Format address for display
@@ -218,10 +216,9 @@ const WalletConnect = ({ onWalletChange }) => {
             {connecting ? '🔄 Connecting...' : '🦊 Connect MetaMask'}
           </button>
           <div className="supported-networks">
-            <small>Supported Networks:</small>
+            <small>Supported Network:</small>
             <div className="network-list">
-              <span className="network-badge ethereum">🔵 Ethereum Sepolia</span>
-              <span className="network-badge celo">🟡 Celo Alfajores (Legacy)</span>
+              <span className="network-badge ethereum">🔵 Ethereum Sepolia Testnet</span>
             </div>
           </div>
         </div>
@@ -266,32 +263,26 @@ const WalletConnect = ({ onWalletChange }) => {
             <div className="account-row">
               <span className="label">Balance:</span>
               <span className="balance">
-                {balance} {chainId === 44787 ? 'CELO' : 'ETH'}
+                {balance} ETH
               </span>
             </div>
           )}
         </div>
 
-        {/* Network Switch Buttons */}
-        <div className="network-switcher">
-          <h4>🌐 Switch Network</h4>
-          <div className="network-buttons">
-            <button
-              onClick={() => handleNetworkSwitch(11155111)}
-              disabled={chainId === 11155111}
-              className={`network-btn ethereum ${chainId === 11155111 ? 'active' : ''}`}
-            >
-              🔵 Ethereum Sepolia
-            </button>
-            <button
-              onClick={() => handleNetworkSwitch(44787)}
-              disabled={chainId === 44787}
-              className={`network-btn celo ${chainId === 44787 ? 'active' : ''}`}
-            >
-              🟡 Celo Alfajores (Legacy)
-            </button>
+        {/* Network Switch Button - Ethereum Sepolia Only */}
+        {!isNetworkSupported() && (
+          <div className="network-switcher">
+            <h4>🌐 Switch Network</h4>
+            <div className="network-buttons">
+              <button
+                onClick={() => handleNetworkSwitch(11155111)}
+                className="network-btn ethereum"
+              >
+                🔵 Switch to Ethereum Sepolia
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {!isNetworkSupported() && (
           <div className="network-warning">

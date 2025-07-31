@@ -48,7 +48,7 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
   const [loadingObjects, setLoadingObjects] = useState<boolean>(false);
   const [availableWallets, setAvailableWallets] = useState<any[]>([]);
 
-  // Check for installed wallets on component mount
+  // Check for installed wallets on component mount (run only once)
   useEffect(() => {
     console.log('SuiWallet: Checking for installed wallets...');
     
