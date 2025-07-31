@@ -149,45 +149,74 @@ async function initializeUniswapContractsOnSepolia() {
   
   try {
     console.log('🦄 Initializing Uniswap V3 contracts on Ethereum Sepolia...');
+    console.log(`📍 Factory: ${sepoliaConfig.factory}`);
+    console.log(`📍 Quoter: ${sepoliaConfig.quoter}`);
+    console.log(`📍 Router: ${sepoliaConfig.router}`);
     
-    // Initialize Uniswap V3 contracts with Sepolia addresses
+    // Initialize Uniswap V3 contracts with correct Sepolia addresses
     const factory = new ethers.Contract(sepoliaConfig.factory, UNISWAP_V3_ABIS.Factory, ethProvider);
-    const router = new ethers.Contract(sepoliaConfig.router, UNISWAP_V3_ABIS.SwapRouter, ethProvider);
     const quoter = new ethers.Contract(sepoliaConfig.quoter, UNISWAP_V3_ABIS.Quoter, ethProvider);
+    const router = new ethers.Contract(sepoliaConfig.router, UNISWAP_V3_ABIS.SwapRouter, ethProvider);
     
-    // Test the factory contract
-    console.log(`🧪 Testing Uniswap V3 factory at ${sepoliaConfig.factory}...`);
+    // Test factory contract with USDC/DAI pool
+    console.log(`🧪 Testing Uniswap V3 factory for USDC/DAI pool...`);
     
-    // Try to get a known pool (USDC/WETH on Sepolia)
-    const testPoolAddress = await factory.getPool(
+    const usdcDaiPoolAddress = await factory.getPool(
       CHAIN_CONFIG.ethereum.tokens.USDC,
-      CHAIN_CONFIG.ethereum.tokens.WETH,
+      CHAIN_CONFIG.ethereum.tokens.DAI,
       3000 // 0.3% fee tier
     );
     
+    // Test additional pools
+    const usdcWethPoolAddress = await factory.getPool(
+      CHAIN_CONFIG.ethereum.tokens.USDC,
+      CHAIN_CONFIG.ethereum.tokens.WETH,
+      3000
+    );
+    
     console.log(`✅ Uniswap V3 factory is responsive on Sepolia`);
-    console.log(`📊 Test pool USDC/WETH (0.3%): ${testPoolAddress === ethers.ZeroAddress ? 'Not created yet' : testPoolAddress}`);
+    console.log(`📊 USDC/DAI pool (0.3%): ${usdcDaiPoolAddress === ethers.ZeroAddress ? 'Not created' : usdcDaiPoolAddress}`);
+    console.log(`📊 USDC/WETH pool (0.3%): ${usdcWethPoolAddress === ethers.ZeroAddress ? 'Not created' : usdcWethPoolAddress}`);
+    
+    // Test quoter with a sample quote
+    if (usdcDaiPoolAddress !== ethers.ZeroAddress) {
+      try {
+        const sampleQuote = await quoter.quoteExactInputSingle.staticCall(
+          CHAIN_CONFIG.ethereum.tokens.USDC,
+          CHAIN_CONFIG.ethereum.tokens.DAI,
+          3000,
+          ethers.parseUnits('100', 6), // 100 USDC (6 decimals)
+          0
+        );
+        console.log(`💡 Sample quote: 100 USDC = ${ethers.formatUnits(sampleQuote, 18)} DAI`);
+      } catch (quoteError) {
+        console.log(`⚠️ Quote test failed: ${quoteError.message}`);
+      }
+    }
     
     uniswapContracts = {
       factory: factory,
-      router: router,
       quoter: quoter,
-      type: 'uniswap_v3_sepolia'
+      router: router,
+      type: 'uniswap_v3_sepolia',
+      addresses: sepoliaConfig
     };
     
     console.log('✅ Uniswap V3 contracts successfully initialized on Ethereum Sepolia');
     
   } catch (error) {
     console.error(`❌ Uniswap V3 Sepolia initialization failed: ${error.message}`);
+    console.error('Stack:', error.stack);
     
-    // Fallback to mock
+    // Create contracts anyway for development
     uniswapContracts = {
-      factory: null,
-      router: null,
-      quoter: null,
-      type: 'mock'
+      factory: new ethers.Contract(sepoliaConfig.factory, UNISWAP_V3_ABIS.Factory, ethProvider),
+      quoter: new ethers.Contract(sepoliaConfig.quoter, UNISWAP_V3_ABIS.Quoter, ethProvider),
+      router: new ethers.Contract(sepoliaConfig.router, UNISWAP_V3_ABIS.SwapRouter, ethProvider),
+      type: 'uniswap_v3_sepolia_fallback',
+      addresses: sepoliaConfig
     };
-    console.log('🔄 Using mock contracts as fallback');
+    console.log('⚠️ Using fallback contract initialization');
   }
 }
 
