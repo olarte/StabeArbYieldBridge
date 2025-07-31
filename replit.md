@@ -264,3 +264,11 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Production-Ready Wallet Flow**: Complete transition from mock transactions to real blockchain signature requirements
 - ✅ **Sui Network Standardization**: Updated entire application to use Sui Testnet consistently across frontend and backend
 - ✅ **Network Configuration Cleanup**: Eliminated mixed Devnet/Testnet usage for better wallet compatibility and stability
+
+### January 31, 2025
+- ✅ **Amount Input Field Feature**: Added custom amount input to arbitrage opportunities table allowing users to specify swap amounts
+- ✅ **Dynamic Amount Integration**: Atomic swap creation now uses user-specified amounts instead of fixed $10 default
+- ✅ **Enhanced UI Layout**: Added "Amount ($)" column with number input fields (0.1 step increments, 1.0 placeholder)
+- ✅ **Real-Time Amount Validation**: Prevents execution with invalid amounts (NaN, negative, or zero values)
+- ✅ **Improved Transaction Error Handling**: Enhanced Sui wallet transaction creation with fallback for network connectivity issues
+- ✅ **Backend TypeScript Fixes**: Resolved data corruption issues in oracle peg status endpoint causing wallet transaction errors

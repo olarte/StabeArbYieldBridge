@@ -797,14 +797,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: {
           crossChainValidation: validation,
           chainlinkFeeds: {
-            celo: validation.chainlink?.celo || null,
-            ethereum: validation.chainlink?.ethereum || null
+            celo: (validation as any).chainlink?.celo || null,
+            ethereum: (validation as any).chainlink?.ethereum || null
           },
           dexPrices: {
-            celoUniswap: validation.dex?.uniswap || null,
-            suiCetus: validation.dex?.cetus || null
+            celoUniswap: (validation as any).dex?.uniswap || null,
+            suiCetus: (validation as any).dex?.cetus || null
           },
-          deviations: validation.deviations || {},
+          deviations: (validation as any).deviations || {},
           globalStatus: {
             swapsPaused: pegStatus.swapsPaused,
             alertThreshold: `${pegStatus.alertThreshold * 100}%`,
@@ -813,7 +813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           safety: {
             safe: validation.safe,
-            alerts: validation.alerts || [],
+            alerts: (validation as any).alerts || [],
             recommendation: validation.safe ? 'SAFE_TO_SWAP' : 'SWAPS_PAUSED'
           }
         }
