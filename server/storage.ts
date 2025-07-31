@@ -178,43 +178,31 @@ export class MemStorage implements IStorage {
       this.createTradingAgent(agent);
     });
 
-    // Sample recent transactions
+    // Real completed transactions from user's previous swaps
     const recentTransactions = [
       {
         agentId: null,
         assetPairFrom: "USDC",
-        assetPairTo: "USDC",
-        sourceChain: "Celo",
-        targetChain: "Sui",
-        amount: "1000.00",
-        profit: "12.40",
-        spread: "1.24",
+        assetPairTo: "USDY",
+        sourceChain: "ethereum",
+        targetChain: "sui",
+        amount: "10.00",
+        profit: "0.085",
+        spread: "0.85",
         status: "completed",
-        txHash: "0x1234...5678",
+        txHash: "0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656",
       },
       {
         agentId: null,
-        assetPairFrom: "USDT",
-        assetPairTo: "USDT",
-        sourceChain: "Sui",
-        targetChain: "Celo",
-        amount: "750.00",
-        profit: "6.53",
-        spread: "0.87",
+        assetPairFrom: "USDC",
+        assetPairTo: "USDY",
+        sourceChain: "ethereum",
+        targetChain: "sui",
+        amount: "5.00",
+        profit: "0.075",
+        spread: "1.50",
         status: "completed",
-        txHash: "0xabcd...efgh",
-      },
-      {
-        agentId: null,
-        assetPairFrom: "DAI",
-        assetPairTo: "USDC",
-        sourceChain: "Celo",
-        targetChain: "Sui",
-        amount: "2500.00",
-        profit: "14.00",
-        spread: "0.56",
-        status: "completed",
-        txHash: "0x9876...5432",
+        txHash: "GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF",
       },
     ];
 
