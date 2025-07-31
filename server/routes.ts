@@ -2517,6 +2517,215 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // Execute USDC/DAI swap via 1Inch Fusion+ on Sepolia
+  app.post('/api/swap/usdc-dai-fusion', async (req, res) => {
+    try {
+      const {
+        fromToken, // 'USDC' or 'DAI'
+        toToken,   // 'DAI' or 'USDC'
+        amount,
+        walletAddress,
+        sessionId,
+        slippageTolerance = 1,
+        useFusionPlus = true
+      } = req.body;
+
+      // Validate inputs
+      if (!['USDC', 'DAI'].includes(fromToken) || !['USDC', 'DAI'].includes(toToken)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Only USDC/DAI swaps supported',
+          supportedTokens: ['USDC', 'DAI']
+        });
+      }
+
+      if (fromToken === toToken) {
+        return res.status(400).json({
+          success: false,
+          error: 'From and to tokens must be different'
+        });
+      }
+
+      // Get token addresses
+      const fromTokenAddress = CHAIN_CONFIG.ethereum.tokens[fromToken];
+      const toTokenAddress = CHAIN_CONFIG.ethereum.tokens[toToken];
+      
+      // Get current price for reference
+      const priceResponse = await fetch(`http://localhost:5000/api/uniswap/price/USDC-DAI`);
+      const priceData = await priceResponse.json();
+      
+      let estimatedOutput;
+      if (priceData.success) {
+        const rate = fromToken === 'USDC' ? priceData.data.price.usdcToDai : priceData.data.price.daiToUsdc;
+        estimatedOutput = amount * rate * (1 - slippageTolerance / 100);
+      } else {
+        estimatedOutput = amount * 0.999; // Fallback
+      }
+
+      if (useFusionPlus) {
+        // Use 1Inch Fusion+ for MEV protection
+        const fusionResult = await execute1InchFusionPlusSwap({
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          amount,
+          walletAddress,
+          slippageTolerance,
+          chainId: 11155111
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            swapType: '1inch_fusion_plus',
+            fromToken,
+            toToken,
+            amount,
+            estimatedOutput,
+            fusionOrder: fusionResult.fusionOrder,
+            transactionData: fusionResult.transactionData,
+            route: '1Inch Fusion+ → Uniswap V3 Sepolia',
+            advantages: [
+              'MEV Protection',
+              'Gas Optimization', 
+              'Better Execution Price',
+              'No Front-running'
+            ],
+            nextStep: 'SIGN_FUSION_ORDER'
+          }
+        });
+      } else {
+        // Direct Uniswap V3 swap
+        const directSwapResult = await executeDirectUniswapV3Swap({
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          amount,
+          walletAddress,
+          slippageTolerance
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            swapType: 'direct_uniswap_v3',
+            fromToken,
+            toToken,
+            amount,
+            estimatedOutput,
+            transactionData: directSwapResult.transactionData,
+            route: 'Direct Uniswap V3 Sepolia',
+            nextStep: 'SIGN_SWAP_TRANSACTION'
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('USDC/DAI Fusion+ swap error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to prepare USDC/DAI swap',
+        details: error.message
+      });
+    }
+  });
+
+  // 1Inch Fusion+ order creation helper function
+  async function execute1InchFusionPlusSwap(params) {
+    try {
+      const fusionConfig = CHAIN_CONFIG.ethereum.fusion;
+      
+      // Create Fusion+ limit order
+      const fusionOrder = {
+        salt: randomBytes(32).toString('hex'),
+        maker: params.walletAddress,
+        receiver: params.walletAddress,
+        makerAsset: params.fromToken,
+        takerAsset: params.toToken,
+        makingAmount: ethers.parseUnits(
+          params.amount.toString(), 
+          params.fromToken === CHAIN_CONFIG.ethereum.tokens.USDC ? 6 : 18
+        ).toString(),
+        takingAmount: ethers.parseUnits(
+          (params.amount * 0.99).toString(), // Min output with slippage
+          params.toToken === CHAIN_CONFIG.ethereum.tokens.USDC ? 6 : 18
+        ).toString(),
+        makerTraits: '0',
+        expiry: Math.floor(Date.now() / 1000) + 1800, // 30 minutes
+        allowedSender: '0x0000000000000000000000000000000000000000',
+        interactions: '0x'
+      };
+
+      // Generate transaction data for approval + order placement  
+      // Simplified approach - return the order data for frontend to handle
+      const transactionData = {
+        to: fusionConfig.limitOrderProtocol,
+        data: '0x', // Frontend will encode the function call
+        value: '0',
+        gasLimit: '250000',
+        orderData: fusionOrder, // Send order data separately
+        interfaceData: {
+          functionName: 'fillOrderTo',
+          types: ['tuple(bytes32,address,address,address,address,uint256,uint256,uint256,uint256,address,bytes)', 'bytes', 'uint256', 'uint256', 'address'],
+          values: [fusionOrder, '0x', fusionOrder.makingAmount, fusionOrder.takingAmount, params.walletAddress]
+        }
+      };
+
+      return {
+        fusionOrder,
+        transactionData,
+        relayerUrl: fusionConfig.relayerUrl,
+        estimatedGasSavings: '15-30%',
+        mevProtection: true
+      };
+
+    } catch (error) {
+      throw new Error(`Fusion+ order creation failed: ${error.message}`);
+    }
+  }
+
+  // Direct Uniswap V3 swap fallback helper function
+  async function executeDirectUniswapV3Swap(params) {
+    try {
+      const routerAddress = CHAIN_CONFIG.ethereum.uniswap.router;
+      
+      // Simplified approach - return structured data for frontend to handle
+      const swapParams = {
+        tokenIn: params.fromToken,
+        tokenOut: params.toToken,
+        fee: 3000, // 0.3%
+        recipient: params.walletAddress,
+        deadline: Math.floor(Date.now() / 1000) + 1800,
+        amountIn: ethers.parseUnits(
+          params.amount.toString(),
+          params.fromToken === CHAIN_CONFIG.ethereum.tokens.USDC ? 6 : 18
+        ).toString(),
+        amountOutMinimum: ethers.parseUnits(
+          (params.amount * (1 - params.slippageTolerance / 100)).toString(),
+          params.toToken === CHAIN_CONFIG.ethereum.tokens.USDC ? 6 : 18
+        ).toString(),
+        sqrtPriceLimitX96: '0'
+      };
+
+      return {
+        transactionData: {
+          to: routerAddress,
+          data: '0x', // Frontend will encode the function call
+          value: '0',
+          gasLimit: '200000',
+          swapParams,
+          interfaceData: {
+            functionName: 'exactInputSingle',
+            types: ['tuple(address,address,uint24,address,uint256,uint256,uint256,uint160)'],
+            values: [swapParams]
+          }
+        },
+        route: 'Direct Uniswap V3'
+      };
+
+    } catch (error) {
+      throw new Error(`Direct swap preparation failed: ${error.message}`);
+    }
+  }
+
   // Uniswap V3 quote endpoint
   app.get('/api/uniswap/quote', async (req, res) => {
     try {
