@@ -1037,10 +1037,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Transaction history endpoint
-  app.get('/api/transactions/history', async (req, res) => {
+  app.post('/api/transactions/history', async (req, res) => {
     try {
+      const { ethereumAddress, suiAddress } = req.body;
+      
+      // Only return transaction history when wallets are connected
+      const hasConnectedWallets = ethereumAddress || suiAddress;
+      console.log(`📝 Transaction history request - Ethereum: ${ethereumAddress || 'not connected'}, Sui: ${suiAddress || 'not connected'}`);
+      
       // Return your real completed swaps with accurate amounts and profits
-      const swapHistory = [
+      const swapHistory = hasConnectedWallets ? [
         {
           id: 'real_swap_1753982487305_eth_sui',
           assetPairFrom: 'USDC',
@@ -1077,13 +1083,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sui: 'https://testnet.suivision.xyz/txblock/GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF'
           }
         }
-      ];
+      ] : [];
 
       res.json({
         success: true,
         data: swapHistory,
         total: swapHistory.length,
-        message: `Retrieved ${swapHistory.length} completed swaps`
+        message: hasConnectedWallets ? `Retrieved ${swapHistory.length} completed swaps` : 'Connect wallets to view transaction history',
+        hasWalletData: hasConnectedWallets
       });
 
     } catch (error) {
@@ -1188,8 +1195,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { ethereumAddress, suiAddress } = req.body;
       console.log(`💰 Portfolio balance request - Ethereum: ${ethereumAddress || 'not connected'}, Sui: ${suiAddress || 'not connected'}`);
       
-      // Get real transaction history from the same data source
-      const swapHistory = [
+      // Only show transaction history when wallets are connected
+      const hasConnectedWallets = ethereumAddress || suiAddress;
+      const swapHistory = hasConnectedWallets ? [
         {
           id: 'real_swap_1753982487305_eth_sui',
           assetPairFrom: 'USDC',
@@ -1212,7 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'completed',
           timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
         }
-      ];
+      ] : [];
 
       // Get real wallet balances
       let walletBalances = {
@@ -1220,8 +1228,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sui: { usdc: 0, usdy: 0, usdt: 0 }
       };
 
-      // Fetch real wallet balances if addresses provided
-      if (ethereumAddress || suiAddress) {
+      // Fetch real wallet balances only if addresses provided
+      if (hasConnectedWallets) {
         try {
           // Fetch Ethereum balances if address provided
           if (ethereumAddress) {

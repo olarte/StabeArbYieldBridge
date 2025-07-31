@@ -98,6 +98,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
 
   const portfolio = (portfolioData as any)?.data || {};
   const hasWalletData = portfolio.hasWalletData || false;
+  const hasConnectedWallets = walletConnections?.account || suiWalletInfo?.account?.address;
 
   return (
     <Card className="mb-6">
@@ -120,6 +121,15 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
             <div className="grid grid-cols-2 gap-4">
               <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
               <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+          </div>
+        ) : !hasConnectedWallets ? (
+          <div className="text-center py-8 space-y-4">
+            <div className="text-lg text-muted-foreground">
+              Connect your wallets to view portfolio balance
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Your real stablecoin balances will be displayed here once connected
             </div>
           </div>
         ) : (
@@ -1020,11 +1030,40 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 
 
 // Previous Swaps Executed Component
-function PreviousSwapsExecuted() {
+function PreviousSwapsExecuted({ 
+  walletConnections, 
+  suiWalletInfo 
+}: { 
+  walletConnections: any, 
+  suiWalletInfo: any 
+}) {
   const { data: swapHistory, isLoading } = useQuery({
-    queryKey: ['/api/transactions/history'],
+    queryKey: ['/api/transactions/history', walletConnections?.account, suiWalletInfo?.account?.address],
+    queryFn: async () => {
+      const ethereumAddress = walletConnections?.account;
+      const suiAddress = suiWalletInfo?.account?.address;
+      
+      const response = await fetch('/api/transactions/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ethereumAddress: ethereumAddress || null,
+          suiAddress: suiAddress || null
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transaction history: ${response.status}`);
+      }
+      
+      return response.json();
+    },
     refetchInterval: 10000, // Refresh every 10 seconds
   });
+
+  const hasConnectedWallets = walletConnections?.account || suiWalletInfo?.account?.address;
+  const swapData = (swapHistory as any)?.data || [];
+  const hasWalletData = (swapHistory as any)?.hasWalletData || false;
 
   return (
     <Card>
@@ -1032,7 +1071,7 @@ function PreviousSwapsExecuted() {
         <CardTitle className="flex items-center gap-2">
           🔄 Previous Swaps Executed
           <Badge variant="secondary">
-            {(swapHistory as any)?.data?.length || 0} Completed
+            {swapData.length} Completed
           </Badge>
         </CardTitle>
         <CardDescription>
@@ -1045,6 +1084,15 @@ function PreviousSwapsExecuted() {
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
             ))}
+          </div>
+        ) : !hasConnectedWallets ? (
+          <div className="text-center py-8 space-y-4">
+            <div className="text-lg text-muted-foreground">
+              Connect your wallets to view transaction history
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Your completed arbitrage swaps will be displayed here once connected
+            </div>
           </div>
         ) : (
           <Table>
@@ -1060,14 +1108,14 @@ function PreviousSwapsExecuted() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(swapHistory as any)?.data?.length === 0 ? (
+              {swapData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No completed swaps yet. Execute arbitrage opportunities to see history here.
                   </TableCell>
                 </TableRow>
               ) : (
-                (swapHistory as any)?.data?.map((swap: any, index: number) => {
+                swapData.map((swap: any, index: number) => {
                   // Helper function to shorten transaction hash
                   const shortenHash = (hash: string) => {
                     if (!hash) return '';
@@ -1275,7 +1323,10 @@ function ArbitrageTradingPage() {
           walletConnections={walletConnections}
           suiWalletInfo={suiWalletInfo}
         />
-        <PreviousSwapsExecuted />
+        <PreviousSwapsExecuted 
+          walletConnections={walletConnections}
+          suiWalletInfo={suiWalletInfo}
+        />
         <SwapResultsHistory swapResults={swapResults} />
       </div>
     </div>
