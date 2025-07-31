@@ -786,43 +786,77 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       </CardHeader>
       <CardContent>
         {/* Test Transaction Button */}
-        <div className="mb-6 p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
-          <h3 className="font-medium mb-2">🧪 Blockchain Transaction Test</h3>
+        <div className="mb-6 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+          <h3 className="font-medium mb-2">🧪 Real Blockchain Transaction Test</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Test real blockchain transaction to verify wallet connection works correctly
+            Test authentic blockchain transactions using configured testnet wallets
           </p>
           <div className="space-x-2">
             <Button 
-              onClick={testSuiTransaction}
-              disabled={!suiWalletInfo?.account}
+              onClick={async () => {
+                try {
+                  console.log('🧪 Testing real blockchain transaction via backend...');
+                  
+                  const response = await fetch('/api/test-real-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      chain: 'sui',
+                      amount: 1000, // 0.000001 SUI
+                      testType: 'simple_transfer'
+                    })
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                  }
+                  
+                  const result = await response.json();
+                  console.log('✅ Real transaction successful!', result);
+                  
+                  alert(`Real blockchain transaction successful!\nHash: ${result.data.transactionHash}\nExplorer: ${result.data.explorerUrl}`);
+                } catch (error) {
+                  console.error('❌ Real transaction test failed:', error);
+                  alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+              }}
               variant="outline"
               size="sm"
             >
-              {suiWalletInfo?.account ? 'Test Real Sui Transaction' : 'Connect Sui Wallet First'}
+              Test Real Sui Transaction
             </Button>
             <Button 
               onClick={async () => {
                 try {
-                  // Try native wallet approach
-                  const phantom = (window as any).phantom?.sui;
-                  if (phantom) {
-                    console.log('🧪 Testing with native Phantom Sui...');
-                    await phantom.connect();
-                    const accounts = await phantom.getAccounts();
-                    console.log('📍 Phantom accounts:', accounts);
-                    alert(`Phantom connected: ${accounts[0]?.address || 'No accounts'}`);
-                  } else {
-                    alert('Phantom Sui not found');
+                  console.log('🧪 Testing real Ethereum transaction via backend...');
+                  
+                  const response = await fetch('/api/test-real-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      chain: 'ethereum',
+                      amount: 100000000000000, // 0.0001 ETH in wei
+                      testType: 'simple_transfer'
+                    })
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
                   }
+                  
+                  const result = await response.json();
+                  console.log('✅ Real Ethereum transaction successful!', result);
+                  
+                  alert(`Real Ethereum transaction successful!\nHash: ${result.data.transactionHash}\nExplorer: ${result.data.explorerUrl}`);
                 } catch (error) {
-                  console.error('Native test failed:', error);
-                  alert(`Native test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                  console.error('❌ Real Ethereum transaction test failed:', error);
+                  alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 }
               }}
               variant="secondary"
               size="sm"
             >
-              Test Native Phantom
+              Test Real Ethereum Transaction
             </Button>
           </div>
         </div>

@@ -1035,6 +1035,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: 'Test endpoint works!', timestamp: new Date().toISOString() });
   });
 
+  // Test real blockchain transactions
+  app.post('/api/test-real-transaction', async (req, res) => {
+    try {
+      const { chain, amount, testType } = req.body;
+      
+      console.log(`🧪 Testing real ${chain} blockchain transaction...`);
+      console.log(`📊 Amount: ${amount}, Type: ${testType}`);
+      
+      if (chain === 'sui') {
+        // Test real Sui transaction
+        const { SuiClient, getFullnodeUrl } = await import('@mysten/sui.js/client');
+        const { TransactionBlock } = await import('@mysten/sui.js/transactions');
+        const { Ed25519Keypair } = await import('@mysten/sui.js/keypairs/ed25519');
+        
+        const suiClient = new SuiClient({
+          url: getFullnodeUrl('testnet'),
+        });
+        
+        // Get the configured private key
+        const suiPrivateKey = process.env.SUI_PRIVATE_KEY;
+        if (!suiPrivateKey) {
+          throw new Error('SUI_PRIVATE_KEY not configured');
+        }
+        
+        // Clean and parse the private key
+        const cleanKey = suiPrivateKey.replace(/^0x/, '');
+        const keyBytes = cleanKey.length === 64 ? 
+          Uint8Array.from(Buffer.from(cleanKey, 'hex')) :
+          Uint8Array.from(Buffer.from(cleanKey.slice(0, 64), 'hex'));
+        
+        const keypair = Ed25519Keypair.fromSecretKey(keyBytes);
+        const senderAddress = keypair.getPublicKey().toSuiAddress();
+        
+        console.log(`🔑 Using Sui address: ${senderAddress}`);
+        
+        // Create a simple transaction
+        const tx = new TransactionBlock();
+        tx.setSender(senderAddress);
+        
+        // Split gas coins and transfer back to self (minimal cost test)
+        const [coin] = tx.splitCoins(tx.gas, [amount]);
+        tx.transferObjects([coin], senderAddress);
+        tx.setGasBudget(5000000); // 0.005 SUI
+        
+        console.log('📝 Signing and executing transaction...');
+        
+        // Sign and execute the transaction
+        const result = await suiClient.signAndExecuteTransactionBlock({
+          signer: keypair,
+          transactionBlock: tx,
+          options: {
+            showInput: true,
+            showEffects: true,
+            showEvents: true,
+          },
+        });
+        
+        const transactionHash = result.digest;
+        const explorerUrl = `https://suiexplorer.com/txblock/${transactionHash}?network=testnet`;
+        
+        console.log(`✅ Sui transaction successful: ${transactionHash}`);
+        
+        res.json({
+          success: true,
+          data: {
+            chain: 'sui',
+            transactionHash,
+            explorerUrl,
+            senderAddress,
+            amount,
+            network: 'testnet',
+            gasUsed: result.effects?.gasUsed || 'Unknown'
+          }
+        });
+        
+      } else if (chain === 'ethereum') {
+        // Test real Ethereum transaction
+        const { ethers } = await import('ethers');
+        
+        const alchemyKey = process.env.ALCHEMY_KEY;
+        if (!alchemyKey) {
+          throw new Error('ALCHEMY_KEY not configured');
+        }
+        
+        const provider = new ethers.JsonRpcProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyKey}`);
+        
+        const ethPrivateKey = process.env.CELO_PRIVATE_KEY; // Reusing for Ethereum Sepolia
+        if (!ethPrivateKey) {
+          throw new Error('CELO_PRIVATE_KEY not configured');
+        }
+        
+        const wallet = new ethers.Wallet(ethPrivateKey, provider);
+        const senderAddress = wallet.address;
+        
+        console.log(`🔑 Using Ethereum address: ${senderAddress}`);
+        
+        // Get current gas price and nonce
+        const gasPrice = await provider.getFeeData();
+        const nonce = await provider.getTransactionCount(senderAddress);
+        
+        // Create a simple self-transfer transaction
+        const tx = {
+          to: senderAddress,
+          value: amount, // Amount in wei
+          gasLimit: 21000,
+          gasPrice: gasPrice.gasPrice,
+          nonce: nonce,
+        };
+        
+        console.log('📝 Signing and executing Ethereum transaction...');
+        
+        // Sign and send the transaction
+        const signedTx = await wallet.sendTransaction(tx);
+        const receipt = await signedTx.wait();
+        
+        const transactionHash = receipt?.hash || signedTx.hash;
+        const explorerUrl = `https://sepolia.etherscan.io/tx/${transactionHash}`;
+        
+        console.log(`✅ Ethereum transaction successful: ${transactionHash}`);
+        
+        res.json({
+          success: true,
+          data: {
+            chain: 'ethereum',
+            transactionHash,
+            explorerUrl,
+            senderAddress,
+            amount,
+            network: 'sepolia',
+            gasUsed: receipt?.gasUsed?.toString() || 'Unknown'
+          }
+        });
+        
+      } else {
+        throw new Error(`Unsupported chain: ${chain}`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Real transaction test failed:`, error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : 'No stack trace'
+      });
+    }
+  });
+
   // Direct blockchain transaction test endpoint
   app.post('/api/test-sui-transaction', async (req, res) => {
     try {
