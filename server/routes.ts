@@ -1429,6 +1429,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🔄 Executing step ${step}: ${currentStep.type} for swap ${swapId}`);
+      console.log(`🔧 CORRECT endpoint called from server/routes.ts`);
+      console.log(`📊 Step details:`, { stepType: currentStep.type, stepChain: currentStep.chain });
 
       // Return transaction data for frontend wallet execution
       let executionResult;
