@@ -15,7 +15,7 @@ console.log('SuiWalletConnect: Component loaded');
 
 // Enhanced wallet detection logging
 if (typeof window !== 'undefined') {
-  console.log('Window.sui available:', !!window.sui);
+  console.log('Window.sui available:', !!(window as any).sui);
   console.log('Window.ethereum available:', !!(window as any).ethereum);
   console.log('Window.suiet available:', !!(window as any).suiet);
   console.log('Window.martian available:', !!(window as any).martian);
@@ -54,7 +54,7 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
     
     // Check for common Sui wallet objects in window
     const checkWalletExtensions = () => {
-      const detectedWallets = [];
+      const detectedWallets: any[] = [];
       
       if (typeof window !== 'undefined') {
         console.log('SuiWallet: Comprehensive wallet scan starting...');
