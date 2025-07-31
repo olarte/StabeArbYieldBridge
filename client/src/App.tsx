@@ -93,27 +93,27 @@ function PegProtectionStatus() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Ethereum Chainlink</div>
+              <div className="text-sm font-medium text-muted-foreground">Ethereum Price</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.chainlinkFeeds?.ethereum ? Number(pegStatus.chainlinkFeeds.ethereum).toFixed(4) : 'N/A'}
+                ${pegStatus?.crossChainValidation?.crossChainPrices?.ethereum ? Number(pegStatus.crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Ethereum Chainlink</div>
+              <div className="text-sm font-medium text-muted-foreground">Sui Price</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.chainlinkFeeds?.ethereum ? Number(pegStatus.chainlinkFeeds.ethereum).toFixed(4) : 'N/A'}
+                ${pegStatus?.crossChainValidation?.crossChainPrices?.sui ? Number(pegStatus.crossChainValidation.crossChainPrices.sui).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Uniswap V3</div>
+              <div className="text-sm font-medium text-muted-foreground">Chainlink Reference</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.dexPrices?.celoUniswap ? Number(pegStatus.dexPrices.celoUniswap).toFixed(4) : 'N/A'}
+                ${pegStatus?.crossChainValidation?.chainlinkReference?.price ? Number(pegStatus.crossChainValidation.chainlinkReference.price).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Cetus DEX</div>
+              <div className="text-sm font-medium text-muted-foreground">Cross-Chain Deviation</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.dexPrices?.suiCetus ? Number(pegStatus.dexPrices.suiCetus).toFixed(4) : 'N/A'}
+                {pegStatus?.crossChainValidation?.deviations?.crossChain?.deviation ? (Number(pegStatus.crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3) + '%' : 'N/A'}
               </div>
             </div>
           </div>
