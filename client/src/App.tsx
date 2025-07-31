@@ -716,7 +716,16 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                     <div className="space-y-2">
                       <Button 
                         size="sm"
-                        onClick={() => executeArbMutation.mutate(opp)}
+                        onClick={() => {
+                          console.log('🔍 Execute button clicked - Wallet states:', {
+                            walletConnections,
+                            suiWalletInfo,
+                            ethereumAccount: walletConnections?.account,
+                            suiAccount: suiWalletInfo?.account?.address,
+                            amount: swapAmounts[opp.id]
+                          });
+                          executeArbMutation.mutate(opp);
+                        }}
                         disabled={
                           executeArbMutation.isPending || 
                           selectedOpportunity === opp.id ||
@@ -733,6 +742,10 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                       {(!walletConnections?.account || !suiWalletInfo?.account?.address) && (
                         <div className="text-xs text-red-500 text-center">
                           Connect both wallets
+                          <div className="text-xs text-gray-400 mt-1">
+                            ETH: {walletConnections?.account ? '✅' : '❌'} | 
+                            SUI: {suiWalletInfo?.account?.address ? '✅' : '❌'}
+                          </div>
                         </div>
                       )}
                       {selectedOpportunity === opp.id && executionSteps.length > 0 && (
