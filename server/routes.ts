@@ -1292,8 +1292,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const suiStableBalance = walletBalances.sui.usdc + walletBalances.sui.usdy + walletBalances.sui.usdt;
       const totalWalletBalance = ethereumStableBalance + suiStableBalance;
       
-      // If no wallet balances, use fallback calculation
-      const currentBalance = totalWalletBalance > 0 ? totalWalletBalance + totalProfit : 1000.00 + totalProfit;
+      // Calculate current balance from real wallet balances + profits (no fallback)
+      const currentBalance = totalWalletBalance + totalProfit;
       
       // Calculate weekly change (all swaps happened this week)
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
