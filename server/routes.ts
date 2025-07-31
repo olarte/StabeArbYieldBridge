@@ -2798,11 +2798,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             chain: 'sui',
             transactionData: {
               type: 'sui_token_transfer',
-              coinType: '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN', // Real USDC coin type on Sui
-              amount: swapState.amount * 1000000, // Real amount in smallest unit
-              recipient: '0x391f48752acd48271040466d748fcb367f2d2a1f', // Real recipient address
-              description: `${currentStep.description} - Real USDC transaction on Sui Testnet`,
-              stepType: currentStep.type
+              amount: Math.floor(swapState.amount * 1000000), // Amount in MIST (SUI's smallest unit)
+              recipient: '0x430e58e38673e9d0969bcc34c96b4d362d33515d41f677ac147eaa58892815b5', // Known Sui wallet address
+              description: `${currentStep.description} - Real SUI transaction on Sui Testnet`,
+              stepType: currentStep.type,
+              network: 'sui:testnet'
             }
           };
         } else if (currentStep.chain === 'both') {

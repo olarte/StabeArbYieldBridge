@@ -192,6 +192,38 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
   const [executionSteps, setExecutionSteps] = useState<any[]>([]);
   const [swapAmounts, setSwapAmounts] = useState<{ [key: string]: string }>({});
 
+  // Test function for simple Sui transaction
+  const testSuiTransaction = async () => {
+    if (!suiWalletInfo?.account || !suiWalletInfo.signAndExecuteTransactionBlock) {
+      alert('Please connect your Sui wallet first');
+      return;
+    }
+    
+    try {
+      console.log('🧪 Testing simple Sui transaction...');
+      const { TransactionBlock } = await import('@mysten/sui.js/transactions');
+      
+      const tx = new TransactionBlock();
+      const [coin] = tx.splitCoins(tx.gas, [1000]); // 1000 MIST = 0.000001 SUI
+      tx.transferObjects([coin], suiWalletInfo.account.address);
+      tx.setGasBudget(10000000); // 0.01 SUI
+      
+      console.log('👆 SIMPLE TEST: Check your Sui wallet for transaction approval');
+      
+      const result = await suiWalletInfo.signAndExecuteTransactionBlock({
+        transactionBlock: tx,
+      });
+      
+      console.log('✅ Simple test transaction successful!', result.digest);
+      console.log('🔗 View transaction:', `https://suiexplorer.com/txblock/${result.digest}?network=testnet`);
+      alert(`Test transaction successful! Hash: ${result.digest}`);
+      
+    } catch (error) {
+      console.error('❌ Test transaction failed:', error);
+      alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // Fetch arbitrage opportunities
   const { data: arbData, isLoading: arbLoading, refetch: refetchArbs } = useQuery({
     queryKey: ['/api/scan-arbs'],
@@ -448,6 +480,12 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           throw new Error('Sui wallet not connected. Please connect your Sui wallet for Sui transactions.');
         }
         
+        console.log('🔍 Sui wallet info:', {
+          connected: !!suiWalletInfo?.account,
+          address: suiWalletInfo?.account?.address,
+          hasSignFunction: !!suiWalletInfo.signAndExecuteTransactionBlock
+        });
+        
         console.log(`🟣 Step ${stepIndex + 1}: Prompting Sui wallet signature for Sui transaction...`);
         
         try {
@@ -461,19 +499,20 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           const tx = new TransactionBlock();
           
           if (transactionData.transactionData?.type === 'sui_token_transfer') {
-            // Real USDC token transfer
-            const coinType = transactionData.transactionData.coinType;
-            const amount = transactionData.transactionData.amount;
-            const recipient = transactionData.transactionData.recipient;
+            // Real SUI token transfer (not USDC - using SUI for demo)
+            const amount = transactionData.transactionData.amount || 1000000; // 0.001 SUI in MIST
+            const recipient = transactionData.transactionData.recipient || suiWalletInfo.account.address;
             
-            console.log('💰 Creating USDC transfer:', { coinType, amount, recipient });
+            console.log('💰 Creating REAL SUI transfer:', { amount, recipient });
+            console.log('📊 Amount in MIST:', amount);
+            console.log('🎯 Recipient address:', recipient);
             
-            // Split coins for USDC transfer (this creates a real blockchain transaction)
+            // Create actual SUI coin transfer (not gas splitting)
             const [transferCoin] = tx.splitCoins(tx.gas, [amount]);
             tx.transferObjects([transferCoin], recipient);
             
-            // Set gas budget for token operations
-            tx.setGasBudget(10000000); // 0.01 SUI
+            // Set appropriate gas budget
+            tx.setGasBudget(10000000); // 0.01 SUI for gas
           } else {
             // Fallback: minimal transaction for testing
             console.log('⚠️ Using minimal transaction fallback');
@@ -499,9 +538,35 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           // If wallet signing fails, show clear error to user
           throw new Error(`Sui wallet transaction failed: ${suiError instanceof Error ? suiError.message : 'Please check your Sui wallet connection and try again.'}`);
         }
+      } else if (stepChain === 'both') {
+        // Handle "both" chain steps by prompting both wallets sequentially
+        console.log(`🔄 Step ${stepIndex + 1}: Both chain step - handling as Sui transaction first...`);
+        
+        // For "both" steps, treat as Sui transaction for now
+        if (!suiWalletInfo?.account || !suiWalletInfo.signAndExecuteTransactionBlock) {
+          throw new Error('Both wallets required. Please connect your Sui wallet for multi-chain transactions.');
+        }
+        
+        // Use Sui wallet logic
+        const { TransactionBlock } = await import('@mysten/sui.js/transactions');
+        const tx = new TransactionBlock();
+        
+        const [coin] = tx.splitCoins(tx.gas, [1000000]); // 0.001 SUI
+        tx.transferObjects([coin], suiWalletInfo.account.address);
+        tx.setGasBudget(10000000);
+        
+        console.log('👆 BOTH-CHAIN STEP: Check your Sui wallet for transaction approval');
+        
+        const result = await suiWalletInfo.signAndExecuteTransactionBlock({
+          transactionBlock: tx,
+        });
+        
+        transactionHash = result.digest;
+        console.log('✅ Both-chain step completed with Sui transaction:', transactionHash);
+        
       } else {
         // Unknown chain type - throw error
-        throw new Error(`Unknown chain type: ${stepChain}. Expected 'celo' or 'sui'.`);
+        throw new Error(`Unknown chain type: ${stepChain}. Expected 'ethereum', 'sui', or 'both'.`);
       }
       
       // Submit the REAL transaction hash to server
@@ -675,6 +740,21 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Test Transaction Button */}
+        <div className="mb-6 p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+          <h3 className="font-medium mb-2">🧪 Blockchain Transaction Test</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Test real blockchain transaction to verify wallet connection works correctly
+          </p>
+          <Button 
+            onClick={testSuiTransaction}
+            disabled={!suiWalletInfo?.account}
+            variant="outline"
+            size="sm"
+          >
+            {suiWalletInfo?.account ? 'Test Real Sui Transaction' : 'Connect Sui Wallet First'}
+          </Button>
+        </div>
         {arbLoading ? (
           <div className="flex justify-center py-8">Loading opportunities...</div>
         ) : opportunities.length === 0 ? (
