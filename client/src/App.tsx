@@ -11,14 +11,12 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
-// @ts-ignore
-import WalletConnect from "@/components/WalletConnect.jsx";
+
 import SuiWalletConnect from "@/components/SuiWalletConnect";
 import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
-import suiIcon from "@assets/abfadeb9f40e6ad0db5e9c92c09c40e0_1753983736153.jpg";
-import ethereumIcon from "@assets/download_1753983736153.png";
+// Icons are now handled inline as emojis for cleaner codebase
 
 // TypeScript interfaces for better type safety
 declare global {
@@ -172,7 +170,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-center gap-2">
-                  <img src={ethereumIcon} alt="Ethereum" className="w-5 h-5 rounded-full" />
+                  <span className="text-base">⚫</span>
                   <span className="font-medium">Ethereum Sepolia</span>
                   {walletConnections?.account && (
                     <span className="text-xs text-green-600 font-medium">Connected</span>
@@ -212,7 +210,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
 
               <div className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-center gap-2">
-                  <img src={suiIcon} alt="Sui" className="w-5 h-5 rounded-full" />
+                  <span className="text-base">🔷</span>
                   <span className="font-medium">Sui Testnet</span>
                   {suiWalletInfo?.account?.address && (
                     <span className="text-xs text-green-600 font-medium">Connected</span>
@@ -891,32 +889,16 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                       {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? (
                         // Sui → Ethereum direction
                         <div className="flex items-center gap-1">
-                          <img 
-                            src={suiIcon} 
-                            alt="Sui" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-base">🔷</span>
                           <span className="text-xs text-muted-foreground">→</span>
-                          <img 
-                            src={ethereumIcon} 
-                            alt="Ethereum" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-base">⚫</span>
                         </div>
                       ) : (
                         // Ethereum → Sui direction
                         <div className="flex items-center gap-1">
-                          <img 
-                            src={ethereumIcon} 
-                            alt="Ethereum" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-base">⚫</span>
                           <span className="text-xs text-muted-foreground">→</span>
-                          <img 
-                            src={suiIcon} 
-                            alt="Sui" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-base">🔷</span>
                         </div>
                       )}
                     </div>
