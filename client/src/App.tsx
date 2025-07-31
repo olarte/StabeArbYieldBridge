@@ -269,15 +269,25 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
   const signAndSubmitTransaction = async (swapId: string, stepIndex: number, transactionData: any) => {
     try {
       console.log('🔐 Starting REAL wallet transaction signing for step:', stepIndex + 1);
+      console.log('📋 Transaction data:', transactionData);
+      console.log('🔍 Wallet status:', { 
+        metaMask: { connected: !!walletConnections?.account, account: walletConnections?.account },
+        sui: { connected: !!suiWalletInfo?.account, account: suiWalletInfo?.account?.address }
+      });
+      
       let transactionHash = '';
       
-      if (stepIndex % 2 === 0) {
-        // Use MetaMask for even steps (Celo transactions)
+      // Determine which wallet to use based on step type/chain
+      const stepChain = transactionData?.chain || (stepIndex % 2 === 0 ? 'celo' : 'sui');
+      console.log(`🔗 Step ${stepIndex + 1} will use chain: ${stepChain}`);
+      
+      if (stepChain === 'celo' || stepIndex % 2 === 0) {
+        // Use MetaMask for Celo chain transactions
         if (!window.ethereum || !walletConnections?.account) {
-          throw new Error('MetaMask not connected. Please connect your MetaMask wallet.');
+          throw new Error('MetaMask not connected. Please connect your MetaMask wallet for Celo transactions.');
         }
         
-        console.log('📱 Prompting MetaMask signature...');
+        console.log(`📱 Step ${stepIndex + 1}: Prompting MetaMask signature for Celo transaction...`);
         
         const transactionParams = {
           to: '0x391f48752acd48271040466d748fcb367f2d2a1f',
@@ -297,12 +307,12 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         console.log('✅ MetaMask transaction signed:', transactionHash);
         
       } else {
-        // Use Sui wallet for odd steps
+        // Use Sui wallet for Sui chain transactions
         if (!suiWalletInfo?.account || !suiWalletInfo.signAndExecuteTransactionBlock) {
-          throw new Error('Sui wallet not connected. Please connect your Sui wallet.');
+          throw new Error('Sui wallet not connected. Please connect your Sui wallet for Sui transactions.');
         }
         
-        console.log('🟣 Prompting Sui wallet signature...');
+        console.log(`🟣 Step ${stepIndex + 1}: Prompting Sui wallet signature for Sui transaction...`);
         
         // Import Sui transaction utilities
         const { TransactionBlock } = await import('@mysten/sui.js/transactions');
@@ -334,8 +344,8 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           swapId,
           step: stepIndex + 1,
           txHash: transactionHash,
-          chain: stepIndex % 2 === 0 ? 'celo' : 'sui',
-          walletAddress: stepIndex % 2 === 0 ? walletConnections?.account : suiWalletInfo?.account?.address
+          chain: stepChain,
+          walletAddress: stepChain === 'celo' ? walletConnections?.account : suiWalletInfo?.account?.address
         })
       });
       
