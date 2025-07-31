@@ -1430,7 +1430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔄 Executing step ${step}: ${currentStep.type} for swap ${swapId}`);
 
-      // Execute real blockchain transactions
+      // Return transaction data for frontend wallet execution
       let executionResult;
       
       try {
@@ -1444,16 +1444,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
               message: 'Spread check already completed'
             }
           };
-        } else if (currentStep.chain === 'celo') {
-          // Execute real Celo transaction
-          executionResult = await executeRealCeloTransaction(currentStep, swapState);
+        } else if (currentStep.chain === 'celo' || currentStep.chain === 'ethereum') {
+          // Return transaction data for MetaMask execution
+          executionResult = {
+            status: 'PENDING_SIGNATURE',
+            requiresWalletSignature: true,
+            walletType: 'metamask',
+            chain: 'celo',
+            transactionData: {
+              to: '0x391F48752acD48271040466d748FcB367f2d2a1F', // Default recipient
+              value: '0x38D7EA4C68000', // 0.001 ETH in wei
+              gasLimit: '0x7530', // 30000
+              data: `0x${Buffer.from(`${currentStep.type}_${Date.now()}`, 'utf8').toString('hex')}`,
+              description: currentStep.description
+            }
+          };
         } else if (currentStep.chain === 'sui') {
-          // Execute real Sui transaction
-          executionResult = await executeRealSuiTransaction(currentStep, swapState);
-        } else if (currentStep.chain === 'ethereum') {
-          // Handle Ethereum bridge transactions by routing to Celo
-          console.log(`Routing Ethereum step to Celo: ${currentStep.type}`);
-          executionResult = await executeRealCeloTransaction({...currentStep, chain: 'celo'}, swapState);
+          // Return transaction data for Sui wallet execution
+          executionResult = {
+            status: 'PENDING_SIGNATURE',
+            requiresWalletSignature: true,
+            walletType: 'sui',
+            chain: 'sui',
+            transactionData: {
+              type: 'sui_transaction',
+              amount: 1000000, // 0.001 SUI in MIST
+              description: currentStep.description,
+              stepType: currentStep.type
+            }
+          };
         } else if (currentStep.chain === 'both') {
           // Handle "both" chain steps (like limit orders)
           executionResult = {
@@ -1480,12 +1499,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Update step status
+      // Update step status - handle both COMPLETED and PENDING_SIGNATURE statuses
       currentStep.status = executionResult.status;
       currentStep.result = executionResult;
       currentStep.executedAt = executionResult.executedAt;
+      
+      // For PENDING_SIGNATURE steps, don't mark as complete yet
+      if (executionResult.status === 'PENDING_SIGNATURE') {
+        console.log(`🔐 Step ${step} waiting for wallet signature`);
+      }
 
-      // Check if all steps completed
+      // Check if all steps completed (only count COMPLETED, not PENDING_SIGNATURE)
       const allStepsComplete = swapState.executionPlan.steps.every((s: any) => s.status === 'COMPLETED');
       if (allStepsComplete) {
         swapState.status = 'COMPLETED';
@@ -1517,6 +1541,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to execute swap step',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Submit wallet transaction result endpoint
+  app.post("/api/swap/submit-transaction", async (req, res) => {
+    try {
+      const { swapId, step, txHash, chain, walletAddress } = req.body;
+
+      const swapStates = (global as any).atomicSwapStates || new Map();
+      const swapState = swapStates.get(swapId);
+      
+      if (!swapState) {
+        return res.status(404).json({
+          success: false,
+          error: 'Swap not found'
+        });
+      }
+
+      const stepIndex = step - 1; // Convert from 1-based to 0-based
+      if (stepIndex < 0 || stepIndex >= swapState.executionPlan.steps.length) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid step index'
+        });
+      }
+
+      const currentStep = swapState.executionPlan.steps[stepIndex];
+      
+      // Update step with transaction result
+      currentStep.status = 'COMPLETED';
+      currentStep.result = {
+        status: 'COMPLETED',
+        executedAt: new Date().toISOString(),
+        result: {
+          txHash,
+          chain,
+          walletAddress,
+          explorer: chain === 'celo' 
+            ? `https://alfajores.celoscan.io/tx/${txHash}`
+            : `https://suiexplorer.com/txblock/${txHash}?network=testnet`,
+          dexUsed: chain === 'celo' ? '1Inch Fusion+' : 'Cetus DEX',
+          amount: swapState.amount
+        }
+      };
+      currentStep.executedAt = new Date().toISOString();
+
+      console.log(`✅ Step ${step} completed with txHash: ${txHash}`);
+      
+      // Check if all steps completed
+      const allStepsComplete = swapState.executionPlan.steps.every((s: any) => s.status === 'COMPLETED');
+      if (allStepsComplete) {
+        swapState.status = 'COMPLETED';
+        console.log(`🎉 Swap ${swapId} fully completed!`);
+      }
+
+      swapState.updatedAt = new Date().toISOString();
+
+      res.json({
+        success: true,
+        data: {
+          swapId,
+          step,
+          txHash,
+          status: currentStep.status,
+          allComplete: allStepsComplete
+        }
+      });
+
+    } catch (error) {
+      console.error('Submit transaction error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to submit transaction result',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

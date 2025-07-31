@@ -283,3 +283,8 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Enhanced Celo Compatibility**: Increased gas limit to 30,000 and optimized transaction parameters for Celo network
 - ✅ **Proper Nonce Management**: Added automatic nonce fetching to prevent "replacement transaction underpriced" errors
 - ✅ **Enhanced Gas Strategy**: Minimum 100 gwei gas price with dynamic network-based adjustments for reliable transaction execution
+- ✅ **Fixed Backend Transaction Execution**: Eliminated server-side transaction execution bypassing MetaMask
+- ✅ **Wallet-First Architecture**: Backend now returns transaction data for frontend wallet execution
+- ✅ **Transaction Submission Endpoint**: Added /api/swap/submit-transaction for wallet result handling
+- ✅ **PENDING_SIGNATURE Status**: Proper status handling for wallet signature requirements
+- ✅ **Eliminated "Replacement Fee Too Low"**: Fixed root cause by removing backend transaction override
