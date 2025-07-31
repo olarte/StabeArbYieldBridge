@@ -856,11 +856,14 @@ function ArbitrageTradingPage() {
   const [suiWalletInfo, setSuiWalletInfo] = useState<any>({});
 
   // Handle unified wallet changes from WalletSelector
-  const handleWalletChange = (walletType: 'celo' | 'sui', walletInfo: any) => {
-    if (walletType === 'celo') {
+  const handleWalletChange = (walletType: 'ethereum' | 'sui', walletInfo: any) => {
+    console.log('🔄 Wallet change received:', { walletType, walletInfo });
+    if (walletType === 'ethereum') {
       setWalletConnections(walletInfo);
-    } else {
+      console.log('🟠 Ethereum wallet updated:', walletInfo);
+    } else if (walletType === 'sui') {
       setSuiWalletInfo(walletInfo);
+      console.log('🟣 Sui wallet updated:', walletInfo);
     }
   };
 
