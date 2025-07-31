@@ -32,8 +32,6 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Capabilities
 - **Arbitrage Opportunity Detection**: Real-time scanning for price discrepancies between Ethereum Sepolia and Sui Testnet.
-- **Enhanced Yield-Enhanced Arbitrage**: Comprehensive arbitrage with USDY (5.2% APY), Scallop (4.8% APY), and SUI staking (3.1% APY) integration.
-- **Intelligent Yield Routing**: Automated yield optimization with multi-protocol support and compounding calculations.
 - **Trading Agents**: Automated bots for executing trades.
 - **Portfolio Management**: Balance tracking and profit/loss calculations.
 - **Transaction Management**: Complete trade history and status tracking.

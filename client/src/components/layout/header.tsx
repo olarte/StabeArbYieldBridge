@@ -3,14 +3,14 @@ import { Settings, ArrowRightLeft } from "lucide-react";
 
 export function Header() {
   return (
-    <header className="bg-background border-b border-border px-6 py-4">
+    <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg flex items-center justify-center">
               <ArrowRightLeft className="text-white text-sm" size={16} />
             </div>
-            <h1 className="text-xl font-bold text-foreground">StableArbYieldBridge</h1>
+            <h1 className="text-xl font-bold text-slate-50">StableArbYieldBridge</h1>
           </div>
           <nav className="hidden md:flex space-x-6">
             <a href="#" className="text-emerald-400 font-medium border-b-2 border-emerald-400 pb-1">

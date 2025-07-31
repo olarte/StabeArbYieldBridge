@@ -8,21 +8,10 @@ import { ActiveAgents } from "@/components/arbitrage/active-agents";
 import { RecentTransactions } from "@/components/transactions/recent-transactions";
 import { UniswapPrices } from "@/components/uniswap/uniswap-prices";
 import { ArbitrageScanner } from "@/components/arbitrage/arbitrage-scanner";
-import YieldEnhancedScanner from "@/components/arbitrage/yield-enhanced-scanner";
-import YieldOpportunities from "@/components/arbitrage/yield-opportunities";
-import SimpleYieldScanner from "@/components/arbitrage/simple-yield-scanner";
-import TestYield from "@/components/test-yield";
 
 export default function Dashboard() {
-  console.log('🎯 DASHBOARD COMPONENT LOADED - NEW VERSION WITH YIELD FEATURES');
-  
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* VISIBLE INDICATOR FOR NEW VERSION */}
-      <div className="fixed top-2 left-2 z-50 bg-red-500 text-white px-3 py-1 text-sm font-bold rounded shadow-lg animate-pulse">
-        NEW DASHBOARD v3.0 - YIELD FEATURES ACTIVE
-      </div>
-
+    <div className="min-h-screen bg-slate-900 text-slate-50">
       <Header />
       
       <div className="flex">
@@ -48,16 +37,7 @@ export default function Dashboard() {
               <ActiveAgents />
             </div>
 
-            {/* Test Yield Component */}
-            <TestYield />
-            
-            {/* Yield-Enhanced Features */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <SimpleYieldScanner />
-              <YieldOpportunities />
-            </div>
-
-            {/* Traditional Arbitrage Scanner */}
+            {/* Arbitrage Scanner */}
             <ArbitrageScanner />
 
             {/* Recent Transactions */}

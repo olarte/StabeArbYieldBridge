@@ -9,10 +9,10 @@ export function Sidebar() {
   const { data: activeAgents, isLoading: agentsLoading } = useActiveTradingAgents();
 
   return (
-    <aside className="w-80 bg-background border-r border-border p-6 min-h-screen">
+    <aside className="w-80 bg-slate-800 border-r border-slate-700 p-6 min-h-screen">
       <div className="space-y-6">
         {/* Portfolio Overview */}
-        <Card className="bg-card border-border">
+        <Card className="bg-slate-700 border-slate-600">
           <CardContent className="p-4">
             <h3 className="text-sm font-medium text-slate-400 mb-3">Portfolio Overview</h3>
             <div className="space-y-3">
@@ -51,7 +51,7 @@ export function Sidebar() {
         </Card>
 
         {/* Chain Status */}
-        <Card className="bg-card border-border">
+        <Card className="bg-slate-700 border-slate-600">
           <CardContent className="p-4">
             <h3 className="text-sm font-medium text-slate-400 mb-3">Chain Status</h3>
             <div className="space-y-3">
