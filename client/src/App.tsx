@@ -200,16 +200,28 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 
   // Register wallet session (simplified - no API call needed)
   const registerWalletSession = async () => {
-    if (!walletConnections?.account || !suiWalletInfo?.account) {
-      throw new Error('Both Celo and Sui wallets must be connected');
+    // Check for Ethereum wallet (account property)
+    const ethereumAccount = walletConnections?.account;
+    // Check for Sui wallet (account.address property) 
+    const suiAccount = suiWalletInfo?.account?.address;
+    
+    console.log('🔍 Wallet session debug:', {
+      ethereumAccount,
+      suiAccount,
+      walletConnections,
+      suiWalletInfo
+    });
+    
+    if (!ethereumAccount || !suiAccount) {
+      throw new Error('Both Ethereum and Sui wallets must be connected');
     }
 
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     console.log('Creating wallet session:', {
       sessionId,
-      celoAddress: walletConnections.account,
-      suiAddress: suiWalletInfo.account?.address
+      ethereumAddress: ethereumAccount,
+      suiAddress: suiAccount
     });
     
     return { sessionId };
@@ -709,7 +721,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                           executeArbMutation.isPending || 
                           selectedOpportunity === opp.id ||
                           !walletConnections?.account ||
-                          !suiWalletInfo?.account
+                          !suiWalletInfo?.account?.address
                         }
                         className="w-full"
                       >
@@ -718,7 +730,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                           : "Execute with Wallets"
                         }
                       </Button>
-                      {(!walletConnections?.account || !suiWalletInfo?.account) && (
+                      {(!walletConnections?.account || !suiWalletInfo?.account?.address) && (
                         <div className="text-xs text-red-500 text-center">
                           Connect both wallets
                         </div>
