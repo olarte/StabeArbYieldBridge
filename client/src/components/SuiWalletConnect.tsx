@@ -63,6 +63,8 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
         const walletChecks = [
           { key: 'sui', name: 'Sui Wallet (Official)' },
           { key: 'suiet', name: 'Suiet Wallet' },
+          { key: 'suietWallet', name: 'Suiet Wallet (suietWallet)' },
+          { key: 'SuietWallet', name: 'Suiet Wallet (SuietWallet)' },
           { key: 'martian', name: 'Martian Wallet' },
           { key: 'suiWallet', name: 'Sui Wallet (suiWallet)' },
           { key: 'wallet', name: 'Generic Wallet' },
@@ -128,6 +130,21 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
         const windowKeys = Object.keys(window);
         console.log('SuiWallet: Total window keys count:', windowKeys.length);
         console.log('SuiWallet: Sample window keys:', windowKeys.slice(0, 30));
+        
+        // Enhanced Suiet-specific detection
+        const suietVariations = ['suiet', 'Suiet', 'SUIET', 'suietWallet', 'SuietWallet'];
+        suietVariations.forEach(variation => {
+          if ((window as any)[variation]) {
+            const suietObj = (window as any)[variation];
+            console.log(`SuiWallet: Found Suiet variation at window.${variation}:`, suietObj);
+            detectedWallets.push({ 
+              name: `Suiet Wallet (${variation}) ✓SUI`, 
+              detected: true, 
+              key: variation,
+              suiSupport: true 
+            });
+          }
+        });
         
         // Look for wallet-related keys
         const walletPatterns = ['wallet', 'sui', 'coin', 'crypto', 'web3', 'ethereum', 'metamask'];
@@ -244,7 +261,7 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
       <div className="sui-wallet-connect">
         <div className="connect-card">
           <h3>🟦 Connect Sui Wallet</h3>
-          <p>Connect your Sui wallet to trade on Sui Devnet</p>
+          <p>Connect your Sui wallet to trade on Sui Testnet</p>
           
           {/* Wallet detection status */}
           <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
@@ -278,6 +295,29 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
             onClick={() => {
               console.log('SuiWallet: Button clicked, opening modal');
               console.log('SuiWallet: Available wallets:', availableWallets);
+              
+              // Enhanced Suiet detection for debugging
+              if (typeof window !== 'undefined') {
+                console.log('SuiWallet: Checking for Suiet specifically...');
+                console.log('window.suiet:', (window as any).suiet);
+                console.log('window.suietWallet:', (window as any).suietWallet);
+                console.log('window.SuietWallet:', (window as any).SuietWallet);
+                
+                // Check all window properties for Suiet-related objects
+                const allKeys = Object.getOwnPropertyNames(window);
+                const suietKeys = allKeys.filter(k => k.toLowerCase().includes('suiet'));
+                console.log('SuiWallet: Suiet-related keys in window:', suietKeys);
+                
+                // Check if Suiet extension content script has injected anything
+                const scripts = document.querySelectorAll('script[src*="suiet"]');
+                console.log('SuiWallet: Suiet-related scripts:', scripts.length);
+                
+                // Check for Chrome extension content script injection
+                if ((window as any).chrome && (window as any).chrome.runtime) {
+                  console.log('SuiWallet: Chrome runtime available');
+                }
+              }
+              
               setShowModal(true);
             }}
             disabled={connecting || availableWallets.length === 0}
@@ -321,9 +361,9 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
           </div>
 
           <div className="supported-networks">
-            <small>Connected to: Sui Devnet</small>
+            <small>Connected to: Sui Testnet</small>
             <div className="network-list">
-              <span className="network-badge sui">🟦 Sui Devnet</span>
+              <span className="network-badge sui">🟦 Sui Testnet</span>
             </div>
           </div>
 
