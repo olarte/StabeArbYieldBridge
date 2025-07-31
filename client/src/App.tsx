@@ -292,15 +292,20 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         });
         
         if (!window.ethereum) {
+          console.error('❌ MetaMask not available in window.ethereum');
           throw new Error('MetaMask not installed. Please install MetaMask browser extension.');
         }
         
         if (!walletConnections?.account) {
+          console.error('❌ walletConnections.account not found:', walletConnections);
           throw new Error('MetaMask not connected. Please connect your MetaMask wallet first.');
         }
         
+        console.log('✅ MetaMask connection validated successfully');
+        
         console.log(`📱 Step ${stepIndex + 1}: Prompting MetaMask signature for Celo transaction...`);
         console.log('📋 MetaMask transaction will be sent to account:', walletConnections.account);
+        console.log('🔍 About to start MetaMask transaction flow...');
         
         // Ensure we're connected to the right network (Celo Alfajores) - non-blocking
         try {
@@ -395,6 +400,12 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           
         } catch (metaMaskError: any) {
           console.error('❌ MetaMask transaction failed:', metaMaskError);
+          console.error('MetaMask error details:', {
+            code: metaMaskError.code,
+            message: metaMaskError.message,
+            data: metaMaskError.data,
+            stack: metaMaskError.stack
+          });
           
           if (metaMaskError.code === 4001) {
             throw new Error('Transaction rejected by user in MetaMask');
