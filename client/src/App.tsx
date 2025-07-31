@@ -280,10 +280,10 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       let transactionHash = '';
       
       // Determine which wallet to use based on step type/chain
-      const stepChain = transactionData?.chain || (stepIndex % 2 === 0 ? 'celo' : 'sui');
+      const stepChain = transactionData?.chain || transactionData?.walletType || 'celo';
       console.log(`🔗 Step ${stepIndex + 1} will use chain: ${stepChain}`);
       
-      if (stepChain === 'celo' || stepIndex % 2 === 0) {
+      if (stepChain === 'celo') {
         // Use MetaMask for Celo chain transactions
         console.log('🔍 MetaMask connection check:', {
           windowEthereum: !!window.ethereum,
@@ -407,7 +407,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           }
         }
         
-      } else {
+      } else if (stepChain === 'sui') {
         // Use Sui wallet for Sui chain transactions
         if (!suiWalletInfo?.account || !suiWalletInfo.signAndExecuteTransactionBlock) {
           throw new Error('Sui wallet not connected. Please connect your Sui wallet for Sui transactions.');
@@ -463,6 +463,9 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             throw new Error('Sui wallet transaction failed. Please try again or check your wallet connection.');
           }
         }
+      } else {
+        // Unknown chain type - throw error
+        throw new Error(`Unknown chain type: ${stepChain}. Expected 'celo' or 'sui'.`);
       }
       
       // Submit the REAL transaction hash to server
