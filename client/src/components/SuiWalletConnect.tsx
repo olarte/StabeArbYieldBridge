@@ -48,12 +48,14 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
   const [loadingObjects, setLoadingObjects] = useState<boolean>(false);
   const [availableWallets, setAvailableWallets] = useState<any[]>([]);
 
-  // Check for installed wallets on component mount (run only once)
+  // Check for installed wallets only once on mount
   useEffect(() => {
-    console.log('SuiWallet: Checking for installed wallets...');
+    let isSubscribed = true;
     
-    // Check for common Sui wallet objects in window
     const checkWalletExtensions = () => {
+      if (!isSubscribed) return;
+      
+      console.log('SuiWallet: Checking for installed wallets...');
       const detectedWallets: any[] = [];
       
       if (typeof window !== 'undefined') {
@@ -183,14 +185,16 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
     };
     
     // Initial check
-    const initialWallets = checkWalletExtensions();
+    const initialWallets = checkWalletExtensions() || [];
     console.log('SuiWallet: Initial scan detected wallets:', initialWallets);
     setAvailableWallets(initialWallets);
     
     // Delayed check for wallets that inject after page load
     const delayedCheck = setTimeout(() => {
+      if (!isSubscribed) return;
+      
       console.log('SuiWallet: Running delayed wallet detection...');
-      const delayedWallets = checkWalletExtensions();
+      const delayedWallets = checkWalletExtensions() || [];
       console.log('SuiWallet: Delayed scan detected wallets:', delayedWallets);
       
       // Only update if we found new wallets to prevent infinite loops
@@ -207,7 +211,10 @@ const SuiWalletContent: React.FC<{ onWalletChange?: (walletInfo: any) => void }>
       console.log('SuiWallet: Found', initialWallets.length, 'wallet(s) in initial scan');
     }
     
-    return () => clearTimeout(delayedCheck);
+    return () => {
+      isSubscribed = false;
+      clearTimeout(delayedCheck);
+    };
   }, []);
 
   // Get account objects (coins, NFTs, etc.)

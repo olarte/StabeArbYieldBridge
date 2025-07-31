@@ -8,6 +8,164 @@ import { Ed25519Keypair } from "@mysten/sui.js/keypairs/ed25519";
 import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 
+// Chain configurations updated for Ethereum Sepolia
+const CHAIN_CONFIG = {
+  ethereum: {
+    rpc: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}` || 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY',
+    chainId: 11155111, // Ethereum Sepolia
+    tokens: {
+      USDC: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
+      USDT: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT  
+      WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', // Sepolia WETH
+      DAI: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6'   // Sepolia DAI
+    },
+    // Uniswap V3 addresses on Sepolia
+    uniswap: {
+      factory: '0x0227628f3F023bb0B980b67D528571c95c6DaC1c',      // UniswapV3Factory
+      router: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E',       // SwapRouter02  
+      quoter: '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',       // QuoterV2
+      nftManager: '0x1238536071E1c677A632429e3655c799b22cDA52',    // NonfungiblePositionManager
+      universalRouter: '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD'  // UniversalRouter
+    }
+  },
+  sui: {
+    rpc: 'https://fullnode.testnet.sui.io:443',
+    chainId: 'sui:testnet',
+    tokens: {
+      SUI: '0x2::sui::SUI',
+      USDC: '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN', // Testnet USDC
+      USDT: '0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN'  // Testnet USDT
+    }
+  }
+};
+
+// Uniswap V3 ABIs for Sepolia
+const UNISWAP_V3_ABIS = {
+  Factory: [
+    "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"
+  ],
+  SwapRouter: [
+    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)"
+  ],
+  Quoter: [
+    "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
+  ]
+};
+
+// Global provider instances
+let ethProvider: ethers.JsonRpcProvider;
+let suiProvider: SuiClient;
+let uniswapContracts: any = null;
+let cetusContracts: any = null;
+
+// Enhanced provider initialization function for Ethereum Sepolia + Sui
+async function initializeProviders() {
+  try {
+    // Ethereum Sepolia provider
+    ethProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.ethereum.rpc);
+    console.log('🔗 Connecting to Ethereum Sepolia...');
+    
+    // Test Sepolia connection
+    const sepoliaNetwork = await ethProvider.getNetwork();
+    console.log(`✅ Connected to Ethereum Sepolia (Chain ID: ${sepoliaNetwork.chainId})`);
+    
+    // Sui Testnet provider
+    suiProvider = new SuiClient({
+      url: CHAIN_CONFIG.sui.rpc
+    });
+    console.log('🟦 Connecting to Sui Testnet...');
+
+    // Test Sui connection
+    const suiChainId = await suiProvider.getChainIdentifier();
+    console.log(`✅ Connected to Sui Testnet: ${suiChainId}`);
+
+    // Initialize Uniswap V3 contracts on Sepolia
+    await initializeUniswapContractsOnSepolia();
+    
+    // Initialize Cetus contracts on Sui Testnet
+    await initializeCetusContracts();
+    
+    console.log('✅ All providers and DEX contracts initialized for Sepolia-Sui bridge');
+  } catch (error) {
+    console.error('❌ Provider initialization failed:', error.message);
+    process.exit(1);
+  }
+}
+
+async function initializeUniswapContractsOnSepolia() {
+  const sepoliaConfig = CHAIN_CONFIG.ethereum.uniswap;
+  
+  try {
+    console.log('🦄 Initializing Uniswap V3 contracts on Ethereum Sepolia...');
+    
+    // Initialize Uniswap V3 contracts with Sepolia addresses
+    const factory = new ethers.Contract(sepoliaConfig.factory, UNISWAP_V3_ABIS.Factory, ethProvider);
+    const router = new ethers.Contract(sepoliaConfig.router, UNISWAP_V3_ABIS.SwapRouter, ethProvider);
+    const quoter = new ethers.Contract(sepoliaConfig.quoter, UNISWAP_V3_ABIS.Quoter, ethProvider);
+    
+    // Test the factory contract
+    console.log(`🧪 Testing Uniswap V3 factory at ${sepoliaConfig.factory}...`);
+    
+    // Try to get a known pool (USDC/WETH on Sepolia)
+    const testPoolAddress = await factory.getPool(
+      CHAIN_CONFIG.ethereum.tokens.USDC,
+      CHAIN_CONFIG.ethereum.tokens.WETH,
+      3000 // 0.3% fee tier
+    );
+    
+    console.log(`✅ Uniswap V3 factory is responsive on Sepolia`);
+    console.log(`📊 Test pool USDC/WETH (0.3%): ${testPoolAddress === ethers.ZeroAddress ? 'Not created yet' : testPoolAddress}`);
+    
+    uniswapContracts = {
+      factory: factory,
+      router: router,
+      quoter: quoter,
+      type: 'uniswap_v3_sepolia'
+    };
+    
+    console.log('✅ Uniswap V3 contracts successfully initialized on Ethereum Sepolia');
+    
+  } catch (error) {
+    console.error(`❌ Uniswap V3 Sepolia initialization failed: ${error.message}`);
+    
+    // Fallback to mock
+    uniswapContracts = {
+      factory: null,
+      router: null,
+      quoter: null,
+      type: 'mock'
+    };
+    console.log('🔄 Using mock contracts as fallback');
+  }
+}
+
+async function initializeCetusContracts() {
+  try {
+    console.log('🦈 Initializing Cetus DEX contracts on Sui Testnet...');
+    
+    // For Cetus on Sui, we primarily use their API endpoints
+    // Contract interaction would be done through their SDK
+    cetusContracts = {
+      type: 'cetus_sui_testnet',
+      apiEndpoint: 'https://api-sui.cetus.zone',
+      poolsEndpoint: 'https://api-sui.cetus.zone/v2/sui/pools',
+      initialized: true
+    };
+    
+    console.log('✅ Cetus DEX contracts initialized on Sui Testnet');
+    
+  } catch (error) {
+    console.error(`❌ Cetus initialization failed: ${error.message}`);
+    
+    // Fallback to mock
+    cetusContracts = {
+      type: 'mock',
+      initialized: false
+    };
+    console.log('🔄 Using mock Cetus integration as fallback');
+  }
+}
+
 // Real blockchain transaction execution functions
 async function executeRealEthereumTransaction(step: any, swapState: any) {
   const privateKey = process.env.ETHEREUM_PRIVATE_KEY;
@@ -366,6 +524,10 @@ async function executeGenericSuiTransaction(suiClient: SuiClient, keyPair: Ed255
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize providers and blockchain connections on server startup
+  console.log('🚀 Starting provider initialization...');
+  await initializeProviders();
+  
   // Test endpoint
   app.get('/api/test', (req, res) => {
     res.json({ message: 'Test endpoint works!', timestamp: new Date().toISOString() });
