@@ -68,13 +68,36 @@ interface SwapResult {
 }
 
 // Portfolio Balance Component
-function PortfolioBalance() {
+function PortfolioBalance({ walletConnections, suiWalletInfo }: { 
+  walletConnections: any, 
+  suiWalletInfo: any 
+}) {
   const { data: portfolioData, isLoading } = useQuery({
-    queryKey: ['/api/portfolio/balance'],
+    queryKey: ['/api/portfolio/balance', walletConnections?.account, suiWalletInfo?.account?.address],
+    queryFn: async () => {
+      const ethereumAddress = walletConnections?.account;
+      const suiAddress = suiWalletInfo?.account?.address;
+      
+      const response = await fetch('/api/portfolio/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ethereumAddress: ethereumAddress || null,
+          suiAddress: suiAddress || null
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch portfolio balance: ${response.status}`);
+      }
+      
+      return response.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const portfolio = (portfolioData as any)?.data || {};
+  const hasWalletData = portfolio.hasWalletData || false;
 
   return (
     <Card className="mb-6">
@@ -120,12 +143,30 @@ function PortfolioBalance() {
               </div>
             </div>
 
+            {/* Wallet Connection Status */}
+            {!hasWalletData && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+                  <span className="text-xl">⚠️</span>
+                  <div>
+                    <div className="font-medium">Connect wallets to view real balances</div>
+                    <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                      Portfolio calculations are using historical data. Connect Ethereum and Sui wallets for live balance tracking.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Chain Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-center gap-2">
                   <img src={ethereumIcon} alt="Ethereum" className="w-5 h-5 rounded-full" />
                   <span className="font-medium">Ethereum Sepolia</span>
+                  {walletConnections?.account && (
+                    <span className="text-xs text-green-600 font-medium">Connected</span>
+                  )}
                 </div>
                 <div className="text-xl font-bold">
                   ${portfolio.chainBalances?.ethereum?.balance?.toFixed(4) || '0.0000'}
@@ -138,12 +179,34 @@ function PortfolioBalance() {
                     ({portfolio.chainBalances?.ethereum?.changePercent?.toFixed(3) || '0.000'}%)
                   </span>
                 </div>
+                {portfolio.chainBalances?.ethereum?.assets && (
+                  <div className="space-y-1 text-xs">
+                    <div className="text-muted-foreground font-medium">Assets:</div>
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>USDC:</span>
+                        <span className="font-mono">{portfolio.chainBalances.ethereum.assets.usdc?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>USDT:</span>
+                        <span className="font-mono">{portfolio.chainBalances.ethereum.assets.usdt?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>DAI:</span>
+                        <span className="font-mono">{portfolio.chainBalances.ethereum.assets.dai?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-center gap-2">
                   <img src={suiIcon} alt="Sui" className="w-5 h-5 rounded-full" />
                   <span className="font-medium">Sui Testnet</span>
+                  {suiWalletInfo?.account?.address && (
+                    <span className="text-xs text-green-600 font-medium">Connected</span>
+                  )}
                 </div>
                 <div className="text-xl font-bold">
                   ${portfolio.chainBalances?.sui?.balance?.toFixed(4) || '0.0000'}
@@ -156,6 +219,25 @@ function PortfolioBalance() {
                     ({portfolio.chainBalances?.sui?.changePercent?.toFixed(3) || '0.000'}%)
                   </span>
                 </div>
+                {portfolio.chainBalances?.sui?.assets && (
+                  <div className="space-y-1 text-xs">
+                    <div className="text-muted-foreground font-medium">Assets:</div>
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>USDC:</span>
+                        <span className="font-mono">{portfolio.chainBalances.sui.assets.usdc?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>USDY:</span>
+                        <span className="font-mono">{portfolio.chainBalances.sui.assets.usdy?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>USDT:</span>
+                        <span className="font-mono">{portfolio.chainBalances.sui.assets.usdt?.toFixed(4) || '0.0000'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1183,7 +1265,10 @@ function ArbitrageTradingPage() {
         </div>
 
         <WalletSelector onWalletChange={handleWalletChange} />
-        <PortfolioBalance />
+        <PortfolioBalance 
+          walletConnections={walletConnections}
+          suiWalletInfo={suiWalletInfo}
+        />
         <PegProtectionStatus />
         <LivePriceMonitor />
         <ArbitrageOpportunities 

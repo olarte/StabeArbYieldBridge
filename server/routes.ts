@@ -1096,9 +1096,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Portfolio balance endpoint
-  app.get('/api/portfolio/balance', async (req, res) => {
+  // Wallet balances endpoint - fetch real stablecoin balances from connected wallets  
+  app.post('/api/wallet/balances', async (req, res) => {
     try {
+      const { ethereumAddress, suiAddress } = req.body;
+      
+      const balances = {
+        ethereum: { usdc: 0, usdt: 0, dai: 0 },
+        sui: { usdc: 0, usdy: 0, usdt: 0 }
+      };
+
+      // Fetch Ethereum balances if address provided
+      if (ethereumAddress) {
+        try {
+          const { ethers } = await import('ethers');
+          const alchemyKey = process.env.ALCHEMY_KEY;
+          
+          if (alchemyKey) {
+            const provider = new ethers.JsonRpcProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyKey}`);
+            
+            // USDC contract on Sepolia testnet
+            const usdcAddress = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+            const erc20Abi = [
+              'function balanceOf(address owner) view returns (uint256)',
+              'function decimals() view returns (uint8)'
+            ];
+            
+            const usdcContract = new ethers.Contract(usdcAddress, erc20Abi, provider);
+            const usdcBalance = await usdcContract.balanceOf(ethereumAddress);
+            const usdcDecimals = await usdcContract.decimals();
+            
+            balances.ethereum.usdc = parseFloat(ethers.formatUnits(usdcBalance, usdcDecimals));
+            console.log(`💰 Ethereum USDC balance: ${balances.ethereum.usdc}`);
+          }
+        } catch (error) {
+          console.error('Error fetching Ethereum balances:', error);
+        }
+      }
+
+      // Fetch Sui balances if address provided  
+      if (suiAddress) {
+        try {
+          const { SuiClient, getFullnodeUrl } = await import('@mysten/sui.js/client');
+          const suiClient = new SuiClient({ url: getFullnodeUrl('testnet') });
+          
+          // Get all coins for the address
+          const allCoins = await suiClient.getAllCoins({ owner: suiAddress });
+          
+          // USDC and USDY contract addresses on Sui testnet (these would be real addresses)
+          const usdcType = '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN';
+          const usdyType = '0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::coin::COIN';
+          
+          // Sum up USDC and USDY balances
+          for (const coin of allCoins.data) {
+            if (coin.coinType.includes('USDC') || coin.coinType === usdcType) {
+              balances.sui.usdc += parseFloat(coin.balance) / 1000000; // Assuming 6 decimals
+            } else if (coin.coinType.includes('USDY') || coin.coinType === usdyType) {
+              balances.sui.usdy += parseFloat(coin.balance) / 1000000; // Assuming 6 decimals  
+            }
+          }
+          
+          console.log(`💰 Sui USDC balance: ${balances.sui.usdc}`);
+          console.log(`💰 Sui USDY balance: ${balances.sui.usdy}`);
+        } catch (error) {
+          console.error('Error fetching Sui balances:', error);
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          balances,
+          addresses: { ethereumAddress, suiAddress },
+          lastUpdated: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Failed to fetch wallet balances:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch wallet balances',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Portfolio balance endpoint with real wallet data
+  app.post('/api/portfolio/balance', async (req, res) => {
+    try {
+      const { ethereumAddress, suiAddress } = req.body;
+      
       // Get real transaction history from the same data source
       const swapHistory = [
         {
@@ -1125,11 +1213,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       ];
 
+      // Get real wallet balances
+      let walletBalances = {
+        ethereum: { usdc: 0, usdt: 0, dai: 0 },
+        sui: { usdc: 0, usdy: 0, usdt: 0 }
+      };
+
+      // Fetch real wallet balances if addresses provided
+      if (ethereumAddress || suiAddress) {
+        try {
+          // Fetch Ethereum balances if address provided
+          if (ethereumAddress) {
+            try {
+              const { ethers } = await import('ethers');
+              const alchemyKey = process.env.ALCHEMY_KEY;
+              
+              if (alchemyKey) {
+                const provider = new ethers.JsonRpcProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyKey}`);
+                
+                // USDC contract on Sepolia testnet
+                const usdcAddress = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+                const erc20Abi = [
+                  'function balanceOf(address owner) view returns (uint256)',
+                  'function decimals() view returns (uint8)'
+                ];
+                
+                const usdcContract = new ethers.Contract(usdcAddress, erc20Abi, provider);
+                const usdcBalance = await usdcContract.balanceOf(ethereumAddress);
+                const usdcDecimals = await usdcContract.decimals();
+                
+                walletBalances.ethereum.usdc = parseFloat(ethers.formatUnits(usdcBalance, usdcDecimals));
+                console.log(`💰 Portfolio - Ethereum USDC balance: ${walletBalances.ethereum.usdc}`);
+              }
+            } catch (error) {
+              console.error('Error fetching Ethereum balances for portfolio:', error);
+            }
+          }
+
+          // Fetch Sui balances if address provided  
+          if (suiAddress) {
+            try {
+              const { SuiClient, getFullnodeUrl } = await import('@mysten/sui.js/client');
+              const suiClient = new SuiClient({ url: getFullnodeUrl('testnet') });
+              
+              // Get all coins for the address
+              const allCoins = await suiClient.getAllCoins({ owner: suiAddress });
+              
+              // USDC and USDY contract addresses on Sui testnet
+              const usdcType = '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN';
+              const usdyType = '0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::coin::COIN';
+              
+              // Sum up USDC and USDY balances
+              for (const coin of allCoins.data) {
+                if (coin.coinType.includes('USDC') || coin.coinType === usdcType) {
+                  walletBalances.sui.usdc += parseFloat(coin.balance) / 1000000; // Assuming 6 decimals
+                } else if (coin.coinType.includes('USDY') || coin.coinType === usdyType) {
+                  walletBalances.sui.usdy += parseFloat(coin.balance) / 1000000; // Assuming 6 decimals  
+                }
+              }
+              
+              console.log(`💰 Portfolio - Sui USDC balance: ${walletBalances.sui.usdc}`);
+              console.log(`💰 Portfolio - Sui USDY balance: ${walletBalances.sui.usdy}`);
+            } catch (error) {
+              console.error('Error fetching Sui balances for portfolio:', error);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching wallet balances for portfolio:', error);
+        }
+      }
+
       // Calculate real metrics from actual swap data
       const totalProfit = swapHistory.reduce((sum, swap) => sum + swap.profit, 0);
       const totalAmount = swapHistory.reduce((sum, swap) => sum + swap.amount, 0);
-      const startingBalance = 1000.00; // Initial portfolio value
-      const currentBalance = startingBalance + totalProfit;
+      
+      // Calculate current balance from real wallet balances + profits
+      const ethereumStableBalance = walletBalances.ethereum.usdc + walletBalances.ethereum.usdt + walletBalances.ethereum.dai;
+      const suiStableBalance = walletBalances.sui.usdc + walletBalances.sui.usdy + walletBalances.sui.usdt;
+      const totalWalletBalance = ethereumStableBalance + suiStableBalance;
+      
+      // If no wallet balances, use fallback calculation
+      const currentBalance = totalWalletBalance > 0 ? totalWalletBalance + totalProfit : 1000.00 + totalProfit;
       
       // Calculate weekly change (all swaps happened this week)
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -1139,27 +1303,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weeklyChange = weeklyProfit;
       const weeklyChangePercent = weekStartBalance > 0 ? (weeklyChange / weekStartBalance) * 100 : 0;
       
-      // Calculate chain-specific balances based on swap distribution
+      // Calculate chain-specific balances from real wallet data
       const ethereumSwaps = swapHistory.filter(swap => swap.sourceChain === 'ethereum');
       const suiTargetSwaps = swapHistory.filter(swap => swap.targetChain === 'sui');
       
       const ethereumProfit = ethereumSwaps.reduce((sum, swap) => sum + swap.profit, 0);
       const suiProfit = suiTargetSwaps.reduce((sum, swap) => sum + swap.profit, 0);
       
-      // Portfolio breakdown by chain (proportional allocation)
-      const ethereumBalance = (startingBalance * 0.65) + ethereumProfit; // 65% allocation to Ethereum
-      const suiBalance = (startingBalance * 0.35) + suiProfit; // 35% allocation to Sui
+      // Portfolio breakdown by chain using real balances + profits
+      const ethereumBalance = ethereumStableBalance + ethereumProfit;
+      const suiBalance = suiStableBalance + suiProfit;
       
       const chainBalances = {
         ethereum: {
           balance: ethereumBalance,
+          walletBalance: ethereumStableBalance,
+          profit: ethereumProfit,
           change: ethereumProfit,
-          changePercent: ethereumProfit > 0 ? (ethereumProfit / (ethereumBalance - ethereumProfit)) * 100 : 0
+          changePercent: ethereumStableBalance > 0 ? (ethereumProfit / ethereumStableBalance) * 100 : 0,
+          assets: walletBalances.ethereum
         },
         sui: {
           balance: suiBalance,
+          walletBalance: suiStableBalance,
+          profit: suiProfit,
           change: suiProfit,
-          changePercent: suiProfit > 0 ? (suiProfit / (suiBalance - suiProfit)) * 100 : 0
+          changePercent: suiStableBalance > 0 ? (suiProfit / suiStableBalance) * 100 : 0,
+          assets: walletBalances.sui
         }
       };
 
@@ -1169,7 +1339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const performanceMetrics = {
         totalProfit: totalProfit,
-        totalProfitPercent: startingBalance > 0 ? (totalProfit / startingBalance) * 100 : 0,
+        totalProfitPercent: currentBalance > totalProfit ? (totalProfit / (currentBalance - totalProfit)) * 100 : 0,
         successfulSwaps: completedSwaps.length,
         totalSwaps: swapHistory.length,
         successRate: swapHistory.length > 0 ? (completedSwaps.length / swapHistory.length) * 100 : 0,
@@ -1187,6 +1357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           weeklyChangePercent,
           chainBalances,
           performanceMetrics,
+          walletBalances,
+          hasWalletData: totalWalletBalance > 0,
           lastUpdated: new Date().toISOString()
         }
       });

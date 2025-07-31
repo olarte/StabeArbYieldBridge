@@ -2,7 +2,7 @@
 
 ## Overview
 
-StableArbYieldBridge is a sophisticated multichain DeFi arbitrage platform that enables automated stablecoin swaps between Celo and Sui networks. The application focuses on detecting and executing arbitrage opportunities while providing yield farming capabilities through intelligent routing to yield-bearing protocols.
+StableArbYieldBridge is a sophisticated multichain DeFi arbitrage platform that enables automated stablecoin swaps between Celo and Sui networks. The application focuses on detecting and executing arbitrage opportunities while providing yield farming capabilities through intelligent routing to yield-bearing protocols. The business vision is to provide a seamless and profitable cross-chain arbitrage experience, leveraging market inefficiencies across multiple blockchain networks.
 
 ## User Preferences
 
@@ -12,383 +12,57 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend Architecture
 - **Framework**: React with TypeScript
-- **Build Tool**: Vite for fast development and optimized builds
+- **Build Tool**: Vite
 - **UI Framework**: Shadcn/ui components with Radix UI primitives
-- **Styling**: Tailwind CSS with custom design tokens
+- **Styling**: Tailwind CSS
 - **State Management**: TanStack Query (React Query) for server state
-- **Routing**: Wouter for lightweight client-side routing
+- **Routing**: Wouter
 - **Form Handling**: React Hook Form with Zod validation
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ES modules
-- **API Pattern**: RESTful endpoints with structured error handling
-- **Development**: TSX for TypeScript execution in development
+- **API Pattern**: RESTful endpoints
+- **Development**: TSX for TypeScript execution
 
 ### Database & ORM
 - **Database**: PostgreSQL (configured for Neon serverless)
-- **ORM**: Drizzle ORM with type-safe queries
-- **Schema Management**: Drizzle Kit for migrations
-- **Connection**: Neon serverless driver for serverless compatibility
+- **ORM**: Drizzle ORM
+- **Schema Management**: Drizzle Kit
 
-## Key Components
+### Key Capabilities
+- **Arbitrage Opportunity Detection**: Real-time scanning for price discrepancies between Ethereum Sepolia and Sui Testnet.
+- **Trading Agents**: Automated bots for executing trades.
+- **Portfolio Management**: Balance tracking and profit/loss calculations.
+- **Transaction Management**: Complete trade history and status tracking.
+- **Chain Status Monitoring**: Real-time blockchain network health monitoring.
+- **Cross-Chain Atomic Swaps**: Bidirectional swaps between Ethereum Sepolia and Sui Testnet with hashlock/timelock security and yield optimization (USDC to USDY on Sui).
+- **Peg Protection**: Multi-source price validation (Uniswap V3, Cetus DEX, Chainlink Oracles) for real-time deviation detection.
+- **Cross-Chain Limit Orders**: Management of limit orders across Ethereum Sepolia and Sui Testnet using 1Inch Fusion+ and Cetus DEX.
 
-### Core Business Logic
-1. **Arbitrage Opportunity Detection**: Real-time scanning for price discrepancies between Celo and Sui
-2. **Trading Agents**: Automated bots for executing trades based on predefined criteria
-3. **Portfolio Management**: Balance tracking and profit/loss calculations
-4. **Transaction Management**: Complete trade history and status tracking
-5. **Chain Status Monitoring**: Real-time blockchain network health monitoring
-
-### Frontend Components
-- **Dashboard**: Central hub displaying market stats, opportunities, and active agents
-- **Portfolio Overview**: Real-time balance and performance metrics
-- **Opportunity Table**: Live arbitrage opportunities with execution capabilities
-- **Agent Management**: Creation and management of automated trading bots
-- **Charts & Analytics**: Price spread visualization and market analysis
-
-### Data Models
-- **Users**: Authentication and user management
-- **Arbitrage Opportunities**: Market opportunities with spread calculations
-- **Trading Agents**: Automated trading configurations
-- **Transactions**: Complete trade execution records
-- **Portfolio**: User balance and performance tracking
-- **Chain Status**: Blockchain network monitoring
-
-## Data Flow
-
-1. **Market Data Ingestion**: External APIs feed price data from multiple chains
-2. **Opportunity Detection**: Backend algorithms identify profitable arbitrage opportunities
-3. **Agent Execution**: Automated agents execute trades based on user-defined parameters
-4. **Real-time Updates**: Frontend receives live updates via polling mechanism
-5. **Transaction Processing**: Blockchain interactions through 1Inch Fusion+ integration
-6. **Portfolio Updates**: Balance and performance metrics updated in real-time
+### Core Architectural Decisions
+- **Database Choice**: Drizzle ORM with PostgreSQL for type-safe operations and robust data management.
+- **State Management**: TanStack Query for efficient server state synchronization and real-time updates.
+- **UI Framework**: Shadcn/ui + Radix UI for highly customizable and accessible components.
+- **Real-time Updates**: Polling strategy for live market data, balancing simplicity and reliability.
+- **Transaction Execution**: Backend-executed transactions using private keys to bypass wallet interface compatibility issues, ensuring reliable real blockchain execution on Ethereum Sepolia and Sui Testnet.
+- **Network Focus**: Primary focus on Ethereum Sepolia and Sui Testnet for cross-chain USDC/USDY arbitrage.
 
 ## External Dependencies
 
 ### Blockchain Integration
-- **1Inch Fusion+ SDK**: Primary DEX aggregator for swap execution
-- **Chainlink Oracles**: Price feeds and peg protection mechanisms
-- **Neon Database**: Serverless PostgreSQL hosting
-- **Alchemy/Similar**: Blockchain RPC providers for Ethereum and Celo
-- **Sui RPC**: Official Sui network connectivity
+- **1Inch Fusion+ SDK**: Primary DEX aggregator for swap execution on Ethereum Sepolia.
+- **Cetus DEX**: For swaps on Sui network.
+- **Chainlink Oracles**: Price feeds and peg protection mechanisms on Ethereum Sepolia and Sui Testnet.
+- **Neon Database**: Serverless PostgreSQL hosting.
+- **Alchemy**: Blockchain RPC provider for Ethereum Sepolia.
+- **Sui RPC**: Official Sui network connectivity.
 
 ### Wallet & Authentication
-- **WalletConnect**: Multi-chain wallet connection support
-- **MetaMask**: Celo network wallet integration
-- **Sui Wallet**: Native Sui network wallet support
+- **WalletConnect**: Multi-chain wallet connection support (used for frontend wallet detection, but transactions are backend-executed).
+- **MetaMask**: For Ethereum Sepolia wallet interaction (detection, not direct transaction signing in production flow).
+- **Sui Wallet**: Native Sui network wallet support (detection, not direct transaction signing in production flow).
 
 ### Development Tools
-- **Replit Integration**: Development environment optimization
-- **Vite Plugins**: Runtime error handling and development cartographer
-
-## Deployment Strategy
-
-### Development Environment
-- **Hot Reload**: Vite development server with HMR
-- **Type Safety**: Comprehensive TypeScript configuration
-- **Error Handling**: Runtime error modal for development debugging
-- **Code Generation**: Automatic route and schema validation
-
-### Production Build
-- **Frontend**: Vite build with optimized bundling
-- **Backend**: esbuild compilation for Node.js deployment
-- **Database**: Drizzle migrations for schema deployment
-- **Environment**: Node.js production runtime
-
-### Architecture Decisions
-
-#### Database Choice: Drizzle + PostgreSQL
-- **Problem**: Need for type-safe database operations with complex financial data
-- **Solution**: Drizzle ORM with PostgreSQL for ACID compliance and type safety
-- **Rationale**: Superior TypeScript integration and migration management
-- **Trade-offs**: Learning curve vs. runtime safety and developer experience
-
-#### State Management: TanStack Query
-- **Problem**: Complex server state synchronization with real-time updates
-- **Solution**: React Query for caching, background updates, and optimistic updates
-- **Rationale**: Built-in polling, error handling, and cache invalidation
-- **Trade-offs**: Bundle size vs. comprehensive state management features
-
-#### UI Framework: Shadcn/ui + Radix
-- **Problem**: Need for professional, accessible, and customizable components
-- **Solution**: Shadcn/ui built on Radix primitives with Tailwind styling
-- **Rationale**: Copy-paste components with full customization control
-- **Trade-offs**: Manual component management vs. design system flexibility
-
-#### Real-time Updates: Polling Strategy
-- **Problem**: Need for live market data without WebSocket complexity
-- **Solution**: Aggressive polling with smart intervals (5-30 seconds)
-- **Rationale**: Simpler implementation with reliable fallback behavior
-- **Trade-offs**: Network overhead vs. implementation simplicity
-
-## Recent Changes
-
-### January 29, 2025
-- ✅ **Initial Application Build**: Created complete StableArbYieldBridge DeFi arbitrage platform
-- ✅ **Data Schema**: Implemented comprehensive schema for arbitrage opportunities, trading agents, transactions, portfolio, and chain status
-- ✅ **Backend API**: Built RESTful API with full CRUD operations and sample data
-- ✅ **Frontend Dashboard**: Developed dark-themed trading interface with real-time updates
-- ✅ **Core Components**: Live opportunity table, agent creator, portfolio overview, transaction history
-- ✅ **TypeScript Fixes**: Resolved all type compatibility issues in storage layer
-- ✅ **Documentation**: Added comprehensive README.md for repository
-- ✅ **DeFi Bridge API**: Added production-ready index.js with real blockchain integrations
-- ✅ **1Inch Integration**: Configured live API for price feeds and DEX aggregation
-- ✅ **Chainlink Oracles**: Added oracle support for stablecoin peg monitoring
-- ✅ **Cross-Chain Arbitrage**: Implemented Celo-Sui arbitrage detection
-- ✅ **Environment Configuration**: Created .env.example template for deployment
-- ✅ **GitHub Repository**: Successfully pushed all changes to production repository
-- ✅ **Enhanced Price Endpoints**: Integrated advanced code snippet with multi-chain oracle support
-- ✅ **Alchemy Integration**: Added testnet API key for enhanced blockchain connectivity  
-- ✅ **Automated Peg Monitoring**: Real-time stablecoin deviation detection with auto-pause
-- ✅ **Testnet Configuration**: Updated to Sepolia and Alfajores testnets with live oracles
-- ✅ **Comprehensive Multi-Chain API**: Deployed complete enhanced index.js with advanced DeFi features
-- ✅ **Full Testnet Connectivity**: Ethereum Sepolia, Celo Alfajores, and Sui testnet all connected
-- ✅ **Advanced Oracle Integration**: Live Chainlink feeds with automated peg monitoring system
-- ✅ **Production-Ready Error Handling**: Robust fallback mechanisms and graceful degradation
-- ✅ **Wallet Integration Complete**: Added CELO_PRIVATE_KEY and SUI_PRIVATE_KEY to environment
-- ✅ **Live Wallet Connectivity**: Celo wallet (0x391F48752acD48271040466d748FcB367f2d2a1F) connected to Alfajores testnet
-- ✅ **Wallet Balance Endpoint**: Added /api/wallet/balances for real-time balance monitoring
-- ✅ **Transaction-Ready Setup**: Full wallet integration for automated arbitrage trading
-- ✅ **Transaction Lookup System**: Added /api/transactions/:txHash endpoint for real transaction verification
-- ✅ **Simulated Cross-Chain Swap**: Successfully demonstrated complete arbitrage flow with profit calculation
-- ✅ **Real Swap Endpoint**: Added /api/swap/execute for live cUSD blockchain transactions
-- ✅ **Swap Integration**: Complete swap functionality integrated into main application with portfolio updates
-- ✅ **Transaction Recording**: Automatic transaction storage and balance tracking system operational
-- ✅ **Uniswap V3 Arbitrage Scanner**: Modified /scan-arbs endpoint to use Uniswap V3 prices on Celo
-- ✅ **Advanced Arbitrage Detection**: Real-time scanning with Uniswap V3 vs 1Inch price comparison
-- ✅ **Interactive Scanner Component**: Built arbitrage scanner widget with live opportunity detection
-- ✅ **Enhanced Dashboard Integration**: Complete arbitrage scanning workflow integrated into main interface
-- ✅ **Enhanced Server Startup**: Updated index.js with improved server initialization, development mode detection, and automated cleanup systems
-- ✅ **Production-Grade Error Handling**: Added swap state cleanup, peg monitoring controls, and comprehensive endpoint documentation
-- ✅ **Enhanced Celo DEX Integration**: Updated with Ubeswap V2 support and dynamic DEX detection for better Celo compatibility
-- ✅ **Improved Contract Architecture**: Added fallback mechanisms and mock contracts for development environments
-- ✅ **Enhanced Development Mode**: Added FORCE_MOCK_DEX option and improved DEX detection messaging  
-- ✅ **Comprehensive Server Monitoring**: Updated startup logging with detailed DEX type and peg monitoring status
-- ✅ **Real Uniswap V3 Integration**: Updated with authentic Uniswap V3 contract addresses for Celo Alfajores testnet
-- ✅ **Enhanced Contract Testing**: Added pool existence verification and comprehensive fallback handling for live contracts
-- ✅ **Enhanced DeFi Bridge API**: Updated index.js with comprehensive multi-chain DeFi features from code snippet
-- ✅ **Port Configuration**: Successfully configured server to use port 5000 consistently across both applications
-- ✅ **Advanced API Integration**: Added 1Inch API, enhanced Uniswap V3 endpoints, and comprehensive price monitoring
-- ✅ **ES Module Compatibility**: Converted enhanced CommonJS code to ES modules for project compatibility
-- ✅ **Production-Ready Error Handling**: Implemented detailed error responses with actionable suggestions for developers
-- ✅ **Oracle Peg Monitoring**: Added /api/oracle/peg-status and /api/oracle/peg-controls endpoints to both index.js and main application
-- ✅ **Test Endpoint Integration**: Successfully added /api/test endpoint to main application server for endpoint validation
-- ✅ **Enhanced Index.js Replacement**: Updated index.js with comprehensive new version including advanced DeFi features and improved oracle endpoints
-- ✅ **Complete Enhanced Features Integration**: Successfully integrated all advanced features into main application server/routes.ts
-- ✅ **Cetus DEX Integration**: Added full Cetus DEX API endpoints for Sui network (/api/cetus/price, /api/cetus/quote)
-- ✅ **Cross-Chain Arbitrage Detection**: Implemented enhanced arbitrage scanner comparing Celo Uniswap V3 vs Sui Cetus prices
-- ✅ **Bidirectional Atomic Swaps**: Added atomic cross-chain swap creation with hashlock/timelock security mechanisms
-- ✅ **Multi-Chain Oracle Enhancement**: Extended Chainlink oracle endpoints with multi-chain peg monitoring capabilities
-- ✅ **Complete API Integration**: All enhanced features now accessible via unified main application on port 5000
-- ✅ **Real DEX Integration Activation**: Successfully transitioned from simulation to real blockchain integrations with funded testnet wallets
-- ✅ **Live 1Inch API Integration**: Active ONEINCH_API_KEY integration with real price feeds and swap execution on Celo Alfajores
-- ✅ **Funded Wallet Integration**: Live Celo and Sui testnet wallets executing real transactions with actual profit generation
-- ✅ **Real Transaction Evidence**: Confirmed real swap executions (2.0 cUSD → USDC = +$0.0040 profit, 1.5 cUSD cross-chain = +$0.0075 profit)
-- ✅ **Cross-Chain Swap Functionality**: Operational atomic bridge swaps between Celo and Sui networks with funded wallets
-- ✅ **Production-Ready Price Feeds**: Live price data from 1Inch API (Celo) and Cetus DEX (Sui) replacing all mock data
-- ✅ **Enhanced Bidirectional Atomic Swaps**: Successfully implemented comprehensive atomic swap system with real atomic guarantees
-- ✅ **7-Step Execution Pipeline**: Complete step-by-step atomic swap execution with hashlock security and timelock management
-- ✅ **Advanced Swap Monitoring**: Real-time progress tracking, status monitoring, and expiration handling for atomic swaps
-- ✅ **Production-Ready Endpoints**: Added /api/swap/bidirectional-real, /api/swap/execute-real, and /api/swap/status-real endpoints
-- ✅ **Atomic Security Guarantees**: Implemented real hashlock deposits, secret reveals, and timeout-based refund mechanisms
-- ✅ **Cross-Chain Route Validation**: CELO → ETHEREUM → SUI routing with comprehensive spread checking and profitability analysis
-- ✅ **Enhanced Peg Protection Function**: Successfully replaced validateSwapAgainstPegProtection with advanced cross-chain validation
-- ✅ **Multi-Source Price Validation**: Integrated Chainlink oracles, Uniswap V3, and Cetus DEX price feeds for comprehensive peg monitoring
-- ✅ **Real-Time Deviation Detection**: Live monitoring with 5% threshold alerts and safety recommendations for cross-chain swaps
-- ✅ **Peg Validation API**: Added /api/peg/validate endpoint with TypeScript compatibility and comprehensive test coverage
-- ✅ **Enhanced getChainlinkPrice Function**: Updated with real oracle configuration, round ID tracking, data freshness monitoring, and comprehensive error handling
-- ✅ **Oracle Data Structure Enhancement**: Added detailed oracle metadata with contract addresses, round IDs, timestamps, and staleness alerts
-- ✅ **Oracle Demo Endpoint**: Added /api/oracle/demo showcasing enhanced Chainlink oracle functionality with complete feature demonstration
-- ✅ **Enhanced Peg Status Endpoint**: Updated /api/oracle/peg-status with comprehensive cross-chain validation and real-time safety monitoring
-- ✅ **Advanced Control System**: Added manual swap pause/resume, auto-resume toggle, and configurable alert thresholds to peg controls
-- ✅ **Real-Time Safety Validation**: Integrated live deviation monitoring with SAFE_TO_SWAP/SWAPS_PAUSED recommendations
-- ✅ **Enhanced App.tsx Interface**: Updated main app component with live arbitrage trading interface displaying real-time Uniswap V3 (Celo) and Cetus (Sui) prices
-- ✅ **Fixed Price Display Issues**: Resolved NaN price display by updating data parsing to use correct API response structure (price.token0ToToken1)
-- ✅ **Arbitrage Opportunities Table**: Added interactive table with one-click execute buttons, real-time scanning from /scan-arbs endpoint, automatic refresh every 5 seconds
-- ✅ **Web3 Wallet Integration**: Created comprehensive web3.js utilities with MetaMask and WalletConnect support for Celo Alfajores and Ethereum Sepolia networks
-- ✅ **Enhanced TypeScript Interfaces**: Added comprehensive type definitions for ArbOpportunity, PegStatus, and SwapResult with proper error handling
-- ✅ **Dual Wallet Architecture**: Implemented side-by-side wallet layout with Celo (MetaMask) and Sui (@suiet/wallet-kit) wallet connections
-- ✅ **Sui Wallet Integration**: Created SuiWalletConnect component with account object fetching, balance display, and network configuration
-- ✅ **Modern Web3 Architecture**: Used direct Web3 API instead of deprecated Web3ReactProvider for better stability and TypeScript support
-- ✅ **Fixed Peg Protection Status**: Resolved API response parsing to display real Chainlink oracle and DEX prices instead of N/A values
-- ✅ **Enhanced TypeScript Safety**: Added comprehensive type definitions with proper number conversion for price display
-- ✅ **Sui Wallet Debug Integration**: Added console logging and alternative ConnectButton components for wallet troubleshooting
-- ✅ **GitHub Integration**: Successfully pushed enhanced version with dual wallet support and live price monitoring to GitHub repository
-- ✅ **Final Production Push**: Deployed complete StableArbYieldBridge with real-time oracle price feeds, dual wallet integration, and comprehensive TypeScript safety to GitHub
-- ✅ **Real Wallet Signer Integration**: Successfully integrated TransactionBlock from @mysten/sui.js for testnet swap execution
-- ✅ **Enhanced Wallet Detection**: Implemented comprehensive wallet detection system that identifies 5 wallet extensions with Sui compatibility indicators
-- ✅ **Wallet Session Management**: Added /api/wallet/register endpoint for secure wallet session management and validation
-- ✅ **SwapState Constructor Enhancement**: Updated to support wallet sessions with comprehensive validation for multi-chain transactions
-- ✅ **Enhanced Peg Protection**: Integrated advanced peg protection and wallet validation in bidirectional-real swap endpoint
-- ✅ **Production-Ready Wallet Integration**: Complete real wallet transaction execution capability with Phantom Wallet Sui support confirmed
-- ✅ **Enhanced Execution Functions**: Added comprehensive wallet-signature execution functions for atomic swaps
-- ✅ **Wallet Balance Verification**: Implemented real-time balance checking for EVM and Sui wallets before transaction execution
-- ✅ **Token Approval System**: Added automated token approval transaction preparation for EVM chains
-- ✅ **1Inch Fusion+ Integration**: Created wallet-integrated 1Inch Fusion+ swap execution for Celo network
-- ✅ **Cetus DEX Integration**: Implemented Sui TransactionBlock creation for Cetus DEX swaps with wallet signatures
-- ✅ **Bridge Transaction Preparation**: Added cross-chain bridge transaction data preparation with wallet integration
-- ✅ **Enhanced Execution Endpoint**: Updated /api/swap/execute-real with wallet execution mode and transaction signature requirements
-- ✅ **Transaction Submission Endpoint**: Added /api/swap/submit-transaction for frontend to submit signed transactions back to server
-- ✅ **Complete Frontend-Backend Flow**: Established full workflow for wallet signature collection and transaction submission
-- ✅ **Step Status Tracking**: Enhanced step tracking with SUBMITTED status and transaction hash recording
-- ✅ **Live Swap Execution Success**: Successfully executed complete cross-chain atomic swap with real transaction hashes
-- ✅ **7-Step Execution Completion**: All steps completed successfully from SPREAD_CHECK through SECRET_REVEAL
-- ✅ **Real Transaction Evidence**: Generated authentic transaction hashes on Celo Alfajores and Sui testnets
-- ✅ **Enhanced Error Handling**: Fixed step execution logic to skip completed steps and continue processing
-- ✅ **Production-Ready Atomic Swaps**: Fully operational cross-chain bridge with real blockchain transactions
-- ✅ **Real Blockchain Transaction Implementation**: Replaced all mock transaction hashes with actual Celo and Sui blockchain executions
-- ✅ **Authentic API Integration**: Updated Uniswap V3 and Cetus DEX pricing to use real API endpoints instead of simulations
-- ✅ **Enhanced Chainlink Oracle Integration**: Real smart contract calls to Chainlink price feeds on Celo Alfajores and Ethereum Sepolia
-- ✅ **1Inch Fusion+ Real Swaps**: Live 1Inch API integration for actual token swaps on Celo network
-- ✅ **Production Wallet Integration**: Real transaction signing and execution using configured CELO_PRIVATE_KEY and SUI_PRIVATE_KEY
-- ✅ **Elimination of Mock Data**: Complete removal of Math.random() transaction hashes and simulated prices throughout the system
-- ✅ **Updated SUI_PRIVATE_KEY**: User updated Sui wallet private key for authentic testnet transaction execution
-- ✅ **Real Transaction Testing**: Created /api/test-sui-transaction endpoint for direct blockchain transaction verification
-- ✅ **Enhanced Network Connectivity**: Added multi-endpoint RPC failover for robust Celo network connections
-- ✅ **Production Transaction Infrastructure**: Complete system ready for real blockchain transactions on both Celo and Sui networks
-- ✅ **Sui Private Key Format Fix**: Enhanced key parsing to handle various private key formats (with/without 0x prefix)
-- ✅ **Real Transaction Demonstration**: Successfully created atomic swap `real_swap_1753917026481_hllucth7` with 0.85% spread and hashlock security
-- ✅ **Network Status Monitoring**: Identified Celo RPC connectivity issues while maintaining Sui network functionality
-- ✅ **Enhanced Sui Key Parsing**: Improved private key format detection and cleanup from 70 to 60 characters
-- ✅ **Production Transaction System**: Completely eliminated all mock data and implemented authentic blockchain execution
-- ✅ **Real Swap Demonstrations**: Created multiple verifiable atomic swaps with genuine hashlocks and profit calculations
-- ✅ **Live API Integration**: All price feeds now use authentic sources (1Inch, Chainlink, Cetus) instead of simulations
-
-### January 30, 2025
-- ✅ **Real Wallet Integration**: Fixed frontend to prompt actual MetaMask and Sui wallet transaction signatures
-- ✅ **Eliminated Server-Side Execution**: Replaced internal transaction execution with frontend wallet signature requests
-- ✅ **Dual Wallet Transaction Flow**: Implemented alternating MetaMask (Celo) and Sui wallet prompts for each swap step
-- ✅ **Authentic Transaction Prompts**: Users now see real wallet popups when executing arbitrage opportunities
-- ✅ **Enhanced Wallet Detection**: System detects Phantom Wallet (✓SUI), Martian Wallet (✓SUI), and MetaMask
-- ✅ **Production-Ready Wallet Flow**: Complete transition from mock transactions to real blockchain signature requirements
-- ✅ **Sui Network Standardization**: Updated entire application to use Sui Testnet consistently across frontend and backend
-- ✅ **Network Configuration Cleanup**: Eliminated mixed Devnet/Testnet usage for better wallet compatibility and stability
-
-### January 31, 2025
-- ✅ **Amount Input Field Feature**: Added custom amount input to arbitrage opportunities table allowing users to specify swap amounts
-- ✅ **Dynamic Amount Integration**: Atomic swap creation now uses user-specified amounts instead of fixed $10 default
-- ✅ **Enhanced UI Layout**: Added "Amount ($)" column with number input fields (0.1 step increments, 1.0 placeholder)
-- ✅ **Real-Time Amount Validation**: Prevents execution with invalid amounts (NaN, negative, or zero values)
-- ✅ **Backend Transaction Execution Architecture**: Successfully implemented comprehensive backend transaction execution system that completely bypasses wallet interface compatibility issues
-- ✅ **Wallet Interface Issues Resolution**: Eliminated all @suiet/wallet-kit "bad response format" and "WALLET.SIGN_TX_ERROR" errors by implementing backend-executed transactions using private keys
-- ✅ **Arbitrage Swap Flow Fix**: Updated signAndSubmitTransaction function to use backend /api/test-real-transaction endpoint for all arbitrage steps, ensuring consistent real blockchain execution
-- ✅ **Production Transaction System**: Complete replacement of problematic wallet interface popups with verified backend transaction execution that executes authentic Sui and Ethereum transactions
-- ✅ **Authentic Blockchain Integration**: All arbitrage swap steps now execute real transactions with verified transaction hashes on both Ethereum Sepolia and Sui Testnet networks
-- ✅ **Enhanced Error Handling**: Eliminated wallet popup failures by routing all transactions through proven backend execution pathway with comprehensive error handling and explorer URL logging
-- ✅ **Complete Network Migration**: Successfully migrated entire platform from Celo Alfajores to Ethereum Sepolia testnet
-- ✅ **Backend Chain Configuration**: Updated all CHAIN_CONFIG settings from chainId 44787 (Celo) to 11155111 (Ethereum Sepolia)
-- ✅ **Chainlink Oracle Migration**: Replaced Celo oracle addresses with authentic Ethereum Sepolia Chainlink feeds
-- ✅ **Function Name Updates**: Renamed executeGenericCeloTransaction → executeGenericEthereumTransaction
-- ✅ **Frontend Wallet Configuration**: Updated WalletConnect component to prioritize Ethereum Sepolia over Celo Alfajores
-- ✅ **Cross-Chain Swap Updates**: Updated atomic swap logic from Celo→Sui to Ethereum→Sui routing
-- ✅ **Token Address Migration**: Replaced Celo token addresses with Ethereum Sepolia USDC/USDT addresses
-- ✅ **1Inch API Integration**: Updated 1Inch API calls from chainId 42220 (Celo) to 11155111 (Ethereum Sepolia)
-- ✅ **Explorer URL Updates**: Changed transaction explorer links from Celo scan to Ethereum Sepolia etherscan
-- ✅ **UI Network Priority**: Updated frontend to display Ethereum Sepolia first, with Celo marked as "Legacy"
-- ✅ **Comprehensive Migration**: All backend routes, frontend components, and configuration files now use Ethereum Sepolia as primary network
-- ✅ **Enhanced Provider Initialization**: Implemented comprehensive initializeProviders function with Ethereum Sepolia and Sui Testnet connectivity
-- ✅ **Real Uniswap V3 Integration**: Successfully connected to live Uniswap V3 contracts on Ethereum Sepolia with factory verification
-- ✅ **Cetus DEX Integration**: Initialized Cetus DEX contracts for Sui Testnet with API endpoint configuration
-- ✅ **Live Pool Verification**: Confirmed USDC/WETH pool exists at address 0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50 on Sepolia
-- ✅ **Production-Ready Provider System**: Complete blockchain provider initialization with error handling and fallback mechanisms
-- ✅ **Updated Supported Pairs Configuration**: Replaced Celo-based supported pairs with direct Ethereum Sepolia ↔ Sui Testnet bridge
-- ✅ **Enhanced Bidirectional Swap Configuration**: Updated both /api/swap/bidirectional-real and /api/swap/bidirectional endpoints with native Ethereum-Sui routing
-- ✅ **Streamlined Execution Plans**: Simplified cross-chain execution from 7-step Celo routing to 5-step native Ethereum-Sui bridge with improved gas estimates
-- ✅ **Direct Bridge Architecture**: Eliminated intermediate Ethereum routing in favor of direct native bridge between Ethereum Sepolia and Sui Testnet
-- ✅ **Production Bridge Configuration**: Updated all swap endpoints to support native Ethereum-Sui bridge with enhanced fee structure and timing estimates
-- ✅ **Enhanced 1Inch Fusion+ Integration Completed**: Successfully implemented /api/fusion/sepolia/swap endpoint for Ethereum Sepolia testnet
-- ✅ **ABI Encoding Issues Resolved**: Fixed complex ethers.js struct encoding problems that were causing transaction preparation failures
-- ✅ **Simplified Fusion+ Orders**: Created streamlined Fusion+ order structure with proper transaction data generation and gas price configuration
-- ✅ **Production-Ready Error Handling**: Implemented robust error handling with fallback mechanisms for gas price fetching and transaction data preparation
-- ✅ **Verified Functionality**: Confirmed working endpoint returning complete swap configurations ready for MetaMask wallet execution
-- ✅ **Complete System Integration**: Enhanced 1Inch Fusion+ integration now operational alongside existing arbitrage scanner and oracle systems
-- ✅ **Real Uniswap V3 Price Integration Completed**: Successfully migrated /api/uniswap/price/:pair endpoint from Celo to native Ethereum Sepolia implementation
-- ✅ **Authentic Contract Integration**: Connected to real Uniswap V3 factory and pool contracts on Sepolia testnet with live price calculations
-- ✅ **Enhanced Price Calculation Functions**: Added UNISWAP_V3_ABIS Pool definitions and calculatePriceFromSqrtPriceX96 function for accurate sqrtPriceX96 conversion
-- ✅ **BigInt Serialization Fix**: Resolved JSON serialization issues with BigInt values from smart contract responses
-- ✅ **Updated Token Pair Support**: Migrated from cUSD-USDC pairs to USDC-WETH and USDC-USDT for Ethereum Sepolia compatibility
-- ✅ **Enhanced Arbitrage Scanner**: Updated /api/scan-arbs endpoint to use correct Ethereum Sepolia token pairs with cross-chain Ethereum→Sui routing
-- ✅ **Real Pool Verification**: Confirmed USDC/WETH pool exists at 0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50 with authentic price data
-- ✅ **Complete Sepolia Migration**: All price endpoints now use native Ethereum Sepolia contracts instead of Celo-based fallbacks
-- ✅ **Enhanced Fusion+ Function Resolution**: Successfully resolved complex ABI encoding conflicts by creating new createSepoliaFusionSwap function
-- ✅ **Eliminated ethers.js v6 Struct Issues**: Fixed struct parameter encoding problems that were causing "missing names" errors in exactInputSingle function calls
-- ✅ **Clean Implementation Architecture**: Replaced complex Uniswap V3 ABI encoding with simplified transaction data structure for production reliability
-- ✅ **Production-Ready Fusion+ Endpoint**: Confirmed /api/fusion/sepolia/swap returns complete enhanced order data with authentic token amounts and gas configurations
-- ✅ **Complete Technical Debt Resolution**: Eliminated all caching issues and function name conflicts that prevented enhanced integration from working properly
-- ✅ **Enhanced Uniswap V3 Price Endpoint Update**: Successfully updated `/api/uniswap/price/:pair` with comprehensive pool data integration and enhanced error handling
-- ✅ **Real Pool Discovery**: Live connection to Ethereum Sepolia Uniswap V3 pools with authentic pool addresses and pricing data
-- ✅ **Improved Error Responses**: Clear validation messages for invalid token pairs with helpful suggestions and available token listings
-- ✅ **Enhanced Pool Statistics**: Complete pool metadata including sqrtPriceX96, tick, liquidity, and protocol fee information
-- ✅ **Production-Ready Pricing**: Authentic price calculations from live smart contracts replacing all mock data with real blockchain integration
-- ✅ **CHAIN_CONFIG Enhanced and Fixed**: Updated with correct Ethereum Sepolia configuration including proper RPC endpoints, token addresses, and Uniswap V3 contract addresses
-- ✅ **RPC Connectivity Resolution**: Fixed provider initialization to use Alchemy endpoint instead of invalid Infura URL, ensuring stable blockchain connectivity
-- ✅ **Enhanced 1Inch Fusion+ Configuration**: Updated relayer URLs and protocol addresses for Sepolia testnet with verified functionality
-- ✅ **Complete Platform Verification**: All major endpoints confirmed working with authentic blockchain data and proper error handling
-- ✅ **Enhanced Uniswap V3 Initialization**: Replaced initializeUniswapContractsOnSepolia function with comprehensive version including detailed contract logging, multi-pool testing, and sample quote capabilities
-- ✅ **Advanced Pool Discovery**: Added testing for USDC/DAI and USDC/WETH pools with proper availability detection and enhanced debugging information
-- ✅ **Robust Contract Management**: Enhanced fallback mechanisms with detailed error logging and stack traces for better troubleshooting
-- ✅ **Production-Ready Initialization**: Complete contract initialization system ready for live trading with comprehensive validation and testing
-- ✅ **Enhanced USDC/DAI Price Endpoint**: Successfully implemented dedicated `/api/uniswap/price/USDC-DAI` endpoint with comprehensive pool availability detection, multiple fee tier testing, and seamless fallback to mock pricing when pools are unavailable on Sepolia testnet
-- ✅ **Route Prioritization Fix**: Resolved Express.js routing conflicts by positioning specific USDC-DAI route before general pattern route, ensuring proper endpoint targeting and eliminating 404 errors
-- ✅ **Intelligent Fallback System**: USDC/DAI endpoint correctly detects missing pools and gracefully falls back to mock pricing instead of returning errors, maintaining API reliability and user experience
-- ✅ **Dual Route Architecture**: Both specific USDC-DAI endpoint and general price pattern route work correctly - USDC-DAI returns mock fallback data, while USDC-WETH connects to real Uniswap V3 pools with authentic pricing data
-- ✅ **Enhanced 1Inch Fusion+ SDK Integration Complete**: Successfully implemented comprehensive `/api/swap/usdc-dai-fusion` endpoint with advanced MEV protection and gas optimization for USDC/DAI swaps on Ethereum Sepolia
-- ✅ **Dual Swap Mode Architecture**: Created flexible endpoint supporting both 1Inch Fusion+ (useFusionPlus: true) and direct Uniswap V3 (useFusionPlus: false) execution modes
-- ✅ **MEV Protection Implementation**: Complete Fusion+ order structure with salt-based protection, maker/taker asset configuration, and anti-MEV guarantees
-- ✅ **ABI Encoding Resolution**: Fixed complex ethers.js v6 struct encoding issues by implementing frontend-compatible transaction data structure with interfaceData
-- ✅ **Gas Optimization Features**: 250k gas limit for Fusion+ orders, 200k for direct swaps with dynamic gas price optimization
-- ✅ **Frontend Wallet Integration Ready**: Both swap modes return properly structured transaction data for MetaMask signature collection with complete ABI encoding parameters
-- ✅ **Production-Ready Fallback System**: Seamless switching between Fusion+ MEV protection and direct Uniswap V3 execution based on user preference and availability
-- ✅ **Legacy Code Cleanup**: Removed all cUSD/cEUR references from frontend and backend, simplified application to focus purely on USDC trading
-- ✅ **Network Migration Complete**: Updated all chain references from "Celo" to "Ethereum Sepolia" for simplified USDC-focused arbitrage
-- ✅ **UI Consistency**: Updated wallet connection labels, price monitor components, and arbitrage table to reflect Ethereum Sepolia integration
-- ✅ **Simplified Architecture**: Eliminated legacy Celo Alfajores complexity to streamline user experience around USDC cross-chain arbitrage
-- ✅ **Updated Sepolia USDC Address**: Switched to user-specified USDC token address (0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8) for Ethereum Sepolia with proper checksum formatting
-- ✅ **Enhanced Cross-Chain USDC Endpoint**: Created /api/swap/cross-chain-usdc for comprehensive Ethereum Sepolia → Sui USDC/USDY routing
-- ✅ **Fusion+ Integration Enhanced**: Improved 1Inch Fusion+ swap logic with MEV protection and gas optimization specifically for USDC trading
-- ✅ **Bridge-Ready Architecture**: Added cross-chain bridge configuration supporting Wormhole/LayerZero protocols for USDC transfers
-- ✅ **Yield Optimization Integration**: Integrated Cetus DEX swap to USDY for automatic yield generation on Sui network
-- ✅ **Enhanced AtomicSwapState Class**: Implemented comprehensive atomic swap state management with cross-chain tracking, limit order management, and peg protection
-- ✅ **Advanced State Tracking**: Added Ethereum and Sui state tracking with transaction hashes, gas monitoring, and object ID management
-- ✅ **Intelligent Peg Protection**: Built-in peg deviation monitoring with violation tracking and automatic safety recommendations
-- ✅ **Limit Order Integration**: Enhanced limit order management for both Ethereum (Fusion+) and Sui (Cetus) with status tracking
-- ✅ **Atomic Status Endpoint**: Created /api/swap/atomic-status/:swapId for comprehensive swap monitoring with real-time peg updates
-- ✅ **Complete TypeScript Interface Definition**: Fixed all AtomicSwapState TypeScript errors with proper interface definitions including ethereumState, suiState, limitOrders, and pegProtection properties
-- ✅ **Execute-Atomic Endpoint Implementation**: Added /api/swap/execute-atomic endpoint for step-by-step atomic swap execution with progress tracking and state management
-- ✅ **Address Checksum Resolution**: Fixed blockchain connectivity issues by correcting USDC token address checksum formatting for proper ethers.js compatibility
-- ✅ **Real Atomic Swap Demonstration**: Successfully created and demonstrated cross-chain USDC swap (swapId: cross_chain_usdc_1753967506585_jt8w3bx9x) with authentic pricing and 5-step execution plan
-- ✅ **Comprehensive State Management**: AtomicSwapState class now manages complete swap lifecycle from token approval through yield optimization with real-time monitoring
-- ✅ **Production-Ready Atomic Swaps**: Complete bidirectional swap functionality operational with enhanced security, peg protection, and cross-chain bridge integration
-- ✅ **Enhanced Cross-Chain Spread Analysis Integration**: Successfully integrated comprehensive cross-chain spread analysis functionality into /api/scan-arbs endpoint
-- ✅ **Advanced Arbitrage Detection Algorithm**: Implemented analyzeCrossChainSpread function with intelligent price comparison between Ethereum Sepolia Uniswap V3 and Sui Cetus DEX
-- ✅ **Dual Analysis Architecture**: Created primary enhanced analysis with traditional pair scanning fallback for robust arbitrage opportunity detection
-- ✅ **Real-Time Price Integration**: Connected enhanced analysis to live Uniswap V3 and Cetus price feeds with Chainlink oracle fallbacks
-- ✅ **Comprehensive Opportunity Metadata**: Enhanced opportunities now include execution routes, better chain identification, and detailed spread analysis
-- ✅ **Production-Ready Scan Enhancement**: Arbitrage scanner now uses sophisticated cross-chain analysis for improved accuracy in detecting profitable opportunities
-- ✅ **Enhanced Atomic Swap Execution Functions Integration**: Successfully integrated comprehensive atomic swap execution functions for advanced cross-chain coordination
-- ✅ **executeEthereumLock Implementation**: Added sophisticated Ethereum lock preparation with hashlock contract creation and Uniswap V3 swap integration
-- ✅ **executeSepoliaRelay Function**: Implemented cross-chain relay system for Ethereum Sepolia to Sui Testnet bridge coordination with proof validation
-- ✅ **executeSuiResolution Enhancement**: Created comprehensive Sui resolution function with secret reveal, Cetus DEX integration, and yield optimization
-- ✅ **executeLimitOrderSetup Function**: Enhanced limit order management for dual-chain operations with Fusion+ and Cetus DEX integration
-- ✅ **executeCrossVerification System**: Implemented comprehensive cross-chain verification with timelock validation and secret matching
-- ✅ **getRecoveryOptions Integration**: Added intelligent recovery options for failed atomic swap steps including retry, skip, and refund mechanisms
-- ✅ **Enhanced Error Handling and Recovery**: Comprehensive error recovery system with step-specific fallback options and emergency refund capabilities
-- ✅ **TypeScript Compatibility Fixes**: Resolved getChainlinkPrice reference issues and improved type safety throughout atomic swap execution pipeline
-- ✅ **Production-Ready Cross-Chain Coordination**: Complete atomic swap execution system operational with enhanced security guarantees and real wallet integration
-- ✅ **GitHub Deployment Success**: Successfully pushed enhanced atomic swap functions to GitHub repository with commit 2a1bd63 showcasing continuous platform development
-- ✅ **Cross-Chain Limit Orders Integration**: Successfully integrated comprehensive setupCrossChainLimitOrders function with dual-chain order management, 1Inch Fusion+ integration, and Cetus DEX support
-- ✅ **Enhanced Limit Order Functions**: Added create1InchLimitOrderOnSepolia and createCetusLimitOrder functions with MEV protection, gas optimization, and cross-chain coordination capabilities
-- ✅ **Atomic Swap Execution Enhancement**: Updated executeLimitOrderSetup to use enhanced cross-chain limit order setup with comprehensive error handling and status tracking
-- ✅ **New Execution Case Addition**: Added CROSS_CHAIN_LIMIT_ORDERS case to atomic swap execution switch statement for direct cross-chain limit order creation
-- ✅ **Production-Ready Limit Order System**: Complete cross-chain limit order management operational with Ethereum Sepolia and Sui Testnet integration
-- ✅ **Enhanced Cross-Chain Peg Protection Integration**: Successfully integrated comprehensive validateCrossChainPegProtection function with advanced multi-source price validation
-- ✅ **Atomic Swap Security Enhancement**: Updated executeCrossVerification to include real-time peg protection validation during cross-chain verification process
-- ✅ **Advanced Price Deviation Detection**: Integrated cross-chain price comparison between Ethereum Sepolia and Sui networks with configurable alert thresholds
-- ✅ **Production-Ready Safety Validation**: Complete peg protection system operational with Uniswap V3, Cetus DEX, and Chainlink oracle price feeds for comprehensive safety monitoring
-- ✅ **Wallet Interface Compatibility Resolution**: Successfully identified and resolved critical wallet integration issues with @suiet/wallet-kit causing "bad response format" and WALLET.SIGN_TX_ERROR
-- ✅ **Backend Transaction Execution Implementation**: Created comprehensive /api/test-real-transaction endpoint bypassing wallet interface compatibility issues by executing authentic blockchain transactions using configured private keys
-- ✅ **Real Sui Transaction Testing**: Implemented direct Sui testnet transaction execution with TransactionBlock creation, gas coin splitting, and authentic transaction hash generation
-- ✅ **Real Ethereum Transaction Testing**: Added direct Ethereum Sepolia transaction execution with ethers.js wallet integration, proper gas estimation, and real transaction verification
-- ✅ **Enhanced Error Handling and Debugging**: Comprehensive error logging with transaction details, explorer URLs, gas usage tracking, and detailed failure analysis for both networks
-- ✅ **Production Blockchain Integration Verified**: Complete elimination of wallet interface dependencies ensuring reliable real blockchain transaction execution for both Ethereum Sepolia and Sui Testnet
+- **Replit Integration**: Development environment optimization.
+- **Vite Plugins**: Runtime error handling and development cartographer.
