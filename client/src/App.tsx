@@ -302,21 +302,29 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         console.log(`📱 Step ${stepIndex + 1}: Prompting MetaMask signature for Celo transaction...`);
         console.log('📋 MetaMask transaction will be sent to account:', walletConnections.account);
         
-        // Ensure we're connected to the right network (Celo Alfajores)
+        // Ensure we're connected to the right network (Celo Alfajores) - non-blocking
         try {
           const chainId = await window.ethereum.request({ method: 'eth_chainId' });
           console.log('🔗 Current chain ID:', chainId, 'Expected: 0xa4ec (Celo Alfajores)');
           
-          // If not on Celo Alfajores, switch networks
+          // If not on Celo Alfajores, switch networks but don't block on it
           if (chainId !== '0xa4ec') {
-            console.log('🔄 Switching to Celo Alfajores network...');
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: '0xa4ec' }],
-            });
+            console.log('🔄 Attempting to switch to Celo Alfajores network...');
+            try {
+              await Promise.race([
+                window.ethereum.request({
+                  method: 'wallet_switchEthereumChain',
+                  params: [{ chainId: '0xa4ec' }],
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Network switch timeout')), 5000))
+              ]);
+              console.log('✅ Network switch successful');
+            } catch (switchError) {
+              console.warn('⚠️ Network switch failed, continuing with current network:', switchError);
+            }
           }
         } catch (networkError) {
-          console.warn('⚠️ Network check/switch failed:', networkError);
+          console.warn('⚠️ Network check failed, continuing anyway:', networkError);
         }
         
         const transactionParams = {
