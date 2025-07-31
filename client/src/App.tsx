@@ -269,6 +269,8 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 
   // Sign and submit transaction with REAL wallet prompts
   const signAndSubmitTransaction = async (swapId: string, stepIndex: number, transactionData: any) => {
+    console.log('🚀 ENTERING signAndSubmitTransaction function');
+    console.log('🔍 Function parameters:', { swapId, stepIndex, transactionData });
     try {
       console.log('🔐 Starting REAL wallet transaction signing for step:', stepIndex + 1);
       console.log('📋 Transaction data:', transactionData);
