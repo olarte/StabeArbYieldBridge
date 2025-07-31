@@ -429,21 +429,32 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         console.log(`🟣 Step ${stepIndex + 1}: Prompting Sui wallet signature for Sui transaction...`);
         
         try {
-          console.log('📝 Creating Sui demonstration transaction...');
+          // Import Sui transaction utilities
+          const { TransactionBlock } = await import('@mysten/sui.js/transactions');
           
-          // For arbitrage demonstration, create a minimal transaction
-          // This proves wallet connectivity and signing capability
-          const demoResult = {
-            digest: `0x${Date.now().toString(16)}${Math.random().toString(16).substring(2, 8)}`,
-            status: 'success'
-          };
+          // Create a simple Sui transaction that should work with most wallets
+          const tx = new TransactionBlock();
           
-          transactionHash = demoResult.digest;
-          console.log('✅ Sui arbitrage step completed:', transactionHash);
+          // Use minimal gas coin split (1 MIST = 0.000000001 SUI)
+          const [coin] = tx.splitCoins(tx.gas, [1]);
+          tx.transferObjects([coin], suiWalletInfo.account.address);
+          
+          console.log('📝 Creating Sui transaction for wallet signature...');
+          console.log('👆 PLEASE CHECK YOUR SUI WALLET FOR A TRANSACTION APPROVAL POPUP');
+          
+          // This should prompt the Sui wallet popup
+          const result = await suiWalletInfo.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+          });
+          
+          transactionHash = result.digest;
+          console.log('✅ Sui wallet transaction signed:', transactionHash);
           
         } catch (suiError) {
-          console.error('❌ Sui arbitrage step failed:', suiError);
-          throw new Error('Sui arbitrage execution failed. Please ensure your Sui wallet is connected.');
+          console.error('❌ Sui transaction failed:', suiError);
+          
+          // If wallet signing fails, show clear error to user
+          throw new Error(`Sui wallet transaction failed: ${suiError instanceof Error ? suiError.message : 'Please check your Sui wallet connection and try again.'}`);
         }
       } else {
         // Unknown chain type - throw error
