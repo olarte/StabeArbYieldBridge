@@ -15,7 +15,7 @@ const CHAIN_CONFIG = {
     rpc: process.env.SEPOLIA_RPC || `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
     chainId: 11155111, // Ethereum Sepolia
     tokens: {
-      USDC: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
+      USDC: '0x94a9D9AC8a22534E3FaCa9F4e7f2E2cf85d5E4C8', // Sepolia USDC (updated)
       DAI: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6',  // Sepolia DAI
       USDT: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT
       WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'  // Sepolia WETH
@@ -1061,6 +1061,182 @@ export async function registerRoutes(app: Express): Promise<Server> {
       lastValidation: new Date().toISOString()
     }
   };
+
+  // Enhanced cross-chain USDC swap endpoint (Ethereum Sepolia → Sui USDC/USDY)
+  app.post('/api/swap/cross-chain-usdc', async (req, res) => {
+    try {
+      const { amount, walletAddress, useFusionPlus = true, slippageTolerance = 0.5 } = req.body;
+
+      if (!amount || !walletAddress) {
+        return res.status(400).json({
+          success: false,
+          error: 'Amount and wallet address required'
+        });
+      }
+
+      console.log(`🌉 Processing cross-chain USDC swap: ${amount} USDC (Sepolia → Sui)`);
+
+      // Step 1: Get current prices for spread calculation
+      const [sepoliaPrice, suiPrice] = await Promise.all([
+        fetch('http://localhost:5000/api/uniswap/price/USDC-WETH').then(r => r.json()),
+        fetch('http://localhost:5000/api/cetus/price/USDC-USDY').then(r => r.json())
+      ]);
+
+      if (!sepoliaPrice.success || !suiPrice.success) {
+        throw new Error('Failed to fetch current prices for swap validation');
+      }
+
+      const spread = Math.abs(sepoliaPrice.data.price.token0ToToken1 - suiPrice.data.price.token0ToToken1);
+      const spreadPercentage = (spread / sepoliaPrice.data.price.token0ToToken1) * 100;
+
+      console.log(`📊 Current spread: ${spreadPercentage.toFixed(4)}%`);
+
+      // Step 2: Create execution plan for cross-chain swap
+      const executionPlan = {
+        route: 'ethereum_sepolia_to_sui_testnet',
+        tokenPair: 'USDC → USDC/USDY',
+        estimatedDuration: '5-10 minutes',
+        steps: [
+          {
+            id: 1,
+            type: 'APPROVE_TOKEN',
+            chain: 'ethereum',
+            description: `Approve ${amount} USDC for ${useFusionPlus ? '1Inch Fusion+' : 'Uniswap V3'}`,
+            status: 'PENDING',
+            tokenAddress: CHAIN_CONFIG.ethereum.tokens.USDC,
+            spenderAddress: useFusionPlus ? 
+              CHAIN_CONFIG.ethereum.fusion.limitOrderProtocol : 
+              CHAIN_CONFIG.ethereum.uniswap.router
+          },
+          {
+            id: 2,
+            type: useFusionPlus ? 'FUSION_PLUS_SWAP' : 'UNISWAP_V3_SWAP',
+            chain: 'ethereum',
+            description: `Swap ${amount} USDC using ${useFusionPlus ? '1Inch Fusion+ (MEV Protected)' : 'Uniswap V3'}`,
+            status: 'PENDING',
+            fromToken: 'USDC',
+            toToken: 'USDC', // Bridge-ready USDC
+            advantages: useFusionPlus ? ['MEV Protection', 'Gas Optimization', 'Better Execution'] : ['Direct Execution', 'Lower Complexity']
+          },
+          {
+            id: 3,
+            type: 'CROSS_CHAIN_BRIDGE',
+            chain: 'ethereum',
+            description: `Bridge USDC from Ethereum Sepolia to Sui Testnet`,
+            status: 'PENDING',
+            estimatedBridgeTime: '2-5 minutes'
+          },
+          {
+            id: 4,
+            type: 'SUI_BRIDGE_CLAIM',
+            chain: 'sui',
+            description: 'Claim bridged USDC on Sui network',
+            status: 'PENDING'
+          },
+          {
+            id: 5,
+            type: 'CETUS_DEX_SWAP',
+            chain: 'sui',
+            description: 'Swap USDC to USDY on Cetus DEX for yield optimization',
+            status: 'PENDING',
+            dex: 'Cetus'
+          }
+        ]
+      };
+
+      // Step 3: Prepare Ethereum transaction data
+      let ethereumTxData;
+      if (useFusionPlus) {
+        ethereumTxData = await execute1InchFusionPlusSwap({
+          fromToken: CHAIN_CONFIG.ethereum.tokens.USDC,
+          toToken: CHAIN_CONFIG.ethereum.tokens.USDC, // Same token for bridge prep
+          amount: parseFloat(amount),
+          walletAddress,
+          slippageTolerance,
+          chainId: 11155111
+        });
+      } else {
+        ethereumTxData = await executeDirectUniswapV3Swap({
+          fromToken: CHAIN_CONFIG.ethereum.tokens.USDC,
+          toToken: CHAIN_CONFIG.ethereum.tokens.USDC,
+          amount: parseFloat(amount),
+          walletAddress,
+          slippageTolerance
+        });
+      }
+
+      // Step 4: Calculate estimated output and fees
+      const estimatedOutput = parseFloat(amount) * (1 - slippageTolerance / 100) * (1 - 0.001); // Bridge fee
+      const estimatedProfit = spreadPercentage > 0.5 ? (parseFloat(amount) * spreadPercentage / 100) : 0;
+
+      const response = {
+        success: true,
+        data: {
+          swapId: `cross_chain_usdc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          route: 'ethereum_sepolia_to_sui_testnet',
+          swapType: useFusionPlus ? '1inch_fusion_plus_cross_chain' : 'uniswap_v3_cross_chain',
+          inputAmount: amount,
+          inputToken: 'USDC (Sepolia)',
+          outputToken: 'USDC/USDY (Sui)',
+          estimatedOutput,
+          estimatedProfit,
+          spreadPercentage,
+          executionPlan,
+          ethereumTransaction: ethereumTxData,
+          bridgeConfiguration: {
+            sourceChain: 'ethereum_sepolia',
+            targetChain: 'sui_testnet',
+            tokenContract: CHAIN_CONFIG.ethereum.tokens.USDC,
+            bridgeProtocol: 'wormhole_or_layerzero'
+          },
+          suiTransaction: {
+            type: 'cetus_dex_swap',
+            poolAddress: 'USDC_USDY_POOL',
+            description: 'Final swap to USDY for yield generation'
+          },
+          advantages: [
+            `${useFusionPlus ? 'MEV Protection via 1Inch Fusion+' : 'Direct Uniswap V3 execution'}`,
+            'Cross-chain arbitrage opportunity exploitation',
+            'Automatic yield optimization on Sui',
+            'Real-time spread monitoring'
+          ],
+          timing: {
+            ethereumSteps: '1-2 minutes',
+            bridgeTime: '2-5 minutes', 
+            suiSteps: '30-60 seconds',
+            totalEstimated: '5-10 minutes'
+          },
+          fees: {
+            ethereumGas: useFusionPlus ? '~$2-5 (optimized)' : '~$3-8',
+            bridgeFee: '~0.1% of amount',
+            suiGas: '~$0.01-0.05',
+            totalEstimated: '~$2-15 depending on gas'
+          },
+          nextStep: 'APPROVE_USDC_SPENDING'
+        }
+      };
+
+      // Store swap state for execution tracking
+      const swapStates = (global as any).atomicSwapStates || new Map();
+      swapStates.set(response.data.swapId, {
+        ...response.data,
+        status: 'CREATED',
+        createdAt: new Date().toISOString(),
+        currentStep: 0
+      });
+      (global as any).atomicSwapStates = swapStates;
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('Cross-chain USDC swap creation failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create cross-chain USDC swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 
   // Enhanced oracle peg monitoring endpoint  
   app.get('/api/oracle/peg-status', async (req, res) => {
