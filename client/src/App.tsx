@@ -772,6 +772,92 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
 
 
 
+// Previous Swaps Executed Component
+function PreviousSwapsExecuted() {
+  const { data: swapHistory, isLoading } = useQuery({
+    queryKey: ['/api/transactions/history'],
+    refetchInterval: 10000, // Refresh every 10 seconds
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          🔄 Previous Swaps Executed
+          <Badge variant="secondary">
+            {(swapHistory as any)?.data?.length || 0} Completed
+          </Badge>
+        </CardTitle>
+        <CardDescription>
+          Historical record of completed cross-chain arbitrage swaps
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Asset Pair</TableHead>
+                <TableHead>Swap Direction</TableHead>
+                <TableHead>Amount Swapped</TableHead>
+                <TableHead>Profit</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(swapHistory as any)?.data?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    No completed swaps yet. Execute arbitrage opportunities to see history here.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                (swapHistory as any)?.data?.map((swap: any, index: number) => (
+                  <TableRow key={swap.id || index}>
+                    <TableCell className="font-medium">
+                      {swap.assetPairFrom}/{swap.assetPairTo}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                          {swap.sourceChain}
+                        </span>
+                        →
+                        <span className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
+                          {swap.targetChain}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>${Number(swap.amount || 0).toFixed(2)}</TableCell>
+                    <TableCell className={Number(swap.profit || 0) > 0 ? "text-green-600 font-medium" : "text-red-600"}>
+                      ${Number(swap.profit || 0).toFixed(3)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(swap.timestamp || swap.createdAt).toLocaleDateString()} {new Date(swap.timestamp || swap.createdAt).toLocaleTimeString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={swap.status === 'completed' ? 'default' : swap.status === 'failed' ? 'destructive' : 'secondary'}>
+                        {swap.status || 'completed'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Live Price Monitor Component
 function LivePriceMonitor() {
   const { data: priceData, isLoading: priceLoading } = useQuery({
@@ -878,6 +964,7 @@ function ArbitrageTradingPage() {
           walletConnections={walletConnections}
           suiWalletInfo={suiWalletInfo}
         />
+        <PreviousSwapsExecuted />
         <SwapResultsHistory swapResults={swapResults} />
       </div>
     </div>
