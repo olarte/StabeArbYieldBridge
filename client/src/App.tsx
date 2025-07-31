@@ -649,6 +649,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             <TableHeader>
               <TableRow>
                 <TableHead>Asset Pair</TableHead>
+                <TableHead>Swap Direction</TableHead>
                 <TableHead>Uniswap V3 Price</TableHead>
                 <TableHead>Cetus Price</TableHead>
                 <TableHead>Spread</TableHead>
@@ -663,6 +664,16 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                 <TableRow key={opp.id}>
                   <TableCell className="font-medium">
                     {opp.assetPairFrom} → {opp.assetPairTo}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice 
+                          ? 'Sui Testnet → Ethereum Sepolia'
+                          : 'Ethereum Sepolia → Sui Testnet'
+                        }
+                      </Badge>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
