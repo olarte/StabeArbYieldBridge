@@ -1697,8 +1697,10 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Start the enhanced server
-startServer().catch(error => {
-  console.error('❌ Failed to start server:', error);
-  process.exit(1);
-});
+// Start the enhanced server - DISABLED: Using server/routes.ts instead
+// startServer().catch(error => {
+//   console.error('❌ Failed to start server:', error);
+//   process.exit(1);
+// });
+
+console.log('🔧 index.js server startup DISABLED - using server/routes.ts for correct wallet routing');
