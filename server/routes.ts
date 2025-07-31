@@ -9,32 +9,31 @@ import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schem
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
-// Chain configurations updated for Ethereum Sepolia
+// Enhanced chain configurations for Ethereum Sepolia
 const CHAIN_CONFIG = {
   ethereum: {
-    rpc: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}` || 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY',
+    rpc: process.env.SEPOLIA_RPC || `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
     chainId: 11155111, // Ethereum Sepolia
     tokens: {
       USDC: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
-      USDT: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT  
-      WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', // Sepolia WETH
-      DAI: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6'   // Sepolia DAI
+      DAI: '0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6',  // Sepolia DAI
+      USDT: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT
+      WETH: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'  // Sepolia WETH
     },
-    // Uniswap V3 addresses on Sepolia
+    // Updated Uniswap V3 addresses for Sepolia
     uniswap: {
-      factory: '0x0227628f3F023bb0B980b67D528571c95c6DaC1c',      // UniswapV3Factory
-      router: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E',       // SwapRouter02  
-      quoter: '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',       // QuoterV2
-      nftManager: '0x1238536071E1c677A632429e3655c799b22cDA52',    // NonfungiblePositionManager
-      universalRouter: '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD'  // UniversalRouter
+      factory: '0x0227628f3F023bb0B980b67D528571c95c6DaC1c',      // Correct Sepolia Factory
+      quoter: '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',       // Correct Sepolia Quoter
+      router: '0x3bFA8Ce6795220Ac25dd35D4d39ec306a3e4Fb3f',       // Correct Sepolia SwapRouter
+      nftManager: '0x1238536071E1c677A632429e3655c799b22cDA52',    // Position Manager
+      universalRouter: '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD'  // Universal Router
     },
     // 1Inch Fusion+ configuration for Sepolia
     fusion: {
-      relayerUrl: 'https://api.1inch.dev/fusion/relayer/v1.0/11155111',
-      orderBookUrl: 'https://api.1inch.dev/orderbook/v4.0/11155111',
-      settlement: '0x1111111254EEB25477B68fb85Ed929f73A960582',     // 1Inch Settlement
-      limitOrderProtocol: '0x11431eQcA9886e3C7cf7747b85DaOfe21142d72', // LimitOrderProtocol
-      apiUrl: 'https://api.1inch.dev/swap/v6.0/11155111'
+      relayerUrl: 'https://fusion.1inch.io/relayer/v1.0/11155111',
+      apiUrl: 'https://api.1inch.dev/fusion/v1.0/11155111',
+      limitOrderProtocol: '0x119c71D3BbAC22029622cbaEc24854d3D32D2828',
+      resolverAddress: '0x635A86F9fdD16Ff09A0701C305D3a845F1758b8E'
     }
   },
   sui: {
@@ -113,9 +112,10 @@ let cetusContracts: any = null;
 // Enhanced provider initialization function for Ethereum Sepolia + Sui
 async function initializeProviders() {
   try {
-    // Ethereum Sepolia provider
-    ethProvider = new ethers.JsonRpcProvider(CHAIN_CONFIG.ethereum.rpc);
-    console.log('🔗 Connecting to Ethereum Sepolia...');
+    // Force use Alchemy endpoint instead of cached Infura URL
+    const sepoliaRPC = `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`;
+    ethProvider = new ethers.JsonRpcProvider(sepoliaRPC);
+    console.log('🔗 Connecting to Ethereum Sepolia via Alchemy...');
     
     // Test Sepolia connection
     const sepoliaNetwork = await ethProvider.getNetwork();
