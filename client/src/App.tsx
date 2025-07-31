@@ -95,25 +95,25 @@ function PegProtectionStatus() {
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Ethereum Price</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.crossChainValidation?.crossChainPrices?.ethereum ? Number(pegStatus.crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
+                ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.ethereum ? Number((pegStatus as any).crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Sui Price</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.crossChainValidation?.crossChainPrices?.sui ? Number(pegStatus.crossChainValidation.crossChainPrices.sui).toFixed(6) : 'N/A'}
+                ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.sui ? Number((pegStatus as any).crossChainValidation.crossChainPrices.sui).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Chainlink Reference</div>
               <div className="text-lg font-bold">
-                ${pegStatus?.crossChainValidation?.chainlinkReference?.price ? Number(pegStatus.crossChainValidation.chainlinkReference.price).toFixed(6) : 'N/A'}
+                ${(pegStatus as any)?.crossChainValidation?.chainlinkReference?.price ? Number((pegStatus as any).crossChainValidation.chainlinkReference.price).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Cross-Chain Deviation</div>
               <div className="text-lg font-bold">
-                {pegStatus?.crossChainValidation?.deviations?.crossChain?.deviation ? (Number(pegStatus.crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3) + '%' : 'N/A'}
+                {(pegStatus as any)?.crossChainValidation?.deviations?.crossChain?.deviation ? (Number((pegStatus as any).crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3) + '%' : 'N/A'}
               </div>
             </div>
           </div>
@@ -201,25 +201,70 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
     
     try {
       console.log('🧪 Testing simple Sui transaction...');
+      console.log('🔍 Wallet info:', suiWalletInfo);
+      console.log('🔍 Account:', suiWalletInfo.account);
+      
       const { TransactionBlock } = await import('@mysten/sui.js/transactions');
       
       const tx = new TransactionBlock();
+      
+      // Set sender
+      tx.setSender(suiWalletInfo.account.address);
+      
+      // Create a simple coin split and transfer back to self
       const [coin] = tx.splitCoins(tx.gas, [1000]); // 1000 MIST = 0.000001 SUI
       tx.transferObjects([coin], suiWalletInfo.account.address);
-      tx.setGasBudget(10000000); // 0.01 SUI
+      
+      // Set a reasonable gas budget
+      tx.setGasBudget(5000000); // 0.005 SUI
       
       console.log('👆 SIMPLE TEST: Check your Sui wallet for transaction approval');
+      console.log('🔍 Transaction to sign:', tx);
       
-      const result = await suiWalletInfo.signAndExecuteTransactionBlock({
-        transactionBlock: tx,
-      });
+      // Try signing with different method signatures
+      let result;
+      try {
+        // Method 1: Standard suiet wallet-kit method
+        result = await suiWalletInfo.signAndExecuteTransactionBlock({
+          transactionBlock: tx,
+          options: {
+            showInput: true,
+            showEffects: true,
+            showEvents: true,
+          },
+        });
+      } catch (firstError) {
+        console.log('❌ Method 1 failed, trying alternative...', firstError);
+        
+        try {
+          // Method 2: Without options
+          result = await suiWalletInfo.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+          });
+        } catch (secondError) {
+          console.log('❌ Method 2 failed, trying direct call...', secondError);
+          
+          // Method 3: Direct call if available
+          if (suiWalletInfo.signAndExecuteTransaction) {
+            result = await suiWalletInfo.signAndExecuteTransaction({ transaction: tx });
+          } else {
+            throw secondError;
+          }
+        }
+      }
       
-      console.log('✅ Simple test transaction successful!', result.digest);
-      console.log('🔗 View transaction:', `https://suiexplorer.com/txblock/${result.digest}?network=testnet`);
-      alert(`Test transaction successful! Hash: ${result.digest}`);
+      console.log('✅ Simple test transaction successful!', result);
+      const txHash = result.digest || result.txHash || result.transactionDigest;
+      console.log('🔗 View transaction:', `https://suiexplorer.com/txblock/${txHash}?network=testnet`);
+      alert(`Test transaction successful! Hash: ${txHash}`);
       
     } catch (error) {
       console.error('❌ Test transaction failed:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as any)?.code,
+        stack: error instanceof Error ? error.stack : 'No stack'
+      });
       alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -746,14 +791,40 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           <p className="text-sm text-muted-foreground mb-3">
             Test real blockchain transaction to verify wallet connection works correctly
           </p>
-          <Button 
-            onClick={testSuiTransaction}
-            disabled={!suiWalletInfo?.account}
-            variant="outline"
-            size="sm"
-          >
-            {suiWalletInfo?.account ? 'Test Real Sui Transaction' : 'Connect Sui Wallet First'}
-          </Button>
+          <div className="space-x-2">
+            <Button 
+              onClick={testSuiTransaction}
+              disabled={!suiWalletInfo?.account}
+              variant="outline"
+              size="sm"
+            >
+              {suiWalletInfo?.account ? 'Test Real Sui Transaction' : 'Connect Sui Wallet First'}
+            </Button>
+            <Button 
+              onClick={async () => {
+                try {
+                  // Try native wallet approach
+                  const phantom = (window as any).phantom?.sui;
+                  if (phantom) {
+                    console.log('🧪 Testing with native Phantom Sui...');
+                    await phantom.connect();
+                    const accounts = await phantom.getAccounts();
+                    console.log('📍 Phantom accounts:', accounts);
+                    alert(`Phantom connected: ${accounts[0]?.address || 'No accounts'}`);
+                  } else {
+                    alert('Phantom Sui not found');
+                  }
+                } catch (error) {
+                  console.error('Native test failed:', error);
+                  alert(`Native test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+              }}
+              variant="secondary"
+              size="sm"
+            >
+              Test Native Phantom
+            </Button>
+          </div>
         </div>
         {arbLoading ? (
           <div className="flex justify-center py-8">Loading opportunities...</div>
