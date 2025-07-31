@@ -9,28 +9,46 @@ import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schem
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
-// Enhanced cross-chain spread analysis for Ethereum-Sui
+// Enhanced cross-chain spread analysis for Ethereum-Sui - REAL DATA ONLY
 async function analyzeCrossChainSpread(fromChain: string, toChain: string, fromToken: string, toToken: string, minSpread: number) {
   try {
     console.log(`📊 Analyzing spread: ${fromChain}(${fromToken}) → ${toChain}(${toToken})`);
     
-    let ethereumPrice: number, suiPrice: number;
+    let ethereumPrice: number | null = null;
+    let suiPrice: number | null = null;
     
-    // Get Ethereum price (Uniswap V3)
-    if (fromChain === 'ethereum') {
-      ethereumPrice = await getUniswapV3PriceOnSepolia(fromToken, 'USDC');
-    } else {
-      ethereumPrice = await getUniswapV3PriceOnSepolia('USDC', toToken);
+    // Get REAL Ethereum price (Uniswap V3) - No fallbacks
+    try {
+      if (fromChain === 'ethereum') {
+        ethereumPrice = await getUniswapV3PriceOnSepolia(fromToken, toToken);
+      } else {
+        ethereumPrice = await getUniswapV3PriceOnSepolia('USDC', toToken);
+      }
+      console.log(`✅ Real Ethereum ${fromToken}-${toToken} price: ${ethereumPrice}`);
+    } catch (error) {
+      console.log(`❌ No real Ethereum pool for ${fromToken}-${toToken}: ${(error as Error).message}`);
+      throw new Error(`No real Ethereum price available for ${fromToken}-${toToken}`);
     }
     
-    // Get Sui price (Cetus)
-    if (toChain === 'sui') {
-      suiPrice = await getCetusPoolPrice('USDC', toToken);
-    } else {
-      suiPrice = await getCetusPoolPrice(fromToken, 'USDC');
+    // Get REAL Sui price (Cetus) - No fallbacks
+    try {
+      if (toChain === 'sui') {
+        suiPrice = await getCetusPoolPrice(fromToken, toToken);
+      } else {
+        suiPrice = await getCetusPoolPrice(fromToken, 'USDC');
+      }
+      console.log(`✅ Real Sui ${fromToken}-${toToken} price: ${suiPrice}`);
+    } catch (error) {
+      console.log(`❌ No real Sui pool for ${fromToken}-${toToken}: ${(error as Error).message}`);
+      throw new Error(`No real Sui price available for ${fromToken}-${toToken}`);
     }
     
-    // Calculate cross-chain spread
+    // Only proceed if both prices are real
+    if (ethereumPrice === null || suiPrice === null) {
+      throw new Error('Missing real price data from one or both chains');
+    }
+    
+    // Calculate cross-chain spread with real data
     const priceDiff = Math.abs(ethereumPrice - suiPrice);
     const avgPrice = (ethereumPrice + suiPrice) / 2;
     const spread = (priceDiff / avgPrice) * 100;
@@ -46,6 +64,8 @@ async function analyzeCrossChainSpread(fromChain: string, toChain: string, fromT
       const worsePrice = Math.min(ethereumPrice, suiPrice);
       estimatedProfit = ((betterPrice - worsePrice) / worsePrice) * 100;
     }
+    
+    console.log(`📊 Real cross-chain analysis: ETH=${ethereumPrice}, SUI=${suiPrice}, Spread=${spread.toFixed(4)}%`);
     
     return {
       ethereumPrice,
@@ -64,18 +84,13 @@ async function analyzeCrossChainSpread(fromChain: string, toChain: string, fromT
     };
     
   } catch (error) {
-    console.error('Cross-chain spread analysis error:', error);
-    return {
-      ethereumPrice: 1.0,
-      suiPrice: 1.0,
-      spread: 0,
-      profitable: false,
-      error: (error as Error).message
-    };
+    console.error('Cross-chain spread analysis failed - no real data available:', error);
+    // Don't return fallback data - let the caller handle the failure
+    throw error;
   }
 }
 
-// Get Uniswap V3 price on Sepolia
+// Get Uniswap V3 price on Sepolia - REAL DATA ONLY
 async function getUniswapV3PriceOnSepolia(tokenA: string, tokenB: string): Promise<number> {
   try {
     if ((uniswapContracts as any).type?.includes('uniswap_v3_sepolia')) {
@@ -101,31 +116,32 @@ async function getUniswapV3PriceOnSepolia(tokenA: string, tokenB: string): Promi
       return price.price0;
     }
     
-    // Fallback to Chainlink oracle
-    return await getMockPrice(tokenA, tokenB);
+    // No fallbacks - throw error if no real Uniswap data available
+    throw new Error(`No Uniswap V3 contracts available for ${tokenA}/${tokenB} on Sepolia`);
   } catch (error) {
     console.error(`Sepolia ${tokenA}/${tokenB} price error:`, error);
-    return await getMockPrice(tokenA, tokenB);
+    // Don't use mock data - let the error propagate
+    throw error;
   }
 }
 
-// Get Cetus pool price on Sui
+// Get Cetus pool price on Sui - REAL DATA ONLY
 async function getCetusPoolPrice(tokenA: string, tokenB: string): Promise<number> {
   try {
     // Use existing Cetus price endpoint
     const response = await fetch(`http://localhost:5000/api/cetus/price/${tokenA}-${tokenB}`);
     const data = await response.json();
     
-    if (data.success) {
+    if (data.success && data.data?.price?.token0ToToken1) {
       return data.data.price.token0ToToken1;
     }
     
-    // Fallback to mock price
-    return 1.0;
+    // No fallbacks - throw error if no real Cetus data available
+    throw new Error(`No real Cetus price data available for ${tokenA}-${tokenB}`);
   } catch (error) {
     console.error(`Cetus ${tokenA}/${tokenB} price error:`, error);
-    // Fallback to mock price
-    return 1.0;
+    // Don't use mock data - let the error propagate
+    throw error;
   }
 }
 
@@ -1901,16 +1917,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Fallback to Chainlink-based pricing
-      const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
-      const realPrice = typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
-      console.log(`🌊 Cetus DEX: ${token0}/${token1} = $${realPrice.toFixed(6)} (Chainlink)`);
-      return realPrice;
+      // No fallbacks - throw error if no real Cetus pool exists
+      throw new Error(`No real Cetus DEX pool found for ${token0}-${token1} pair`);
     } catch (error) {
       console.error('Cetus DEX price error:', error instanceof Error ? error.message : 'Unknown error');
-      // Return Chainlink oracle price instead of 1.0
-      const chainlinkPrice = await getChainlinkPrice('USDC', 'USD', 'ethereum');
-      return typeof chainlinkPrice === 'object' ? chainlinkPrice.price : chainlinkPrice;
+      // Don't use Chainlink fallback - let the error propagate
+      throw error;
     }
   }
 
@@ -3998,76 +4010,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Enhanced cross-chain analysis failed:', enhancedError);
       }
       
-      // Fallback: Traditional pair scanning
+      // Fallback: Traditional pair scanning with REAL DATA ONLY
       if (opportunities.length === 0) {
-        console.log('🔄 Falling back to traditional pair scanning...');
+        console.log('🔄 Falling back to traditional pair scanning with real data only...');
         for (const pair of tokenPairs) {
           try {
             const [token0, token1] = pair.trim().split('-');
             
-            // Get real prices from both networks
-            let ethereumPrice: number, suiPrice: number;
+            // Get ONLY real prices from both networks - no fallbacks
+            let ethereumPrice: number | null = null;
+            let suiPrice: number | null = null;
             
             try {
               ethereumPrice = await getUniswapV3PriceOnSepolia(token0, token1);
-            } catch {
-              // Enhanced fallback with varied prices for more opportunities
-              ethereumPrice = 0.995 + Math.random() * 0.01; // 0.995-1.005 range
+              console.log(`✅ Real Ethereum price for ${token0}-${token1}: ${ethereumPrice}`);
+            } catch (error) {
+              console.log(`❌ No Ethereum pool found for ${token0}-${token1}, skipping`);
+              continue; // Skip this pair if no real Ethereum price
             }
             
             try {
               suiPrice = await getCetusPoolPrice(token0, token1);
-            } catch {
-              // Enhanced fallback with varied prices for more opportunities  
-              suiPrice = 0.998 + Math.random() * 0.008; // 0.998-1.006 range
+              console.log(`✅ Real Sui price for ${token0}-${token1}: ${suiPrice}`);
+            } catch (error) {
+              console.log(`❌ No Sui pool found for ${token0}-${token1}, skipping`);
+              continue; // Skip this pair if no real Sui price
+            }
+            
+            // Only proceed if we have BOTH real prices
+            if (ethereumPrice === null || suiPrice === null) {
+              console.log(`⚠️ Skipping ${token0}-${token1}: Missing real price data`);
+              continue;
             }
             
             const spread = Math.abs((ethereumPrice - suiPrice) / suiPrice) * 100;
             
-            // Add slight variation for more opportunities
-            const priceVariation = 0.001 + Math.random() * 0.004; // 0.1-0.5% variation
-            if (Math.random() > 0.5) {
-              ethereumPrice += priceVariation;
-            } else {
-              suiPrice += priceVariation;
-            }
-            
-            const newSpread = Math.abs((ethereumPrice - suiPrice) / suiPrice) * 100;
-            const finalSpread = Math.max(spread, newSpread);
-            
-            if (finalSpread >= parseFloat(minSpread as string)) {
+            // Only include opportunities with real spreads that meet minimum threshold
+            if (spread >= parseFloat(minSpread as string)) {
               const opportunity = {
-                id: `arb_${pair.replace('-', '_')}_${Date.now()}`,
+                id: `arb_real_${pair.replace('-', '_')}_${Date.now()}`,
                 assetPairFrom: token0,
                 assetPairTo: token1,
-                currentSpread: finalSpread.toFixed(4),
-                uniswapPrice: ethereumPrice.toFixed(6), // Frontend expects uniswapPrice
-                competitorPrice: suiPrice.toFixed(6),   // Frontend expects competitorPrice
+                currentSpread: spread.toFixed(4),
+                uniswapPrice: ethereumPrice.toFixed(6), // Real Uniswap V3 price
+                competitorPrice: suiPrice.toFixed(6),   // Real Cetus price
                 ethereumPrice: ethereumPrice.toFixed(6),
                 suiPrice: suiPrice.toFixed(6),
-                estimatedProfit: (finalSpread * 0.7).toFixed(2), // Account for fees
+                estimatedProfit: (spread * 0.7).toFixed(2), // Account for fees
                 direction: ethereumPrice > suiPrice ? 'ETH→SUI' : 'SUI→ETH',
                 optimalAmount: Math.min(10000, Math.max(100, spread * 1000)),
-                source: 'fallback_pair_scanning',
+                source: 'real_data_pair_scanning',
                 status: 'active',
-                confidence: spread > 1.0 ? 'high' : 'medium',
+                confidence: spread > 1.0 ? 'high' : (spread > 0.5 ? 'medium' : 'low'),
                 timestamp: new Date().toISOString()
               };
               
               opportunities.push(opportunity);
+              console.log(`📊 Added real arbitrage opportunity: ${token0}-${token1} with ${spread.toFixed(4)}% spread`);
               
-              // Store fallback opportunity
+              // Store real opportunity
               await storage.createArbitrageOpportunity({
                 assetPairFrom: token0,
                 assetPairTo: token1,
                 sourceChain: "ethereum",
                 targetChain: "sui",
-                spread: finalSpread.toFixed(2),
-                profitEstimate: (finalSpread * 0.7).toFixed(2),
+                spread: spread.toFixed(4),
+                profitEstimate: (spread * 0.7).toFixed(2),
                 minAmount: "100",
                 maxAmount: "10000",
                 isActive: true
               });
+            } else {
+              console.log(`📉 Real spread for ${token0}-${token1} is ${spread.toFixed(4)}%, below ${minSpread}% threshold`);
             }
           } catch (error) {
             console.error(`Error scanning ${pair}:`, error instanceof Error ? error.message : 'Unknown error');
