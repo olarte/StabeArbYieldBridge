@@ -272,3 +272,6 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Real-Time Amount Validation**: Prevents execution with invalid amounts (NaN, negative, or zero values)
 - ✅ **Improved Transaction Error Handling**: Enhanced Sui wallet transaction creation with fallback for network connectivity issues
 - ✅ **Backend TypeScript Fixes**: Resolved data corruption issues in oracle peg status endpoint causing wallet transaction errors
+- ✅ **MetaMask Transaction Debugging**: Enhanced MetaMask transaction prompting with comprehensive connection validation and network switching
+- ✅ **Wallet State Debugging**: Added detailed logging for wallet connection status and transaction parameter validation
+- ✅ **Network Auto-Switch**: Automatic switching to Celo Alfajores network when executing MetaMask transactions

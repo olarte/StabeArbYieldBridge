@@ -285,11 +285,39 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       
       if (stepChain === 'celo' || stepIndex % 2 === 0) {
         // Use MetaMask for Celo chain transactions
-        if (!window.ethereum || !walletConnections?.account) {
-          throw new Error('MetaMask not connected. Please connect your MetaMask wallet for Celo transactions.');
+        console.log('🔍 MetaMask connection check:', {
+          windowEthereum: !!window.ethereum,
+          walletConnectionsAccount: walletConnections?.account,
+          walletConnectionsFull: walletConnections
+        });
+        
+        if (!window.ethereum) {
+          throw new Error('MetaMask not installed. Please install MetaMask browser extension.');
+        }
+        
+        if (!walletConnections?.account) {
+          throw new Error('MetaMask not connected. Please connect your MetaMask wallet first.');
         }
         
         console.log(`📱 Step ${stepIndex + 1}: Prompting MetaMask signature for Celo transaction...`);
+        console.log('📋 MetaMask transaction will be sent to account:', walletConnections.account);
+        
+        // Ensure we're connected to the right network (Celo Alfajores)
+        try {
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          console.log('🔗 Current chain ID:', chainId, 'Expected: 0xa4ec (Celo Alfajores)');
+          
+          // If not on Celo Alfajores, switch networks
+          if (chainId !== '0xa4ec') {
+            console.log('🔄 Switching to Celo Alfajores network...');
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0xa4ec' }],
+            });
+          }
+        } catch (networkError) {
+          console.warn('⚠️ Network check/switch failed:', networkError);
+        }
         
         const transactionParams = {
           to: '0x391f48752acd48271040466d748fcb367f2d2a1f',
@@ -300,13 +328,15 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           data: `0x${Buffer.from(`ArbitrageStep${stepIndex + 1}_${Date.now()}`, 'utf8').toString('hex')}`
         };
         
+        console.log('📤 Sending MetaMask transaction request:', transactionParams);
+        
         // This will prompt MetaMask popup for signature
         transactionHash = await window.ethereum.request({
           method: 'eth_sendTransaction',
           params: [transactionParams],
         });
         
-        console.log('✅ MetaMask transaction signed:', transactionHash);
+        console.log('✅ MetaMask transaction signed with hash:', transactionHash);
         
       } else {
         // Use Sui wallet for Sui chain transactions
