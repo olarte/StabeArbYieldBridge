@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
@@ -189,6 +190,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
   const { toast } = useToast();
   const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
   const [executionSteps, setExecutionSteps] = useState<any[]>([]);
+  const [swapAmounts, setSwapAmounts] = useState<{ [key: string]: string }>({});
 
   // Fetch arbitrage opportunities
   const { data: arbData, isLoading: arbLoading, refetch: refetchArbs } = useQuery({
@@ -214,7 +216,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
   };
 
   // Create atomic swap
-  const createAtomicSwap = async (opportunity: any, sessionId: string) => {
+  const createAtomicSwap = async (opportunity: any, sessionId: string, amount: number) => {
     const response = await fetch('/api/swap/bidirectional-real', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -223,7 +225,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         toChain: 'sui', 
         fromToken: 'cUSD',
         toToken: 'USDY',
-        amount: 10, // $10 test amount
+        amount: amount,
         minSpread: 0.01,
         maxSlippage: 0.03,
         sessionId,
@@ -364,6 +366,11 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
   // Execute complete arbitrage flow
   const executeArbMutation = useMutation({
     mutationFn: async (opportunity: any) => {
+      const amount = parseFloat(swapAmounts[opportunity.id] || '1');
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error('Please enter a valid amount greater than 0');
+      }
+      
       setSelectedOpportunity(opportunity.id);
       setExecutionSteps([]);
 
@@ -371,7 +378,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         // Step 1: Register wallet session
         toast({
           title: "Starting Arbitrage",
-          description: "Registering wallet session...",
+          description: `Registering wallet session for $${amount} swap...`,
         });
 
         const { sessionId } = await registerWalletSession();
@@ -385,10 +392,10 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         // Step 2: Create atomic swap
         toast({
           title: "Creating Swap",
-          description: "Setting up atomic swap...",
+          description: `Setting up atomic swap for $${amount}...`,
         });
 
-        const swapResult = await createAtomicSwap(opportunity, sessionId);
+        const swapResult = await createAtomicSwap(opportunity, sessionId, amount);
         const swapId = swapResult.data.swapId;
         
         setExecutionSteps(prev => [...prev, { 
@@ -518,6 +525,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                 <TableHead>Spread</TableHead>
                 <TableHead>Est. Profit</TableHead>
                 <TableHead>Confidence</TableHead>
+                <TableHead>Amount ($)</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -554,6 +562,20 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                     }>
                       {opp.confidence}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <input
+                      type="number"
+                      placeholder="1.0"
+                      min="0.1"
+                      step="0.1"
+                      value={swapAmounts[opp.id] || ''}
+                      onChange={(e) => setSwapAmounts(prev => ({
+                        ...prev,
+                        [opp.id]: e.target.value
+                      }))}
+                      className="w-20 text-sm p-2 border rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-black dark:text-white"
+                    />
                   </TableCell>
                   <TableCell>
                     <div className="space-y-2">
