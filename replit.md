@@ -279,5 +279,7 @@ Preferred communication style: Simple, everyday language.
 - ✅ **Transaction Timeout Protection**: Added 60-second timeout for MetaMask transaction approvals with clear user messaging
 - ✅ **Comprehensive Transaction Logging**: Enhanced logging shows exact moment when MetaMask popup should appear
 - ✅ **Fixed Network Switching Timeout**: Resolved MetaMask network switching hanging issue with 5-second timeout
-- ✅ **Dynamic Gas Price Optimization**: Implemented automatic gas price fetching with 20% buffer for Celo Alfajores transactions
+- ✅ **Dynamic Gas Price Optimization**: Implemented automatic gas price fetching with 100% buffer and 100 gwei minimum for Celo Alfajores
 - ✅ **Enhanced Celo Compatibility**: Increased gas limit to 30,000 and optimized transaction parameters for Celo network
+- ✅ **Proper Nonce Management**: Added automatic nonce fetching to prevent "replacement transaction underpriced" errors
+- ✅ **Enhanced Gas Strategy**: Minimum 100 gwei gas price with dynamic network-based adjustments for reliable transaction execution

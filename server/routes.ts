@@ -630,8 +630,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oneInchApiKey = process.env.ONEINCH_API_KEY;
       if (!oneInchApiKey) throw new Error('ONEINCH_API_KEY not configured');
 
-      // Get real Uniswap V3 quote from 1Inch API (Celo network)
-      const quoteUrl = `https://api.1inch.dev/swap/v6.0/42220/quote?src=0x765DE816845861e75A25fCA122bb6898B8B1282a&dst=0x2def4285787d58a2f811af24755a8150622f4361&amount=1000000000000000000`;
+      // Get real Uniswap V3 quote from 1Inch API (Celo Alfajores testnet)
+      // Using correct Celo Alfajores testnet token addresses
+      const quoteUrl = `https://api.1inch.dev/swap/v6.0/44787/quote?src=0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1&dst=0x2def4285787d58a2f811af24755a8150622f4361&amount=1000000000000000000`;
       
       const response = await fetch(quoteUrl, {
         headers: { 'Authorization': `Bearer ${oneInchApiKey}` }

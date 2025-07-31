@@ -327,16 +327,28 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           console.warn('⚠️ Network check failed, continuing anyway:', networkError);
         }
         
-        // Get current gas price from network for Celo
-        let gasPrice = '0x12A05F200'; // 5 gwei default
+        // Get current gas price and nonce for Celo
+        let gasPrice = '0x174876E800'; // 100 gwei default (higher for Celo)
+        let nonce;
         try {
-          const networkGasPrice = await window.ethereum.request({ method: 'eth_gasPrice' });
+          const [networkGasPrice, currentNonce] = await Promise.all([
+            window.ethereum.request({ method: 'eth_gasPrice' }),
+            window.ethereum.request({ 
+              method: 'eth_getTransactionCount', 
+              params: [walletConnections.account, 'pending'] 
+            })
+          ]);
+          
           const gasPriceNum = parseInt(networkGasPrice, 16);
-          const adjustedGasPrice = Math.max(gasPriceNum * 1.2, 5000000000); // 20% higher than network, minimum 5 gwei
+          const adjustedGasPrice = Math.max(gasPriceNum * 2.0, 100000000000); // 100% higher than network, minimum 100 gwei
           gasPrice = '0x' + Math.floor(adjustedGasPrice).toString(16);
+          nonce = currentNonce;
+          
           console.log('🔥 Using dynamic gas price:', gasPrice, '(', Math.floor(adjustedGasPrice / 1000000000), 'gwei )');
+          console.log('🔢 Transaction nonce:', nonce);
         } catch (gasPriceError) {
-          console.warn('⚠️ Could not fetch gas price, using default:', gasPrice);
+          console.warn('⚠️ Could not fetch gas price/nonce, using defaults:', gasPrice);
+          nonce = '0x' + Math.floor(Date.now() / 1000).toString(16); // Fallback nonce
         }
 
         const transactionParams = {
@@ -345,6 +357,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           value: '0x0', // 0 ETH/CELO
           gas: '0x7530', // 30000 gas (higher for Celo)
           gasPrice: gasPrice,
+          nonce: nonce,
           data: `0x${Buffer.from(`ArbitrageStep${stepIndex + 1}_${Date.now()}`, 'utf8').toString('hex')}`
         };
         
