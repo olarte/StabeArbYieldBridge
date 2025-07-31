@@ -1122,84 +1122,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(`🛡️ Cross-chain peg validation: ${fromChain} → ${toChain}`);
       
-      // Get Chainlink USDC/USD prices from both networks
-      const chainlinkPrices = await Promise.allSettled([
-        getChainlinkPrice('USDC', 'USD', 'ethereum'), // Ethereum Sepolia
-        getChainlinkPrice('USDC', 'USD', 'ethereum')  // Ethereum Sepolia second check
-      ]);
-      
-      // Get DEX prices for comparison
-      const dexPrices = await Promise.allSettled([
-        getUniswapV3Price('USDC', 'USDT', 3000),  // Ethereum Sepolia Uniswap
-        getCetusPoolPrice('USDC', 'USDY')         // Sui Cetus
+      // Get prices from both chains
+      const [ethereumPrices, suiPrices, chainlinkPrices] = await Promise.allSettled([
+        getUniswapV3PriceOnSepolia(fromToken, 'USDC'),
+        getCetusPoolPrice(fromToken, 'USDC'),
+        getChainlinkPrice('USDC', 'USD', 'ethereum')
       ]);
       
       const results = {
-        chainlink: {} as any,
-        dex: {} as any,
+        crossChainPrices: {
+          ethereum: ethereumPrices.status === 'fulfilled' ? ethereumPrices.value : null,
+          sui: suiPrices.status === 'fulfilled' ? suiPrices.value : null
+        },
+        chainlinkReference: chainlinkPrices.status === 'fulfilled' ? chainlinkPrices.value : null,
         deviations: {} as any,
         safe: true,
         alerts: [] as string[]
       };
       
-      // Process Chainlink prices
-      if (chainlinkPrices[0].status === 'fulfilled') {
-        results.chainlink.celo = chainlinkPrices[0].value.price;
-        results.chainlink.celoData = chainlinkPrices[0].value;
-      }
-      if (chainlinkPrices[1].status === 'fulfilled') {
-        results.chainlink.ethereum = chainlinkPrices[1].value.price;
-        results.chainlink.ethereumData = chainlinkPrices[1].value;
-      }
-      
-      // Process DEX prices
-      if (dexPrices[0].status === 'fulfilled') {
-        results.dex.uniswap = dexPrices[0].value;
-      }
-      if (dexPrices[1].status === 'fulfilled') {
-        results.dex.cetus = dexPrices[1].value;
-      }
-      
-      // Calculate deviations
-      const basePrice = results.chainlink.ethereum || 1.0; // Use Ethereum as base
-      const alertThreshold = 0.05; // 5% threshold
-      
-      // Check Celo Uniswap vs Chainlink
-      if (results.dex.uniswap && results.chainlink.celo) {
-        const deviation = Math.abs(results.dex.uniswap - results.chainlink.celo) / results.chainlink.celo;
-        results.deviations.celoUniswap = {
-          deviation: deviation * 100,
-          dexPrice: results.dex.uniswap,
-          chainlinkPrice: results.chainlink.celo,
-          safe: deviation <= alertThreshold
+      // Check cross-chain price deviation
+      if (results.crossChainPrices.ethereum && results.crossChainPrices.sui) {
+        const crossChainDeviation = Math.abs(
+          results.crossChainPrices.ethereum - results.crossChainPrices.sui
+        ) / Math.min(results.crossChainPrices.ethereum, results.crossChainPrices.sui);
+        
+        results.deviations.crossChain = {
+          deviation: crossChainDeviation * 100,
+          safe: crossChainDeviation <= pegStatus.alertThreshold
         };
         
-        if (deviation > alertThreshold) {
+        if (crossChainDeviation > pegStatus.alertThreshold) {
           results.safe = false;
-          results.alerts.push(`Celo Uniswap deviation: ${(deviation * 100).toFixed(2)}%`);
+          results.alerts.push(`Cross-chain deviation: ${(crossChainDeviation * 100).toFixed(2)}%`);
         }
       }
       
-      // Check Sui Cetus vs Chainlink (using Ethereum feed as reference)
-      if (results.dex.cetus && basePrice) {
-        const deviation = Math.abs(results.dex.cetus - basePrice) / basePrice;
-        results.deviations.suiCetus = {
-          deviation: deviation * 100,
-          dexPrice: results.dex.cetus,
-          chainlinkPrice: basePrice,
-          safe: deviation <= alertThreshold
-        };
-        
-        if (deviation > alertThreshold) {
-          results.safe = false;
-          results.alerts.push(`Sui Cetus deviation: ${(deviation * 100).toFixed(2)}%`);
-        }
-      }
+      // Update peg status
+      pegStatus.crossChainValidation.lastValidation = new Date().toISOString();
+      pegStatus.crossChainValidation.validationResults = results;
       
       return results;
       
     } catch (error) {
-      console.error('Peg validation error:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Cross-chain peg validation error:', error instanceof Error ? error.message : 'Unknown error');
       return {
         safe: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -3542,21 +3507,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(`🔍 Cross-verifying swap ${atomicSwapState.swapId}`);
       
+      // Enhanced cross-chain peg protection validation
+      const pegValidation = await validateCrossChainPegProtection(
+        atomicSwapState.fromChain,
+        atomicSwapState.toChain,
+        atomicSwapState.fromToken,
+        atomicSwapState.toToken
+      );
+      
       const verification = {
         ethereumLockVerified: !!atomicSwapState.ethereumState.lockTxHash,
         suiResolutionVerified: !!atomicSwapState.suiState.resolutionTxHash,
         secretMatches: atomicSwapState.secret === atomicSwapState.hashlock,
         timelock: atomicSwapState.timelock,
-        currentTime: Math.floor(Date.now() / 1000)
+        currentTime: Math.floor(Date.now() / 1000),
+        pegProtection: pegValidation
       };
       
       const isValid = verification.ethereumLockVerified && 
                      verification.suiResolutionVerified && 
-                     verification.currentTime < verification.timelock;
+                     verification.currentTime < verification.timelock &&
+                     pegValidation.safe;
+
+      // Update atomic swap state with peg protection status
+      if (atomicSwapState.pegProtection) {
+        atomicSwapState.pegProtection.lastCheck = new Date().toISOString();
+        atomicSwapState.pegProtection.violations = pegValidation.safe ? 0 : (atomicSwapState.pegProtection.violations || 0) + 1;
+        atomicSwapState.pegProtection.recommendation = pegValidation.safe ? 'SAFE_TO_SWAP' : 'SWAPS_PAUSED';
+      }
 
       return {
         message: isValid ? 'Cross-verification successful' : 'Cross-verification failed',
         verification,
+        pegProtectionResult: pegValidation,
         status: isValid ? 'VERIFIED' : 'FAILED',
         nextAction: isValid ? 'SWAP_COMPLETE' : 'INITIATE_REFUND'
       };
@@ -3713,6 +3696,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return limitOrder;
     } catch (error: any) {
       throw new Error(`Cetus limit order creation failed: ${error.message}`);
+    }
+  }
+
+  // Enhanced cross-chain peg protection
+  async function validateCrossChainPegProtection(fromChain: string, toChain: string, fromToken: string, toToken: string): Promise<any> {
+    try {
+      console.log(`🛡️ Cross-chain peg validation: ${fromChain} → ${toChain}`);
+      
+      // Get prices from both chains
+      const [ethereumPrices, suiPrices, chainlinkPrices] = await Promise.allSettled([
+        getUniswapV3PriceOnSepolia(fromToken, 'USDC'),
+        getCetusPoolPrice(fromToken, 'USDC'),
+        getChainlinkPrice('USDC', 'USD', 'ethereum')
+      ]);
+      
+      const results = {
+        crossChainPrices: {
+          ethereum: ethereumPrices.status === 'fulfilled' ? ethereumPrices.value : null,
+          sui: suiPrices.status === 'fulfilled' ? suiPrices.value : null
+        },
+        chainlinkReference: chainlinkPrices.status === 'fulfilled' ? chainlinkPrices.value : null,
+        deviations: {} as any,
+        safe: true,
+        alerts: [] as string[]
+      };
+      
+      // Check cross-chain price deviation
+      if (results.crossChainPrices.ethereum && results.crossChainPrices.sui) {
+        const crossChainDeviation = Math.abs(
+          results.crossChainPrices.ethereum - results.crossChainPrices.sui
+        ) / Math.min(results.crossChainPrices.ethereum, results.crossChainPrices.sui);
+        
+        results.deviations.crossChain = {
+          deviation: crossChainDeviation * 100,
+          safe: crossChainDeviation <= pegStatus.alertThreshold
+        };
+        
+        if (crossChainDeviation > pegStatus.alertThreshold) {
+          results.safe = false;
+          results.alerts.push(`Cross-chain deviation: ${(crossChainDeviation * 100).toFixed(2)}%`);
+        }
+      }
+      
+      // Update peg status
+      pegStatus.crossChainValidation.lastValidation = new Date().toISOString();
+      pegStatus.crossChainValidation.validationResults = results;
+      
+      return results;
+      
+    } catch (error: any) {
+      console.error('Cross-chain peg validation error:', error);
+      return {
+        safe: false,
+        error: error.message,
+        fallbackUsed: true
+      };
     }
   }
 
