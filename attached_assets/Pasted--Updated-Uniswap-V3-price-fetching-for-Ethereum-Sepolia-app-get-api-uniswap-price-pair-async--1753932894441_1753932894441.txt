@@ -1,0 +1,68 @@
+// Updated Uniswap V3 price fetching for Ethereum Sepolia
+app.get('/api/uniswap/price/:pair', async (req, res) => {
+  try {
+    const { pair } = req.params;
+    const { fee = 3000 } = req.query;
+    
+    // Parse pair (e.g., "USDC-WETH")
+    const [token0Symbol, token1Symbol] = pair.split('-');
+    const token0Address = CHAIN_CONFIG.ethereum.tokens[token0Symbol];
+    const token1Address = CHAIN_CONFIG.ethereum.tokens[token1Symbol];
+    
+    if (!token0Address || !token1Address) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid token pair for Ethereum Sepolia',
+        availableTokens: Object.keys(CHAIN_CONFIG.ethereum.tokens)
+      });
+    }
+
+    console.log(`🔍 Processing Sepolia price request for ${pair}`);
+
+    // Handle real Uniswap V3 integration on Sepolia
+    if (uniswapContracts.type === 'uniswap_v3_sepolia') {
+      try {
+        console.log('🦄 Fetching real Uniswap V3 data from Ethereum Sepolia...');
+        
+        const poolAddress = await uniswapContracts.factory.getPool(
+          token0Address, 
+          token1Address, 
+          fee
+        );
+
+        if (poolAddress === ethers.ZeroAddress) {
+          return res.status(404).json({
+            success: false,
+            error: 'Pool not found on Sepolia for this pair and fee tier',
+            suggestion: 'Try different fee tiers: 500 (0.05%), 3000 (0.3%), 10000 (1%)',
+            availableFees: [500, 3000, 10000],
+            note: 'Pool may not exist on Sepolia testnet'
+          });
+        }
+
+        // ... rest of pool data fetching logic
+
+        return res.json({
+          success: true,
+          data: {
+            pair,
+            poolAddress,
+            // ... other data
+            source: 'uniswap_v3_ethereum_sepolia',
+            network: 'Ethereum Sepolia Testnet',
+            chainId: 11155111
+          }
+        });
+        
+      } catch (contractError) {
+        console.error('🔴 Sepolia Uniswap V3 call failed:', contractError.message);
+        // ... error handling
+      }
+    }
+
+    // ... fallback logic
+  } catch (error) {
+    console.error('Sepolia price fetch error:', error.message);
+    // ... error handling
+  }
+});

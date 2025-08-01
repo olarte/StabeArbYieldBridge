@@ -1,0 +1,234 @@
+// Enhanced bidirectional swap for Ethereum Sepolia → Sui Devnet
+app.post('/api/swap/bidirectional-ethereum-sui', async (req, res) => {
+  try {
+    const {
+      fromChain,
+      toChain,
+      fromToken,
+      toToken,
+      amount,
+      sessionId,
+      minSpread = 0.5,
+      maxSlippage = 1,
+      enableAtomicSwap = true,
+      timeoutMinutes = 120, // Increased for cross-chain
+      bypassPegProtection = false,
+      enableLimitOrders = true
+    } = req.body;
+
+    // Validate supported pairs for Ethereum-Sui
+    const supportedPairs = [
+      { from: 'ethereum', to: 'sui', tokens: ['USDC', 'USDT', 'DAI'] },
+      { from: 'sui', to: 'ethereum', tokens: ['USDC', 'USDT'] }
+    ];
+
+    const swapPair = supportedPairs.find(p => 
+      p.from === fromChain && 
+      p.to === toChain && 
+      p.tokens.includes(fromToken) && 
+      p.tokens.includes(toToken)
+    );
+
+    if (!swapPair) {
+      return res.status(400).json({
+        success: false,
+        error: 'Unsupported Ethereum-Sui swap pair',
+        supportedPairs: supportedPairs.map(p => ({
+          direction: `${p.from} → ${p.to}`,
+          tokens: p.tokens
+        }))
+      });
+    }
+
+    // Validate wallet session
+    const walletSession = walletConnections.get(sessionId);
+    if (!walletSession || !walletSession.evmAddress || !walletSession.suiAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both Ethereum and Sui wallets required for atomic swap'
+      });
+    }
+
+    // Enhanced peg protection with cross-chain validation
+    if (!bypassPegProtection) {
+      console.log('🛡️ Running enhanced peg protection for Ethereum-Sui swap...');
+      const pegValidation = await validateCrossChainPegProtection(fromChain, toChain, fromToken, toToken);
+      
+      if (!pegValidation.safe) {
+        return res.status(423).json({
+          success: false,
+          error: 'Cross-chain peg protection triggered',
+          pegValidation,
+          recommendation: 'Wait for stable peg or contact admin'
+        });
+      }
+    }
+
+    // Generate atomic swap components with enhanced security
+    const swapId = `atomic_eth_sui_${Date.now()}_${randomBytes(8).toString('hex')}`;
+    const secret = randomBytes(32);
+    const hashlock = createHash('sha256').update(secret).digest('hex');
+    const timelock = Math.floor(Date.now() / 1000) + (timeoutMinutes * 60);
+    const refundTimelock = timelock + 3600; // 1 hour buffer for refunds
+
+    // Initialize atomic swap state
+    const atomicSwapState = new AtomicSwapState({
+      swapId,
+      fromChain,
+      toChain,
+      fromToken,
+      toToken,
+      amount,
+      walletSession,
+      minSpread,
+      maxSlippage,
+      enableAtomicSwap,
+      hashlock,
+      secret: secret.toString('hex'),
+      timelock,
+      refundTimelock
+    });
+
+    // Perform cross-chain spread analysis
+    console.log(`🔍 Analyzing cross-chain spread: ${fromChain} → ${toChain}`);
+    const spreadAnalysis = await analyzeCrossChainSpread(fromChain, toChain, fromToken, toToken, minSpread);
+    
+    if (!spreadAnalysis.profitable) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient cross-chain spread: ${spreadAnalysis.spread}%`,
+        spreadAnalysis,
+        suggestion: `Wait for spread ≥ ${minSpread}% or adjust parameters`
+      });
+    }
+
+    atomicSwapState.spreadAnalysis = spreadAnalysis;
+
+    // Create comprehensive atomic execution plan
+    const executionPlan = {
+      type: 'ATOMIC_ETHEREUM_SUI_SWAP',
+      route: `${fromChain.toUpperCase()} (${fromToken}) → ${toChain.toUpperCase()} (${toToken})`,
+      atomicGuarantees: {
+        hashlock: hashlock,
+        timelock: timelock,
+        refundTimelock: refundTimelock,
+        secretReveal: 'Required for Sui redemption'
+      },
+      wallets: {
+        ethereum: walletSession.evmAddress,
+        sui: walletSession.suiAddress
+      },
+      steps: [
+        {
+          type: 'PEG_VALIDATION',
+          description: 'Validate cross-chain peg stability',
+          chain: 'both',
+          status: 'COMPLETED'
+        },
+        {
+          type: 'LIMIT_ORDER_SETUP',
+          description: 'Create threshold limit orders on both chains',
+          chain: 'both',
+          status: 'PENDING',
+          enabled: enableLimitOrders
+        },
+        {
+          type: 'ETHEREUM_LOCK',
+          description: `Lock ${amount} ${fromToken} with hashlock on Ethereum`,
+          chain: 'ethereum',
+          dex: 'uniswap_v3',
+          hashlock: hashlock,
+          timelock: timelock,
+          status: 'PENDING',
+          requiresSignature: true
+        },
+        {
+          type: 'SEPOLIA_RELAY',
+          description: 'Relay hashlock proof to Sui network',
+          chain: 'ethereum',
+          relay: 'sepolia_sui_bridge',
+          status: 'PENDING'
+        },
+        {
+          type: 'SUI_RESOLUTION',
+          description: `Redeem ${toToken} on Sui with secret reveal`,
+          chain: 'sui',
+          dex: 'cetus',
+          requiresSecret: true,
+          status: 'PENDING',
+          requiresSignature: true
+        },
+        {
+          type: 'CROSS_VERIFICATION',
+          description: 'Verify atomic swap completion',
+          chain: 'both',
+          status: 'PENDING'
+        }
+      ],
+      estimatedGas: {
+        ethereum: '0.02 ETH',
+        sui: '0.005 SUI',
+        relay: '0.01 ETH'
+      },
+      estimatedTime: '30-90 minutes',
+      estimatedFees: {
+        ethereumDexFees: '0.3%',
+        suiDexFees: '0.05%',
+        relayFees: '0.1%',
+        gasFees: '$8-20',
+        totalFees: '~0.5-1.5%'
+      },
+      refundPolicy: {
+        ethereumRefund: 'Available after timelock expiry',
+        refundTimelock: new Date(refundTimelock * 1000).toISOString(),
+        automaticRefund: false
+      }
+    };
+
+    atomicSwapState.executionPlan = executionPlan;
+    atomicSwapState.updateStatus('ATOMIC_PLAN_CREATED');
+
+    // Setup limit orders if enabled
+    if (enableLimitOrders) {
+      const limitOrderSetup = await setupCrossChainLimitOrders(atomicSwapState);
+      atomicSwapState.limitOrders = limitOrderSetup;
+    }
+
+    // Store atomic swap state
+    swapStates.set(swapId, atomicSwapState);
+
+    console.log(`✅ Created atomic Ethereum-Sui swap: ${swapId}`);
+    console.log(`  ETH Wallet: ${walletSession.evmAddress}`);
+    console.log(`  Sui Wallet: ${walletSession.suiAddress}`);
+    console.log(`  Spread: ${spreadAnalysis.spread}%`);
+    console.log(`  Hashlock: ${hashlock.slice(0, 16)}...`);
+
+    res.json({
+      success: true,
+      data: {
+        swapId,
+        swapType: 'ATOMIC_CROSS_CHAIN',
+        executionPlan,
+        spreadAnalysis,
+        atomicComponents: {
+          hashlock: hashlock,
+          timelock: new Date(timelock * 1000).toISOString(),
+          refundTimelock: new Date(refundTimelock * 1000).toISOString(),
+          secretRequired: true
+        },
+        limitOrders: enableLimitOrders ? atomicSwapState.limitOrders : null,
+        pegProtection: atomicSwapState.pegProtection.initialCheck,
+        estimatedProfit: spreadAnalysis.estimatedProfit,
+        nextStep: 'Execute atomic swap using /api/swap/execute-atomic endpoint'
+      }
+    });
+
+  } catch (error) {
+    console.error('Atomic Ethereum-Sui swap creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create atomic cross-chain swap',
+      details: error.message
+    });
+  }
+});

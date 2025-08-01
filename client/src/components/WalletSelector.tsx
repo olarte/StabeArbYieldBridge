@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
+import WalletConnect from './WalletConnect.jsx';
 import SuiWalletConnect from './SuiWalletConnect';
 
 // TypeScript interfaces
@@ -27,119 +27,6 @@ interface WalletInfo {
 interface WalletSelectorProps {
   onWalletChange?: (walletType: 'ethereum' | 'sui', walletInfo: any) => void;
 }
-
-// Simple Ethereum wallet connection component
-const EthereumWalletConnect: React.FC<{ onWalletChange: (info: any) => void }> = ({ onWalletChange }) => {
-  const [account, setAccount] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
-  const [connecting, setConnecting] = useState(false);
-
-  const connectWallet = async () => {
-    if (!window.ethereum) {
-      alert('MetaMask is not installed!');
-      return;
-    }
-
-    setConnecting(true);
-    try {
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts',
-      });
-      const chainId = await window.ethereum.request({
-        method: 'eth_chainId',
-      });
-      
-      setAccount(accounts[0]);
-      setChainId(parseInt(chainId, 16));
-      
-      onWalletChange({
-        account: accounts[0],
-        chainId: parseInt(chainId, 16),
-        balance: null
-      });
-    } catch (error) {
-      console.error('Connection failed:', error);
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const disconnectWallet = () => {
-    setAccount(null);
-    setChainId(null);
-    onWalletChange({
-      account: null,
-      chainId: null,
-      balance: null
-    });
-  };
-
-  useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
-          disconnectWallet();
-        } else {
-          setAccount(accounts[0]);
-          onWalletChange({
-            account: accounts[0],
-            chainId,
-            balance: null
-          });
-        }
-      });
-
-      window.ethereum.on('chainChanged', (chainId: string) => {
-        const newChainId = parseInt(chainId, 16);
-        setChainId(newChainId);
-        onWalletChange({
-          account,
-          chainId: newChainId,
-          balance: null
-        });
-      });
-    }
-  }, [account, chainId, onWalletChange]);
-
-  return (
-    <div className="space-y-4">
-      {!account ? (
-        <Button onClick={connectWallet} disabled={connecting} className="w-full">
-          {connecting ? 'Connecting...' : 'Connect MetaMask'}
-        </Button>
-      ) : (
-        <div className="space-y-4">
-          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium text-green-800 dark:text-green-200">
-                  ✅ Wallet Connected
-                </div>
-                <div className="text-sm text-green-600 dark:text-green-300 font-mono">
-                  {account.slice(0, 6)}...{account.slice(-4)}
-                </div>
-                <div className="text-xs text-green-600 dark:text-green-400">
-                  Chain ID: {chainId}
-                  {chainId === 11155111 && ' (Ethereum Sepolia)'}
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={disconnectWallet}>
-                Disconnect
-              </Button>
-            </div>
-          </div>
-          {chainId !== 11155111 && (
-            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-              <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                ⚠️ Please switch to Ethereum Sepolia testnet (Chain ID: 11155111)
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
   const [walletStates, setWalletStates] = useState<{
@@ -175,9 +62,9 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
                           !window.ethereum.isPhantom; // Exclude Phantom's ethereum provider
       
       const suiDetected = typeof window !== 'undefined' && (
-        !!(window as any).phantom?.sui || // Phantom with Sui support
-        !!(window as any).sui || // Official Sui wallet
-        !!(window as any).suiet // Suiet wallet
+        !!window.phantom?.sui || // Phantom with Sui support
+        !!window.sui || // Official Sui wallet
+        !!window.suiet // Suiet wallet
       );
 
       setWalletStates(prev => ({
@@ -352,7 +239,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
                     </Button>
                   </div>
                 ) : (
-                  <EthereumWalletConnect onWalletChange={handleEthereumWalletChange} />
+                  <WalletConnect onWalletChange={handleEthereumWalletChange} />
                 )}
               </CardContent>
             </Card>

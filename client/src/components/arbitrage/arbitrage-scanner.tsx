@@ -42,7 +42,7 @@ export function ArbitrageScanner() {
   const { data: scanResult, refetch, isLoading } = useQuery<ArbitrageScanResult>({
     queryKey: ['/api/scan-arbs', pairs, minSpread],
     queryFn: () => 
-      fetch(`/api/scan-arbs?pairs=${pairs}&minSpread=${minSpread}&demo=true`)
+      fetch(`/api/scan-arbs?pairs=${pairs}&minSpread=${minSpread}`)
         .then(res => res.json()),
     enabled: false, // Only run when manually triggered
   });

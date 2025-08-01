@@ -11,18 +11,19 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
-
+// @ts-ignore
+import WalletConnect from "@/components/WalletConnect.jsx";
 import SuiWalletConnect from "@/components/SuiWalletConnect";
 import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
-// Icons are now handled inline as emojis for cleaner codebase
+import suiIcon from "@assets/abfadeb9f40e6ad0db5e9c92c09c40e0_1753983736153.jpg";
+import ethereumIcon from "@assets/download_1753983736153.png";
 
 // TypeScript interfaces for better type safety
 declare global {
   interface Window {
     ethereum?: any;
-    suiWallet?: any;
   }
 }
 interface ArbOpportunity {
@@ -171,7 +172,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">⚫</span>
+                  <img src={ethereumIcon} alt="Ethereum" className="w-5 h-5 rounded-full" />
                   <span className="font-medium">Ethereum Sepolia</span>
                   {walletConnections?.account && (
                     <span className="text-xs text-green-600 font-medium">Connected</span>
@@ -211,7 +212,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
 
               <div className="p-4 border rounded-lg space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">🔷</span>
+                  <img src={suiIcon} alt="Sui" className="w-5 h-5 rounded-full" />
                   <span className="font-medium">Sui Testnet</span>
                   {suiWalletInfo?.account?.address && (
                     <span className="text-xs text-green-600 font-medium">Connected</span>
@@ -313,7 +314,19 @@ function PegProtectionStatus() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Chainlink USDC</div>
+              <div className="text-sm font-medium text-muted-foreground">Ethereum Price</div>
+              <div className="text-lg font-bold">
+                ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.ethereum ? Number((pegStatus as any).crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Sui Price</div>
+              <div className="text-lg font-bold">
+                ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.sui ? Number((pegStatus as any).crossChainValidation.crossChainPrices.sui).toFixed(6) : 'N/A'}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Chainlink Reference</div>
               <div className="text-lg font-bold">
                 ${(pegStatus as any)?.crossChainValidation?.chainlinkReference?.price ? Number((pegStatus as any).crossChainValidation.chainlinkReference.price).toFixed(6) : 'N/A'}
               </div>
@@ -321,21 +334,7 @@ function PegProtectionStatus() {
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Cross-Chain Deviation</div>
               <div className="text-lg font-bold">
-                {(pegStatus as any)?.crossChainValidation?.deviations?.crossChain?.deviation ? 
-                  `${(Number((pegStatus as any).crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3)}%` : 
-                  '0.01%'}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Price Deviation</div>
-              <div className="text-lg font-bold">
-                {(pegStatus as any)?.safety?.safe ? '0.05%' : 'N/A'}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Status</div>
-              <div className="text-lg font-bold text-green-600">
-                {(pegStatus as any)?.safety?.safe ? 'PROTECTED' : 'MONITORING'}
+                {(pegStatus as any)?.crossChainValidation?.deviations?.crossChain?.deviation ? (Number((pegStatus as any).crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3) + '%' : 'N/A'}
               </div>
             </div>
           </div>
@@ -491,11 +490,11 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
     }
   };
 
-  // Fetch arbitrage opportunities with enhanced parameters (demo mode enabled)
+  // Fetch arbitrage opportunities with enhanced parameters
   const { data: arbData, isLoading: arbLoading, refetch: refetchArbs } = useQuery({
     queryKey: ['/api/scan-arbs'],
     queryFn: () => 
-      fetch('/api/scan-arbs?pairs=USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY&minSpread=0.01&demo=true')
+      fetch('/api/scan-arbs?pairs=USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY&minSpread=0.01')
         .then(res => res.json()),
     refetchInterval: 5000, // Refresh every 5 seconds
   });
@@ -639,7 +638,7 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
     }
   };
 
-  // Real wallet-based arbitrage execution
+  // Execute complete arbitrage flow
   const executeArbMutation = useMutation({
     mutationFn: async (opportunity: any) => {
       const amount = parseFloat(swapAmounts[opportunity.id] || '1');
@@ -647,263 +646,97 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         throw new Error('Please enter a valid amount greater than 0');
       }
       
-      // Validate both wallets are connected
-      if (!walletConnections?.account || !suiWalletInfo?.account?.address) {
-        throw new Error('Both Ethereum and Sui wallets must be connected for cross-chain swaps');
-      }
-      
       setSelectedOpportunity(opportunity.id);
       setExecutionSteps([]);
 
       try {
-        // Step 1: Create wallet-based swap plan
+        // Step 1: Register wallet session
         toast({
-          title: "Creating Real Wallet Swap",
-          description: `Preparing bidirectional swap for $${amount}...`,
+          title: "Starting Arbitrage",
+          description: `Registering wallet session for $${amount} swap...`,
         });
 
+        const { sessionId } = await registerWalletSession();
+        
         setExecutionSteps(prev => [...prev, { 
-          step: 'Wallet Validation', 
+          step: 'Wallet Session', 
           status: 'completed', 
-          message: 'Both wallets connected and validated' 
+          message: 'Wallets registered successfully' 
         }]);
 
-        // Determine swap direction based on opportunity
-        const sourceChain = opportunity.direction === 'SUI→ETH' ? 'sui' : 'ethereum';
-        const targetChain = opportunity.direction === 'SUI→ETH' ? 'ethereum' : 'sui';
+        // Step 2: Create atomic swap
+        toast({
+          title: "Creating Swap",
+          description: `Setting up atomic swap for $${amount}...`,
+        });
 
-        // Step 2: Execute REAL blockchain transactions using wallet signatures
-        console.log('🚀 EXECUTING REAL BLOCKCHAIN TRANSACTIONS');
+        const swapResult = await createAtomicSwap(opportunity, sessionId, amount);
+        const swapId = swapResult.data.swapId;
         
-        setExecutionSteps([{ 
-          step: 'Preparing Real Transactions', 
+        setExecutionSteps(prev => [...prev, { 
+          step: 'Atomic Swap Created', 
           status: 'completed', 
-          message: 'Creating authentic blockchain transactions for wallet signing' 
+          message: `Swap ID: ${swapId}` 
         }]);
 
-        // Determine transaction sequence based on opportunity
-        const transactions = [];
+        // Step 3: Execute each step with wallet signatures
+        const totalSteps = swapResult.data.executionPlan.steps.length;
         
-        if (opportunity.assetPairFrom === 'USDC' && opportunity.assetPairTo === 'WETH') {
-          // Ethereum Uniswap V3 swap: USDC → WETH
-          transactions.push({
-            chain: 'ethereum',
-            type: 'uniswap_v3_swap',
-            from: 'USDC',
-            to: 'WETH',
-            amount: amount,
-            poolAddress: '0x9799b5EDC1aA7D3FAd350309B08df3F64914E244' // Real USDC-WETH pool
-          });
-        } else if (opportunity.assetPairFrom === 'USDT' && opportunity.assetPairTo === 'USDC') {
-          // Cross-chain arbitrage: Start with Ethereum, then Sui
-          transactions.push({
-            chain: 'ethereum',
-            type: 'token_swap',
-            from: 'USDT',
-            to: 'USDC',
-            amount: amount
-          });
-          transactions.push({
-            chain: 'sui',
-            type: 'cetus_swap',
-            from: 'USDC',
-            to: 'USDY',
-            amount: amount * 0.99 // Account for slippage
-          });
-        }
-
-        // Step 3: Execute each transaction with REAL wallet signatures
-        let allTxHashes = [];
-        
-        for (let i = 0; i < transactions.length; i++) {
-          const transaction = transactions[i];
-          const stepName = `${transaction.chain.toUpperCase()} ${transaction.from}→${transaction.to}`;
+        for (let i = 0; i < totalSteps; i++) {
+          const currentStep = swapResult.data.executionPlan.steps[i];
+          const stepName = currentStep.type;
           
+          // Skip already completed steps
+          if (currentStep.status === 'COMPLETED') {
+            setExecutionSteps(prev => [...prev, { 
+              step: stepName, 
+              status: 'completed', 
+              message: 'Already completed' 
+            }]);
+            continue;
+          }
+          
+          toast({
+            title: `Step ${i + 1}/${totalSteps}`,
+            description: `Executing ${stepName}...`,
+          });
+
           setExecutionSteps(prev => [...prev, { 
             step: stepName, 
             status: 'executing', 
-            message: `🔐 Requesting ${transaction.chain} wallet signature...` 
+            message: 'Preparing transaction...' 
           }]);
 
           try {
-            let txHash = '';
+            // Execute step to get transaction data
+            const stepResult = await executeSwapStep(swapId, i);
             
-            if (transaction.chain === 'ethereum') {
-              // Execute REAL Ethereum transaction with MetaMask
-              if (!window.ethereum) {
-                throw new Error('MetaMask not installed');
-              }
-
-              console.log('🦊 Executing REAL MetaMask transaction...');
-
-              let txParams;
-              
-              if (transaction.type === 'uniswap_v3_swap') {
-                // Real Uniswap V3 swap transaction
-                const swapMethodId = '0x414bf389'; // swapExactInputSingle method ID
-                const tokenIn = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'; // USDC Sepolia
-                const tokenOut = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'; // WETH Sepolia
-                const fee = 500; // 0.05% fee tier
-                const amountIn = Math.floor(transaction.amount * 1000000); // Convert to USDC decimals (6)
-                const amountOutMinimum = 0; // Accept any amount of WETH out
-                
-                // Encode swap parameters (simplified for demo)
-                const encodedParams = `${swapMethodId}000000000000000000000000${tokenIn.slice(2)}000000000000000000000000${tokenOut.slice(2)}${fee.toString(16).padStart(8, '0')}000000000000000000000000${walletConnections.account.slice(2)}${Math.floor(Date.now()/1000 + 300).toString(16).padStart(16, '0')}${amountIn.toString(16).padStart(64, '0')}${amountOutMinimum.toString(16).padStart(64, '0')}0000000000000000000000000000000000000000000000000000000000000000`;
-
-                txParams = {
-                  to: transaction.poolAddress,
-                  data: encodedParams,
-                  value: '0x0',
-                  gas: '0x33450' // 210000 gas limit
-                };
-              } else {
-                // Simple token transfer for other transaction types
-                txParams = {
-                  to: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // USDC contract
-                  data: '0xa9059cbb000000000000000000000000' + walletConnections.account.slice(2) + Math.floor(transaction.amount * 1000000).toString(16).padStart(64, '0'),
-                  value: '0x0',
-                  gas: '0x5208'
-                };
-              }
-
-              toast({
-                title: "🦊 MetaMask Signature Required",
-                description: `Please sign the ${transaction.from}→${transaction.to} transaction`,
-              });
-
-              txHash = await window.ethereum.request({
-                method: 'eth_sendTransaction',
-                params: [{ ...txParams, from: walletConnections.account }],
-              });
-
-              console.log(`✅ REAL Ethereum transaction hash: ${txHash}`);
-              
-            } else if (transaction.chain === 'sui') {
-              // Execute REAL Sui transaction
-              if (!suiWalletInfo?.signAndExecuteTransactionBlock) {
-                throw new Error('Sui wallet not connected or does not support transaction signing');
-              }
-
-              console.log('🟣 Executing REAL Sui transaction...');
-
-              // Create real Sui transaction block for token swap
-              const { TransactionBlock } = await import('@mysten/sui.js/transactions');
-              const txb = new TransactionBlock();
-              
-              if (transaction.type === 'cetus_swap') {
-                // Real Cetus DEX swap transaction
-                txb.moveCall({
-                  target: '0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::pool::swap_a_b',
-                  arguments: [
-                    txb.object('0x2::clock::Clock'),
-                    txb.object('0xcetus_pool_id'), // Cetus pool object ID
-                    txb.pure(Math.floor(transaction.amount * 1000000)), // Amount in
-                    txb.pure(Math.floor(transaction.amount * 0.99 * 1000000)), // Min amount out (1% slippage)
-                    txb.pure(true), // a2b direction
-                  ],
-                  typeArguments: ['0x2::sui::SUI', '0xcetus::usdc::USDC']
-                });
-              } else {
-                // Simple token transfer
-                const coin = txb.splitCoins(txb.gas, [txb.pure(Math.floor(transaction.amount * 1000000))]);
-                txb.transferObjects([coin], txb.pure(suiWalletInfo.account.address));
-              }
-
-              toast({
-                title: "🟣 Sui Wallet Signature Required", 
-                description: `Please sign the ${transaction.from}→${transaction.to} transaction`,
-              });
-
-              const result = await suiWalletInfo.signAndExecuteTransactionBlock({
-                transactionBlock: txb,
-                account: suiWalletInfo.account,
-                chain: 'sui:testnet',
-              });
-
-              txHash = result.digest;
-              console.log(`✅ REAL Sui transaction hash: ${txHash}`);
-            }
-
-            allTxHashes.push(txHash);
-
-            // Update step as completed
-            setExecutionSteps(prev => prev.map(s => 
-              s.step === stepName ? { 
-                ...s, 
-                status: 'completed', 
-                message: `✅ Confirmed: ${txHash.slice(0, 10)}...` 
-              } : s
+            // ALWAYS require wallet signature for real transactions
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              idx === prev.length - 1 ? { ...s, message: 'Please sign transaction in wallet...' } : s
             ));
 
-            toast({
-              title: "Transaction Confirmed",
-              description: `${transaction.chain.toUpperCase()} transaction successful`,
-            });
-
-            // Record transaction in history
-            try {
-              const recordResponse = await fetch('/api/transactions/record', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ethereumAddress: walletConnections.account,
-                  suiAddress: suiWalletInfo.account?.address,
-                  transactionHash: txHash,
-                  chain: transaction.chain,
-                  fromToken: opportunity.assetPairFrom,
-                  toToken: opportunity.assetPairTo,
-                  amount: amount.toString(),
-                  profit: (amount * (Number(opportunity.currentSpread) / 100)).toString(),
-                  status: 'completed'
-                })
-              });
-              
-              if (recordResponse.ok) {
-                console.log('✅ Transaction recorded in history successfully');
-                // Invalidate transaction history to show new transaction
-                queryClient.invalidateQueries({ queryKey: ['/api/transactions/history'] });
-              } else {
-                console.warn('Failed to record transaction:', await recordResponse.text());
-              }
-            } catch (recordError) {
-              console.warn('Failed to record transaction:', recordError);
-            }
-
-          } catch (walletError) {
-            console.error(`${transaction.chain} transaction failed:`, walletError);
+            await signAndSubmitTransaction(swapId, i, stepResult.data.stepResult);
             
-            setExecutionSteps(prev => prev.map(s => 
-              s.step === stepName ? { 
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              idx === prev.length - 1 ? { ...s, status: 'completed', message: 'Transaction signed and submitted' } : s
+            ));
+          } catch (stepError) {
+            // If step fails, mark it as failed but continue
+            setExecutionSteps(prev => prev.map((s, idx) => 
+              idx === prev.length - 1 ? { 
                 ...s, 
                 status: 'failed', 
-                message: walletError instanceof Error ? walletError.message : 'Transaction failed' 
+                message: stepError instanceof Error ? stepError.message : 'Step failed' 
               } : s
             ));
-
-            throw new Error(`${transaction.chain} transaction failed: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`);
+            
+            console.warn(`Step ${i} failed:`, stepError);
+            // Continue to next step instead of stopping entire process
           }
         }
 
-        // Final success message with real transaction hashes
-        setExecutionSteps(prev => [...prev, { 
-          step: 'Real Blockchain Swap Completed ✅', 
-          status: 'completed', 
-          message: `${allTxHashes.length} AUTHENTIC transactions executed on blockchain` 
-        }]);
-
-        toast({
-          title: "🎉 Real Blockchain Swap Successful",
-          description: `Executed ${allTxHashes.length} authentic on-chain transactions. View them on block explorers.`,
-        });
-
-        // Show transaction hash summary
-        console.log('✅ REAL TRANSACTION HASHES:', allTxHashes);
-        
-        // Refresh balances and transaction history
-        queryClient.invalidateQueries({ queryKey: ['/api/portfolio/balance'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/transactions/history'] });
-
-        return { swapId: `real_swap_${Date.now()}`, steps: allTxHashes.length };
+        return { swapId, steps: totalSteps };
       } catch (error) {
         console.error('Arbitrage execution failed:', error);
         
@@ -925,8 +758,6 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       setSelectedOpportunity(null);
       setExecutionSteps([]);
       refetchArbs();
-      // Invalidate transaction history to show new transactions
-      queryClient.invalidateQueries({ queryKey: ['/api/transactions/history'] });
     },
     onError: (error) => {
       toast({
@@ -963,23 +794,15 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             <Button 
               onClick={async () => {
                 try {
-                  console.log('🧪 Testing transaction recording system...');
+                  console.log('🧪 Testing real blockchain transaction via backend...');
                   
-                  const testTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
-                  
-                  const response = await fetch('/api/transactions/record', {
+                  const response = await fetch('/api/test-real-transaction', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      ethereumAddress: walletConnections?.account || '0x1234567890123456789012345678901234567890',
-                      suiAddress: suiWalletInfo?.account?.address || '0x9876543210987654321098765432109876543210987654321098765432109876',
-                      transactionHash: testTxHash,
-                      chain: 'ethereum',
-                      fromToken: 'USDC',
-                      toToken: 'WETH',
-                      amount: '100',
-                      profit: '1.25',
-                      status: 'completed'
+                      chain: 'sui',
+                      amount: 1000, // 0.000001 SUI
+                      testType: 'simple_transfer'
                     })
                   });
                   
@@ -988,28 +811,18 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   }
                   
                   const result = await response.json();
-                  console.log('✅ Transaction recording test successful!', result);
+                  console.log('✅ Real transaction successful!', result);
                   
-                  // Refresh transaction history
-                  queryClient.invalidateQueries({ queryKey: ['/api/transactions/history'] });
-                  
-                  toast({
-                    title: "Test Transaction Recorded",
-                    description: `Test swap recorded with hash ${testTxHash.slice(0, 10)}...`,
-                  });
+                  alert(`Real blockchain transaction successful!\nHash: ${result.data.transactionHash}\nExplorer: ${result.data.explorerUrl}`);
                 } catch (error) {
-                  console.error('❌ Transaction recording test failed:', error);
-                  toast({
-                    title: "Test Failed",
-                    description: error instanceof Error ? error.message : 'Unknown error',
-                    variant: "destructive",
-                  });
+                  console.error('❌ Real transaction test failed:', error);
+                  alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 }
               }}
               variant="outline"
               size="sm"
             >
-              🧪 Test Transaction Recording
+              Test Real Sui Transaction
             </Button>
             <Button 
               onClick={async () => {
@@ -1078,16 +891,32 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                       {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? (
                         // Sui → Ethereum direction
                         <div className="flex items-center gap-1">
-                          <span className="text-base">🔷</span>
+                          <img 
+                            src={suiIcon} 
+                            alt="Sui" 
+                            className="w-5 h-5 rounded-full"
+                          />
                           <span className="text-xs text-muted-foreground">→</span>
-                          <span className="text-base">⚫</span>
+                          <img 
+                            src={ethereumIcon} 
+                            alt="Ethereum" 
+                            className="w-5 h-5 rounded-full"
+                          />
                         </div>
                       ) : (
                         // Ethereum → Sui direction
                         <div className="flex items-center gap-1">
-                          <span className="text-base">⚫</span>
+                          <img 
+                            src={ethereumIcon} 
+                            alt="Ethereum" 
+                            className="w-5 h-5 rounded-full"
+                          />
                           <span className="text-xs text-muted-foreground">→</span>
-                          <span className="text-base">🔷</span>
+                          <img 
+                            src={suiIcon} 
+                            alt="Sui" 
+                            className="w-5 h-5 rounded-full"
+                          />
                         </div>
                       )}
                     </div>

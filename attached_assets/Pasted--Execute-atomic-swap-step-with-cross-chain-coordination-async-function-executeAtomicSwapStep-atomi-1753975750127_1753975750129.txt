@@ -1,0 +1,197 @@
+// Execute atomic swap step with cross-chain coordination
+async function executeAtomicSwapStep(atomicSwapState, stepIndex) {
+  const step = atomicSwapState.executionPlan.steps[stepIndex];
+  let result = {};
+
+  try {
+    switch (step.type) {
+      case 'PEG_VALIDATION':
+        result = await executePegValidation(atomicSwapState);
+        break;
+      case 'LIMIT_ORDER_SETUP':
+        result = await executeLimitOrderSetup(atomicSwapState);
+        break;
+      case 'ETHEREUM_LOCK':
+        result = await executeEthereumLock(atomicSwapState, step);
+        break;
+      case 'SEPOLIA_RELAY':
+        result = await executeSepoliaRelay(atomicSwapState, step);
+        break;
+      case 'SUI_RESOLUTION':
+        result = await executeSuiResolution(atomicSwapState, step);
+        break;
+      case 'CROSS_VERIFICATION':
+        result = await executeCrossVerification(atomicSwapState);
+        break;
+      default:
+        throw new Error(`Unknown atomic step type: ${step.type}`);
+    }
+
+    result.status = result.status || 'COMPLETED';
+    result.stepIndex = stepIndex;
+    result.executedAt = new Date().toISOString();
+
+    return result;
+  } catch (error) {
+    return {
+      status: 'FAILED',
+      stepIndex,
+      error: error.message,
+      executedAt: new Date().toISOString(),
+      recoveryOptions: getRecoveryOptions(atomicSwapState, stepIndex)
+    };
+  }
+}
+
+// Execute Ethereum lock with Uniswap V3 integration
+async function executeEthereumLock(atomicSwapState, step) {
+  try {
+    const { fromToken, amount, hashlock, timelock, walletSession } = atomicSwapState;
+    
+    console.log(`🔒 Preparing Ethereum lock for ${amount} ${fromToken}`);
+    
+    // Create hashlock contract call
+    const hashlockContractData = await createEthereumHashlockContract({
+      token: CHAIN_CONFIG.ethereum.tokens[fromToken],
+      amount: ethers.parseUnits(amount.toString(), fromToken === 'USDC' ? 6 : 18),
+      hashlock: `0x${hashlock}`,
+      timelock: timelock,
+      recipient: walletSession.suiAddress, // Sui wallet for cross-chain
+      sender: walletSession.evmAddress
+    });
+    
+    // Prepare Uniswap V3 swap if needed (token → USDC for bridging)
+    let uniswapSwapData = null;
+    if (fromToken !== 'USDC') {
+      uniswapSwapData = await prepareUniswapV3Swap({
+        tokenIn: CHAIN_CONFIG.ethereum.tokens[fromToken],
+        tokenOut: CHAIN_CONFIG.ethereum.tokens.USDC,
+        amountIn: amount,
+        walletAddress: walletSession.evmAddress,
+        slippage: atomicSwapState.maxSlippage
+      });
+    }
+    
+    atomicSwapState.updateEthereumState({
+      lockPrepared: true,
+      hashlockContract: hashlockContractData.contractAddress,
+      uniswapSwapRequired: !!uniswapSwapData
+    });
+
+    return {
+      message: `Ethereum lock prepared for ${amount} ${fromToken}`,
+      hashlockContract: hashlockContractData,
+      uniswapSwap: uniswapSwapData,
+      transactionData: hashlockContractData.transactionData,
+      requiresWalletSignature: true,
+      lockAmount: amount,
+      timelock: new Date(timelock * 1000).toISOString(),
+      nextAction: 'SIGN_ETHEREUM_LOCK'
+    };
+
+  } catch (error) {
+    throw new Error(`Ethereum lock preparation failed: ${error.message}`);
+  }
+}
+
+// Execute Sepolia relay
+async function executeSepoliaRelay(atomicSwapState, step) {
+  try {
+    console.log(`🌉 Initiating Sepolia relay for swap ${atomicSwapState.id}`);
+    
+    // Verify Ethereum lock was successful
+    if (!atomicSwapState.ethereumState.locked) {
+      throw new Error('Ethereum lock must be completed before relay');
+    }
+    
+    // Create relay proof
+    const relayProof = {
+      sourceChain: 'ethereum',
+      targetChain: 'sui',
+      hashlock: atomicSwapState.hashlock,
+      lockTxHash: atomicSwapState.ethereumState.lockTxHash,
+      amount: atomicSwapState.amount,
+      token: atomicSwapState.fromToken,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Submit to Sepolia relay service
+    const relayResult = await submitToSepoliaRelay(relayProof);
+    
+    return {
+      message: 'Sepolia relay initiated successfully',
+      relayProof,
+      relayTxHash: relayResult.txHash,
+      estimatedRelayTime: '5-15 minutes',
+      suiContractAddress: relayResult.suiContractAddress,
+      nextAction: 'WAIT_FOR_RELAY_CONFIRMATION'
+    };
+
+  } catch (error) {
+    throw new Error(`Sepolia relay failed: ${error.message}`);
+  }
+}
+
+// Execute Sui resolution with Cetus integration
+async function executeSuiResolution(atomicSwapState, step) {
+  try {
+    const { toToken, amount, secret, walletSession } = atomicSwapState;
+    
+    console.log(`🟦 Preparing Sui resolution for ${amount} ${toToken}`);
+    
+    // Create Sui transaction block for atomic redemption
+    const txb = new TransactionBlock();
+    
+    // Add hashlock redemption call
+    const redeemResult = txb.moveCall({
+      target: `${CHAIN_CONFIG.sui.cetus.packageId}::atomic_swap::redeem`,
+      arguments: [
+        txb.pure(atomicSwapState.hashlock),
+        txb.pure(`0x${secret}`),
+        txb.pure(Math.floor(amount * 1_000_000_000)), // Convert to MIST
+        txb.pure(walletSession.suiAddress)
+      ],
+      typeArguments: [CHAIN_CONFIG.sui.tokens[toToken]]
+    });
+    
+    // Add Cetus swap if needed (USDC → target token)
+    if (toToken !== 'USDC') {
+      const cetusSwapResult = txb.moveCall({
+        target: `${CHAIN_CONFIG.sui.cetus.packageId}::pool::swap`,
+        arguments: [
+          redeemResult,
+          txb.pure(Math.floor(amount * 0.99 * 1_000_000_000)), // Min output
+          txb.pure(walletSession.suiAddress)
+        ],
+        typeArguments: [
+          CHAIN_CONFIG.sui.tokens.USDC,
+          CHAIN_CONFIG.sui.tokens[toToken]
+        ]
+      });
+      
+      txb.transferObjects([cetusSwapResult], txb.pure(walletSession.suiAddress));
+    } else {
+      txb.transferObjects([redeemResult], txb.pure(walletSession.suiAddress));
+    }
+    
+    txb.setGasBudget(20000000); // 0.02 SUI
+    
+    atomicSwapState.updateSuiState({
+      resolutionPrepared: true,
+      secretRevealed: true
+    });
+
+    return {
+      message: `Sui resolution prepared for ${amount} ${toToken}`,
+      transactionBlock: txb.serialize(),
+      requiresWalletSignature: true,
+      secretRevealed: true,
+      cetusSwapIncluded: toToken !== 'USDC',
+      gasBudget: '0.02 SUI',
+      nextAction: 'SIGN_SUI_RESOLUTION'
+    };
+
+  } catch (error) {
+    throw new Error(`Sui resolution preparation failed: ${error.message}`);
+  }
+}

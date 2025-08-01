@@ -1,0 +1,97 @@
+// Updated bidirectional swap with Ethereum Sepolia
+app.post('/api/swap/bidirectional-real', async (req, res) => {
+  try {
+    const {
+      fromChain,
+      toChain,
+      fromToken,
+      toToken,
+      amount,
+      sessionId,
+      minSpread = 0.5,
+      maxSlippage = 1,
+      enableAtomicSwap = true,
+      timeoutMinutes = 60,
+      bypassPegProtection = false
+    } = req.body;
+
+    // Updated supported chain pairs for Ethereum-Sui bridge
+    const supportedPairs = [
+      { from: 'ethereum', to: 'sui', via: 'native' },  // Direct Ethereum to Sui
+      { from: 'sui', to: 'ethereum', via: 'native' }   // Direct Sui to Ethereum
+    ];
+
+    const swapPair = supportedPairs.find(p => p.from === fromChain && p.to === toChain);
+    if (!swapPair) {
+      return res.status(400).json({
+        success: false,
+        error: 'Unsupported swap direction',
+        supportedPairs: supportedPairs.map(p => `${p.from} → ${p.to}`),
+        note: 'Now supporting direct Ethereum Sepolia ↔ Sui Testnet bridge'
+      });
+    }
+
+    // ... rest of your existing swap logic
+    
+    // Create execution plan with Sepolia focus
+    const executionPlan = {
+      type: 'ETHEREUM_SUI_ATOMIC_SWAP',
+      route: `${fromChain.toUpperCase()} → ${toChain.toUpperCase()}`,
+      bridge: 'Native Ethereum-Sui Bridge',
+      steps: [
+        {
+          type: 'WALLET_VERIFICATION',
+          description: 'Verify wallet balances on both chains',
+          chain: 'both',
+          status: 'PENDING'
+        },
+        {
+          type: 'TOKEN_APPROVAL',
+          description: `Approve ${fromToken} spending on ${fromChain}`,
+          chain: fromChain,
+          status: 'PENDING',
+          requiresSignature: true
+        },
+        {
+          type: 'FUSION_SWAP_SOURCE',
+          description: `Swap ${fromToken} → bridge token via 1Inch Fusion+`,
+          chain: fromChain,
+          dex: fromChain === 'ethereum' ? 'uniswap_v3' : 'cetus',
+          relay: fromChain === 'ethereum' ? 'sepolia_fusion_relay' : 'sui_native',
+          status: 'PENDING',
+          requiresSignature: true
+        },
+        {
+          type: 'BRIDGE_TRANSFER',
+          description: `Bridge from ${fromChain} to ${toChain}`,
+          chain: 'both',
+          bridge: 'ethereum_sui_native',
+          status: 'PENDING',
+          requiresSignature: true
+        },
+        {
+          type: 'FUSION_SWAP_DEST',
+          description: `Swap bridge token → ${toToken} on ${toChain}`,
+          chain: toChain,
+          dex: toChain === 'ethereum' ? 'uniswap_v3' : 'cetus',
+          status: 'PENDING',
+          requiresSignature: true
+        }
+      ],
+      estimatedGas: {
+        ethereum: '0.01 ETH',
+        sui: '0.002 SUI',
+        bridge: '0.005 ETH'
+      },
+      estimatedTime: '15-30 minutes',
+      estimatedFees: {
+        dexFees: '0.3%',
+        bridgeFees: '0.05%',
+        gasFees: '$3-8',
+        totalFees: '~0.5-1%'
+      }
+    };
+
+    // ... rest of the function
+  }
+});
