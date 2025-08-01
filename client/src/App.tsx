@@ -1003,7 +1003,8 @@ function PreviousSwapsExecuted({
               <TableRow>
                 <TableHead>Asset Pair</TableHead>
                 <TableHead>Swap Direction</TableHead>
-                <TableHead>Amount Swapped</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Received</TableHead>
                 <TableHead>Profit</TableHead>
                 <TableHead>Transaction Links</TableHead>
                 <TableHead>Date</TableHead>
@@ -1013,7 +1014,7 @@ function PreviousSwapsExecuted({
             <TableBody>
               {swapData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No completed swaps yet. Execute arbitrage opportunities to see history here.
                   </TableCell>
                 </TableRow>
@@ -1060,9 +1061,10 @@ function PreviousSwapsExecuted({
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>${Number(swap.amount || 0).toFixed(2)}</TableCell>
+                      <TableCell>${Number(swap.amount || 0).toFixed(3)}</TableCell>
+                      <TableCell>${Number(swap.amountReceived || swap.amount || 0).toFixed(3)}</TableCell>
                       <TableCell className={Number(swap.profit || 0) > 0 ? "text-green-600 font-medium" : "text-red-600"}>
-                        ${Number(swap.profit || 0).toFixed(3)}
+                        ${Number(swap.profit || 0).toFixed(4)}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
