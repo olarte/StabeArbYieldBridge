@@ -1171,7 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConnectedWallets = ethereumAddress || suiAddress;
       // Get swap history from actual completed swaps - safely access storage
       const swapHistory = hasConnectedWallets ? 
-        (storage.completedSwaps ? Array.from(storage.completedSwaps.values()) : []) : [];
+        Array.from(completedSwaps.values()) : [];
 
       // Get real wallet balances
       let walletBalances = {
@@ -3444,6 +3444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✅ Swap ${swapId} completed successfully`);
         
         // Store the completed swap with real execution data
+        console.log(`🎉 Swap ${swapId} completed! Storing swap data...`);
         await storeCompletedSwapData(swapId, swapState, executionResult);
       }
 
@@ -5403,6 +5404,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   
+  // Test function to add demo completed swap for debugging
+  function addTestCompletedSwap() {
+    try {
+      const testSwapId = `demo_swap_${Date.now()}`;
+      const testSwapData = {
+        id: testSwapId,
+        assetPairFrom: 'USDC',
+        assetPairTo: 'USDY',
+        sourceChain: 'ethereum',
+        targetChain: 'sui',
+        amount: 1.0,
+        profit: 0.005,
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        swapDirection: 'ethereum → sui',
+        ethereumTxHash: '0x58028ff52d90394c00b9562cca6ab2e84a60e4acd149f14d15870c0260e13b1c',
+        suiTxHash: 'BfPgmrKC4tAufGbq83rN3DzvSRHH4ggkK7jwEo5gkBKt',
+        explorerUrls: {
+          ethereum: 'https://sepolia.etherscan.io/tx/0x58028ff52d90394c00b9562cca6ab2e84a60e4acd149f14d15870c0260e13b1c',
+          sui: 'https://suiexplorer.com/txblock/BfPgmrKC4tAufGbq83rN3DzvSRHH4ggkK7jwEo5gkBKt?network=testnet'
+        }
+      };
+      completedSwaps.set(testSwapId, testSwapData);
+      console.log(`💾 ADDED TEST SWAP: ${testSwapData.assetPairFrom} → ${testSwapData.assetPairTo}, Amount: ${testSwapData.amount}`);
+    } catch (error) {
+      console.error('Error adding test swap:', error);
+    }
+  }
+
+  // Call this once to add test data
+  addTestCompletedSwap();
+
   // Function to store completed swap with real execution data
   async function storeCompletedSwapData(swapId: string, swapState: any, executionResult: any) {
     try {
