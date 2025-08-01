@@ -45,7 +45,7 @@ export interface IStorage {
   // Transactions
   getTransactions(limit?: number): Promise<Transaction[]>;
   getTransactionsByAgent(agentId: string): Promise<Transaction[]>;
-  getTransactionsByWallets(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]>;
+  getTransactionsByWallet(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined>;
 
@@ -333,9 +333,16 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime());
   }
 
-  async getTransactionsByWallets(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {
-    // For memory storage, return empty array since we don't have wallet tracking
-    return [];
+  async getTransactionsByWallet(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {
+    // Filter transactions by wallet addresses
+    return Array.from(this.transactions.values())
+      .filter(tx => {
+        // Match if either wallet address matches
+        const matchesEthereum = ethereumAddress && tx.ethereumWallet === ethereumAddress;
+        const matchesSui = suiAddress && tx.suiWallet === suiAddress;
+        return matchesEthereum || matchesSui;
+      })
+      .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime());
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
@@ -486,7 +493,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(transactions.executedAt));
   }
 
-  async getTransactionsByWallets(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {
+  async getTransactionsByWallet(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {
     if (!ethereumAddress && !suiAddress) {
       return [];
     }

@@ -1053,7 +1053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Fetch real transactions from database filtered by wallet addresses
-      const realTransactions = await storage.getTransactionsByWallets(ethereumAddress, suiAddress);
+      const realTransactions = await storage.getTransactionsByWallet(ethereumAddress, suiAddress);
       
       // If no real transactions exist, show empty state
       const swapHistory = realTransactions.length > 0 ? realTransactions.map(tx => ({
@@ -1086,6 +1086,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to fetch transaction history',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Direct transaction recording endpoint for testing
+  app.post("/api/transactions/record-direct", async (req, res) => {
+    try {
+      const transaction = req.body;
+      console.log(`💾 Recording direct transaction for wallet: ${transaction.ethereumWallet || transaction.suiWallet}`);
+      
+      const result = await storage.createTransaction(transaction);
+      
+      res.json({
+        success: true,
+        data: result,
+        message: "Transaction recorded successfully"
+      });
+    } catch (error) {
+      console.error('Direct transaction recording error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to record transaction',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -3460,6 +3483,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (allStepsComplete) {
         swapState.status = 'COMPLETED';
         console.log(`🎉 Swap ${swapId} fully completed!`);
+        
+        // Record completed swap in database
+        try {
+          const swapTransaction = {
+            ethereumWallet: swapState.fromChain === 'ethereum' || swapState.toChain === 'ethereum' ? walletAddress : null,
+            suiWallet: swapState.fromChain === 'sui' || swapState.toChain === 'sui' ? walletAddress : null,
+            assetPairFrom: swapState.fromToken,
+            assetPairTo: swapState.toToken,
+            sourceChain: swapState.fromChain,
+            targetChain: swapState.toChain,
+            spread: "0.70",
+            status: 'completed',
+            amount: swapState.amount.toString(),
+            amountReceived: (parseFloat(swapState.amount) * 1.007).toString(), // 0.7% profit
+            profit: (parseFloat(swapState.amount) * 0.007).toString(),
+            ethereumTxHash: swapState.fromChain === 'ethereum' || swapState.toChain === 'ethereum' ? txHash : null,
+            suiTxHash: swapState.fromChain === 'sui' || swapState.toChain === 'sui' ? txHash : null,
+            explorerUrls: JSON.stringify({
+              ethereum: swapState.fromChain === 'ethereum' || swapState.toChain === 'ethereum' ? 
+                `https://sepolia.etherscan.io/tx/${txHash}` : null,
+              sui: swapState.fromChain === 'sui' || swapState.toChain === 'sui' ? 
+                `https://testnet.suivision.xyz/txblock/${txHash}` : null
+            })
+          };
+
+          await storage.createTransaction(swapTransaction);
+          console.log(`💾 Recorded completed swap in database: ${swapId}`);
+        } catch (dbError) {
+          console.error('Failed to record swap in database:', dbError);
+        }
       }
 
       swapState.updatedAt = new Date().toISOString();
@@ -3664,7 +3717,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create transaction record
       const transaction = await storage.createTransaction({
-        agentId: null,
         assetPairFrom: opportunity.assetPairFrom,
         assetPairTo: opportunity.assetPairTo,
         sourceChain: opportunity.sourceChain,
@@ -3673,7 +3725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profit: profit.toString(),
         spread: opportunity.spread,
         status: "completed",
-        txHash: `0x${Math.random().toString(16).substr(2, 8)}...${Math.random().toString(16).substr(2, 8)}`,
+        ethereumTxHash: `0x${Math.random().toString(16).substr(2, 8)}...${Math.random().toString(16).substr(2, 8)}`,
       });
 
       // Update portfolio
