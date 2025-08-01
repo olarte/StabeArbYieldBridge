@@ -1227,26 +1227,7 @@ function ArbitrageTradingPage() {
         onWalletUpdate={handleWalletChange}
       />
       <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-6 py-12">
-          <div className="max-w-3xl mx-auto">
-            <p className="text-lg text-gray-600 leading-relaxed">
-              Leverage cutting-edge atomic swap technology for sophisticated cross-network arbitrage strategies between Ethereum Sepolia and Sui Testnet
-            </p>
-          </div>
-          
-          {/* Status Indicators */}
-          <div className="flex justify-center gap-6 mt-8">
-            <div className="flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full border border-green-300">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-green-700 text-sm font-medium">🩶 Ethereum Sepolia</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full border border-blue-300">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-blue-700 text-sm font-medium">🔵 Sui Testnet</span>
-            </div>
-          </div>
-        </div>
+
         <PortfolioBalance 
           walletConnections={walletConnections}
           suiWalletInfo={suiWalletInfo}
