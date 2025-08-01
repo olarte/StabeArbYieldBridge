@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,10 +60,6 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Debug wallet connections
-  console.log('🔍 CreateAgent - walletConnections:', walletConnections);
-  console.log('🔍 CreateAgent - suiWalletInfo:', suiWalletInfo);
-
   const form = useForm<CreateAgentForm>({
     resolver: zodResolver(createAgentSchema),
     defaultValues: {
@@ -77,6 +73,39 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
       goalValue: "10",
     },
   });
+
+  // Listen for form prepopulation events
+  useEffect(() => {
+    const handlePrepopulate = (event: CustomEvent) => {
+      const { assetPair, sourceChain, targetChain, minSpread, maxAmount } = event.detail;
+      
+      // Prepopulate the form
+      form.reset({
+        name: `Auto-${assetPair}-${sourceChain}-${targetChain}`,
+        assetPair,
+        sourceChain,
+        targetChain,
+        minSpread,
+        maxAmount,
+        goalType: 'profit_target',
+        goalValue: '10',
+      });
+      
+      // Show the form
+      setShowCreateForm(true);
+      
+      toast({
+        title: "Form Prepopulated",
+        description: `Agent form filled with ${assetPair} arbitrage data`,
+      });
+    };
+
+    window.addEventListener('prepopulate-agent-form', handlePrepopulate as EventListener);
+    
+    return () => {
+      window.removeEventListener('prepopulate-agent-form', handlePrepopulate as EventListener);
+    };
+  }, [form, toast]);
 
   // Fetch active agents
   const { data: agents = [], isLoading } = useQuery({
