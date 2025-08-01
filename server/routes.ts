@@ -1045,99 +1045,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConnectedWallets = ethereumAddress || suiAddress;
       console.log(`📝 Transaction history request - Ethereum: ${ethereumAddress || 'not connected'}, Sui: ${suiAddress || 'not connected'}`);
       
-      // Return your real completed swaps with accurate amounts and profits
-      const swapHistory = hasConnectedWallets ? [
-        {
-          id: 'real_swap_latest_1754008515888',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui', 
-          amount: 1.00,
-          profit: 0.0038,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago (most recent)
-          swapDirection: 'ethereum → sui',
-          ethereumTxHash: '0xf4935f81c66296dfe35ffd9e01bc8a461314e8e6933f4004cc6998d8871d2038',
-          suiTxHash: 'ANUBBhkSF1xnRLGsb8n7Zhfgo9sMuXbcS2pm6zCUWZEC',
-          explorerUrls: {
-            ethereum: 'https://sepolia.etherscan.io/tx/0xf4935f81c66296dfe35ffd9e01bc8a461314e8e6933f4004cc6998d8871d2038',
-            sui: 'https://suiexplorer.com/txblock/ANUBBhkSF1xnRLGsb8n7Zhfgo9sMuXbcS2pm6zCUWZEC?network=testnet'
-          }
-        },
-        {
-          id: 'real_swap_newer_1754008066570',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui', 
-          amount: 1.00,
-          profit: 0.0045,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
-          swapDirection: 'ethereum → sui',
-          ethereumTxHash: '0x98ab497436c0f1f98dff58a36a7491e60977abe6898a634f9820d2ea67f6e375',
-          suiTxHash: '7muQZUktTWag2RCw4TCH9WXB1KZSTXKKBxGEwGsSmG8w',
-          explorerUrls: {
-            ethereum: 'https://sepolia.etherscan.io/tx/0x98ab497436c0f1f98dff58a36a7491e60977abe6898a634f9820d2ea67f6e375',
-            sui: 'https://suiexplorer.com/txblock/7muQZUktTWag2RCw4TCH9WXB1KZSTXKKBxGEwGsSmG8w?network=testnet'
-          }
-        },
-        {
-          id: 'real_swap_latest_1753987921914',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui', 
-          amount: 1.00,
-          profit: 0.0055,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(), // 25 minutes ago
-          swapDirection: 'ethereum → sui',
-          ethereumTxHash: '0x314d62920d61a8bbf9aec1322e6565d51975dfe62ecca5849e5e4467262fe104',
-          suiTxHash: 'gXvfUEvbNZkByseDrVzoYmMg1Ayjhr7crd3CQV7MJ84',
-          explorerUrls: {
-            ethereum: 'https://sepolia.etherscan.io/tx/0x314d62920d61a8bbf9aec1322e6565d51975dfe62ecca5849e5e4467262fe104',
-            sui: 'https://suiexplorer.com/txblock/gXvfUEvbNZkByseDrVzoYmMg1Ayjhr7crd3CQV7MJ84?network=testnet'
-          }
-        },
-        {
-          id: 'real_swap_1753982487305_eth_sui',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui', 
-          amount: 1.00,
-          profit: 0.0040,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(), // 45 minutes ago
-          swapDirection: 'ethereum → sui',
-          ethereumTxHash: '0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656',
-          suiTxHash: '2vQB9RwSwsrfbfCdmMgPDwA1zhWWqvpFMpKygtN9TCvS',
-          explorerUrls: {
-            ethereum: 'https://sepolia.etherscan.io/tx/0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656',
-            sui: 'https://testnet.suivision.xyz/txblock/2vQB9RwSwsrfbfCdmMgPDwA1zhWWqvpFMpKygtN9TCvS'
-          }
-        },
-        {
-          id: 'real_swap_1753982487305_sui_testnet',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui',
-          amount: 1.00,
-          profit: 0.0075,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-          swapDirection: 'ethereum → sui',
-          ethereumTxHash: '0x9c4f2a8f7b6e5d3c2a1f9e8d7c6b5a4f3e2d1c9b8a7f6e5d4c3b2a1f9e8d7c6b',
-          suiTxHash: 'GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF',
-          explorerUrls: {
-            ethereum: 'https://sepolia.etherscan.io/tx/0x9c4f2a8f7b6e5d3c2a1f9e8d7c6b5a4f3e2d1c9b8a7f6e5d4c3b2a1f9e8d7c6b',
-            sui: 'https://testnet.suivision.xyz/txblock/GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF'
-          }
-        }
-      ] : [];
+      // Return real completed swaps from storage
+      const swapHistory = hasConnectedWallets ? Array.from(completedSwaps.values()) : [];
 
       res.json({
         success: true,
@@ -1251,30 +1160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only show transaction history when wallets are connected
       const hasConnectedWallets = ethereumAddress || suiAddress;
-      const swapHistory = hasConnectedWallets ? [
-        {
-          id: 'real_swap_1753982487305_eth_sui',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui', 
-          amount: 1.00,
-          profit: 0.0040,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-        },
-        {
-          id: 'real_swap_1753982487305_sui_testnet',
-          assetPairFrom: 'USDC',
-          assetPairTo: 'USDY',
-          sourceChain: 'ethereum',
-          targetChain: 'sui',
-          amount: 1.00,
-          profit: 0.0075,
-          status: 'completed',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-        }
-      ] : [];
+      // Get swap history from actual completed swaps
+      const swapHistory = hasConnectedWallets ? Array.from(completedSwaps.values()) : [];
 
       // Get real wallet balances
       let walletBalances = {
@@ -3545,6 +3432,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (allStepsComplete) {
         swapState.status = 'COMPLETED';
         console.log(`✅ Swap ${swapId} completed successfully`);
+        
+        // Store the completed swap with real execution data
+        await storeCompletedSwapData(swapId, swapState, executionResult);
       }
 
       swapState.updatedAt = new Date().toISOString();
@@ -5500,6 +5390,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Storage for completed swaps (in-memory)
+  const completedSwaps = new Map();
+  
+  // Function to store completed swap with real execution data
+  async function storeCompletedSwapData(swapId: string, swapState: any, executionResult: any) {
+    try {
+      // Extract real swap data from execution state
+      const swapData = {
+        id: swapId,
+        assetPairFrom: swapState.fromToken || 'USDC',
+        assetPairTo: swapState.toToken || 'USDY',
+        sourceChain: swapState.fromChain || 'ethereum',
+        targetChain: swapState.toChain || 'sui',
+        amount: swapState.amount || 1.00,
+        profit: swapState.estimatedProfit || (swapState.amount * 0.005), // Estimate 0.5% profit
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        swapDirection: `${swapState.fromChain || 'ethereum'} → ${swapState.toChain || 'sui'}`,
+        ethereumTxHash: swapState.ethereumTxHash || extractTxHashFromSteps(swapState.executionPlan.steps, 'ethereum'),
+        suiTxHash: swapState.suiTxHash || extractTxHashFromSteps(swapState.executionPlan.steps, 'sui'),
+        explorerUrls: {
+          ethereum: swapState.ethereumTxHash ? `https://sepolia.etherscan.io/tx/${swapState.ethereumTxHash}` : '',
+          sui: swapState.suiTxHash ? `https://suiexplorer.com/txblock/${swapState.suiTxHash}?network=testnet` : ''
+        }
+      };
+      
+      // Store in global registry
+      completedSwaps.set(swapId, swapData);
+      
+      console.log(`💾 Stored completed swap data: ${swapData.assetPairFrom} → ${swapData.assetPairTo}, Amount: ${swapData.amount}, Profit: $${swapData.profit.toFixed(4)}`);
+      
+    } catch (error) {
+      console.error('Error storing completed swap data:', error);
+    }
+  }
+  
+  // Helper function to extract transaction hashes from execution steps
+  function extractTxHashFromSteps(steps: any[], chain: string): string | null {
+    const chainSteps = steps.filter(step => step.chain === chain || 
+      (chain === 'ethereum' && (step.chain === 'celo' || step.chain === 'ethereum')) ||
+      (chain === 'sui' && step.chain === 'sui'));
+    
+    for (const step of chainSteps) {
+      if (step.transactionHash) {
+        return step.transactionHash;
+      }
+      if (step.txHash) {
+        return step.txHash;
+      }
+    }
+    return null;
+  }
 
   const httpServer = createServer(app);
   return httpServer;
