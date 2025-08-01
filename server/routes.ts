@@ -1159,15 +1159,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/portfolio/balance', async (req, res) => {
     try {
       console.log('💰 Portfolio balance request received');
-      console.log('Request body:', req.body);
       
-      const { ethereumAddress, suiAddress } = req.body || {};
+      // Safely extract request body
+      const requestBody = req.body || {};
+      console.log('Request body received:', requestBody);
+      
+      const { ethereumAddress, suiAddress } = requestBody;
       console.log(`💰 Portfolio balance request - Ethereum: ${ethereumAddress || 'not connected'}, Sui: ${suiAddress || 'not connected'}`);
       
       // Only show transaction history when wallets are connected
       const hasConnectedWallets = ethereumAddress || suiAddress;
-      // Get swap history from actual completed swaps
-      const swapHistory = hasConnectedWallets ? Array.from(completedSwaps.values()) : [];
+      // Get swap history from actual completed swaps - safely access storage
+      const swapHistory = hasConnectedWallets ? 
+        (storage.completedSwaps ? Array.from(storage.completedSwaps.values()) : []) : [];
 
       // Get real wallet balances
       let walletBalances = {
