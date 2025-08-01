@@ -311,7 +311,7 @@ function PegProtectionStatus() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-600">🟢 Ethereum Price</div>
+              <div className="text-sm font-medium text-gray-600">⧫ Ethereum Price</div>
               <div className="text-lg font-bold text-gray-900">
                 ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.ethereum ? Number((pegStatus as any).crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
               </div>
