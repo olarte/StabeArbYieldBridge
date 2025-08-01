@@ -1348,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
     } catch (error) {
-      console.error('Failed to fetch portfolio balance:', error);
+      console.error('Portfolio balance error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch portfolio balance',
@@ -3829,9 +3829,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ethereumPrice: spreadAnalysis.ethereumPrice.toFixed(6),
             suiPrice: spreadAnalysis.suiPrice.toFixed(6),
             estimatedProfit: spreadAnalysis.estimatedProfit,
-            direction: spreadAnalysis.direction === 'ETHEREUM_TO_SUI' ? 'ethereum → sui' : 'sui → ethereum', // Match transaction history format
+            swapDirection: spreadAnalysis.direction === 'ETHEREUM_TO_SUI' ? 'ethereum → sui' : 'sui → ethereum', // Match transaction history format
             betterChain: spreadAnalysis.analysis.betterChain,
-            optimalAmount: 1.00, // Match transaction history amount format
+            amount: 1.00, // Match transaction history amount format
+            optimalAmount: 1.00, // Legacy field for compatibility  
+            sourceChain: 'ethereum',
+            targetChain: 'sui',
             source: 'enhanced_cross_chain_analysis',
             status: 'active',
             confidence: spreadAnalysis.spread > 1.0 ? 'high' : 'medium',
@@ -3844,7 +3847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           opportunities.push(opportunity);
           
-          // Store enhanced opportunity
+          // Store enhanced opportunity  
           await storage.createArbitrageOpportunity({
             assetPairFrom: 'USDC',
             assetPairTo: 'USDY', // Match transaction history format
@@ -3914,8 +3917,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ethereumPrice: ethereumPrice.toFixed(6),
                 suiPrice: suiPrice.toFixed(6),
                 estimatedProfit: (finalSpread * 0.7).toFixed(2), // Account for fees
-                direction: ethereumPrice > suiPrice ? 'ethereum → sui' : 'sui → ethereum', // Match transaction history format
-                optimalAmount: 1.00, // Match transaction history amount format
+                swapDirection: ethereumPrice > suiPrice ? 'ethereum → sui' : 'sui → ethereum', // Match transaction history format
+                amount: 1.00, // Match transaction history amount format
+                optimalAmount: 1.00, // Legacy field for compatibility
+                sourceChain: 'ethereum',
+                targetChain: 'sui',
                 source: 'fallback_pair_scanning',
                 status: 'active',
                 confidence: spread > 1.0 ? 'high' : 'medium',
