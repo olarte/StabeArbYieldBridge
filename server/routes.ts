@@ -3442,7 +3442,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if all steps completed (only count COMPLETED, not PENDING_SIGNATURE)
       const allStepsComplete = swapState.executionPlan.steps.every((s: any) => s.status === 'COMPLETED');
-      if (allStepsComplete) {
+      
+      // Also check if this is the final step and it was just completed
+      const isFinalStepCompleted = (step === swapState.executionPlan.steps.length - 1) && (executionResult.status === 'COMPLETED');
+      
+      if (allStepsComplete || isFinalStepCompleted) {
         swapState.status = 'COMPLETED';
         console.log(`✅ Swap ${swapId} completed successfully`);
         
@@ -3531,6 +3535,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (allStepsComplete) {
         swapState.status = 'COMPLETED';
         console.log(`🎉 Swap ${swapId} fully completed!`);
+        
+        // Store the completed swap with real execution data
+        console.log(`💾 Storing completed swap data for ${swapId}...`);
+        await storeCompletedSwapData(swapId, swapState, currentStep.result);
       }
 
       swapState.updatedAt = new Date().toISOString();
@@ -5458,6 +5466,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Call this once to add test data
   addTestCompletedSwap();
+  
+  // Test endpoint to simulate completing a real swap (for debugging)
+  app.post("/api/test/complete-swap", async (req, res) => {
+    try {
+      const swapId = `real_swap_${Date.now()}_test`;
+      const mockSwapState = {
+        fromToken: 'USDC',
+        toToken: 'USDY',
+        fromChain: 'ethereum',
+        toChain: 'sui',
+        amount: 150.0,
+        estimatedProfit: 0.75,
+        executionPlan: {
+          steps: [
+            { 
+              status: 'COMPLETED', 
+              result: { 
+                txHash: 'Gm3sz9FRWxg1k9m8ohKpoiHXpH9g8AXJKN7QEthiCbhL',
+                chain: 'sui'
+              }
+            }
+          ]
+        }
+      };
+      const mockExecutionResult = {
+        result: {
+          txHash: 'Gm3sz9FRWxg1k9m8ohKpoiHXpH9g8AXJKN7QEthiCbhL'
+        }
+      };
+      
+      await storeCompletedSwapData(swapId, mockSwapState, mockExecutionResult);
+      
+      res.json({
+        success: true,
+        message: `Test swap ${swapId} completed and stored`,
+        data: { swapId }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to complete test swap',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 
   // Function to store completed swap with real execution data
   async function storeCompletedSwapData(swapId: string, swapState: any, executionResult: any) {
@@ -5469,13 +5522,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assetPairTo: swapState.toToken || 'USDY',
         sourceChain: swapState.fromChain || 'ethereum',
         targetChain: swapState.toChain || 'sui',
-        amount: swapState.amount || 1.00,
+        amount: swapState.amount || 100.00,
         profit: swapState.estimatedProfit || (swapState.amount * 0.005), // Estimate 0.5% profit
         status: 'completed',
         timestamp: new Date().toISOString(),
         swapDirection: `${swapState.fromChain || 'ethereum'} → ${swapState.toChain || 'sui'}`,
-        ethereumTxHash: swapState.ethereumTxHash || extractTxHashFromSteps(swapState.executionPlan.steps, 'ethereum'),
-        suiTxHash: swapState.suiTxHash || extractTxHashFromSteps(swapState.executionPlan.steps, 'sui'),
+        ethereumTxHash: swapState.ethereumTxHash || extractTxHashFromSteps(swapState.executionPlan.steps, 'ethereum') || executionResult?.result?.txHash,
+        suiTxHash: swapState.suiTxHash || extractTxHashFromSteps(swapState.executionPlan.steps, 'sui') || (executionResult?.result?.txHash && swapState.toChain === 'sui' ? executionResult.result.txHash : null),
         explorerUrls: {
           ethereum: swapState.ethereumTxHash ? `https://sepolia.etherscan.io/tx/${swapState.ethereumTxHash}` : '',
           sui: swapState.suiTxHash ? `https://suiexplorer.com/txblock/${swapState.suiTxHash}?network=testnet` : ''
@@ -5499,6 +5552,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (chain === 'sui' && step.chain === 'sui'));
     
     for (const step of chainSteps) {
+      if (step.result?.txHash) {
+        return step.result.txHash;
+      }
+      if (step.result?.transactionHash) {
+        return step.result.transactionHash;
+      }
       if (step.transactionHash) {
         return step.transactionHash;
       }
