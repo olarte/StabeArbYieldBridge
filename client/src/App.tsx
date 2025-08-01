@@ -1201,7 +1201,7 @@ function ArbitrageTradingPage() {
   const [walletConnections, setWalletConnections] = useState<any>({});
   const [suiWalletInfo, setSuiWalletInfo] = useState<any>({});
 
-  // Handle unified wallet changes from WalletSelector
+  // Handle unified wallet changes from Header
   const handleWalletChange = (walletType: 'ethereum' | 'sui', walletInfo: any) => {
     console.log('🔄 Wallet change received:', { walletType, walletInfo });
     if (walletType === 'ethereum') {
@@ -1212,6 +1212,12 @@ function ArbitrageTradingPage() {
       console.log('🟣 Sui wallet updated:', walletInfo);
     }
   };
+
+  // Debug current wallet state
+  console.log('🧭 Current wallet state:', {
+    ethereum: walletConnections?.account || 'not connected',
+    sui: suiWalletInfo?.account?.address || 'not connected'
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">

@@ -62,7 +62,7 @@ export function Header({ walletConnections, suiWalletInfo, onWalletUpdate }: Hea
                   </div>
                 </div>
                 <WalletConnect 
-                  onWalletUpdate={(info: any) => onWalletUpdate?.('ethereum', info)}
+                  onWalletChange={(info: any) => onWalletUpdate?.('ethereum', info)}
                 />
                 {walletConnections?.account && (
                   <div className="space-y-2 pt-2 border-t">
@@ -107,7 +107,7 @@ export function Header({ walletConnections, suiWalletInfo, onWalletUpdate }: Hea
                   </div>
                 </div>
                 <SuiWalletConnect 
-                  onWalletUpdate={(info: any) => onWalletUpdate?.('sui', info)}
+                  onWalletChange={(info: any) => onWalletUpdate?.('sui', info)}
                 />
                 {suiWalletInfo?.account?.address && (
                   <div className="space-y-2 pt-2 border-t">
