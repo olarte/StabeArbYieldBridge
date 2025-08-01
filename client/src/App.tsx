@@ -789,12 +789,10 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             <TableHeader>
               <TableRow>
                 <TableHead>Asset Pair</TableHead>
-                <TableHead>Swap Direction</TableHead>
                 <TableHead>Uniswap V3 Price</TableHead>
                 <TableHead>Cetus Price</TableHead>
                 <TableHead>Spread</TableHead>
                 <TableHead>Est. Profit</TableHead>
-                <TableHead>Confidence</TableHead>
                 <TableHead>Amount ($)</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
@@ -803,23 +801,24 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
               {opportunities.map((opp: any) => (
                 <TableRow key={opp.id}>
                   <TableCell className="font-medium">
-                    {opp.assetPairFrom} → {opp.assetPairTo}
-                  </TableCell>
-                  <TableCell>
                     <div className="flex items-center gap-2">
                       {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? (
                         // Sui → Ethereum direction
                         <div className="flex items-center gap-1">
-                          <span className="text-blue-600 text-lg">🔵</span>
+                          <span className="text-lg">🔵</span>
+                          <span className="text-sm">{opp.assetPairFrom}</span>
                           <span className="text-xs text-muted-foreground">→</span>
                           <span className="text-lg">🩶</span>
+                          <span className="text-sm">{opp.assetPairTo}</span>
                         </div>
                       ) : (
                         // Ethereum → Sui direction
                         <div className="flex items-center gap-1">
                           <span className="text-lg">🩶</span>
+                          <span className="text-sm">{opp.assetPairFrom}</span>
                           <span className="text-xs text-muted-foreground">→</span>
-                          <span className="text-blue-600 text-lg">🔵</span>
+                          <span className="text-lg">🔵</span>
+                          <span className="text-sm">{opp.assetPairTo}</span>
                         </div>
                       )}
                     </div>
@@ -843,14 +842,6 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                   </TableCell>
                   <TableCell className="text-green-600 font-medium">
                     ${Number(opp.estimatedProfit).toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={
-                      opp.confidence === 'high' ? 'default' : 
-                      opp.confidence === 'medium' ? 'secondary' : 'outline'
-                    }>
-                      {opp.confidence}
-                    </Badge>
                   </TableCell>
                   <TableCell>
                     <input
