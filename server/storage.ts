@@ -10,9 +10,17 @@ import {
   type Portfolio,
   type InsertPortfolio,
   type ChainStatus,
-  type InsertChainStatus
+  type InsertChainStatus,
+  users,
+  arbitrageOpportunities,
+  tradingAgents,
+  transactions,
+  portfolio as portfolioTable,
+  chainStatus
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, or, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -37,6 +45,7 @@ export interface IStorage {
   // Transactions
   getTransactions(limit?: number): Promise<Transaction[]>;
   getTransactionsByAgent(agentId: string): Promise<Transaction[]>;
+  getTransactionsByWallets(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined>;
 
@@ -324,6 +333,11 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime());
   }
 
+  async getTransactionsByWallets(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {
+    // For memory storage, return empty array since we don't have wallet tracking
+    return [];
+  }
+
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const id = randomUUID();
     const transaction: Transaction = {
@@ -387,4 +401,173 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database storage implementation
+export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  // Arbitrage Opportunities methods
+  async getArbitrageOpportunities(): Promise<ArbitrageOpportunity[]> {
+    return await db.select().from(arbitrageOpportunities);
+  }
+
+  async getActiveArbitrageOpportunities(): Promise<ArbitrageOpportunity[]> {
+    return await db.select().from(arbitrageOpportunities).where(eq(arbitrageOpportunities.isActive, true));
+  }
+
+  async createArbitrageOpportunity(opportunity: InsertArbitrageOpportunity): Promise<ArbitrageOpportunity> {
+    const [created] = await db.insert(arbitrageOpportunities).values(opportunity).returning();
+    return created;
+  }
+
+  async updateArbitrageOpportunity(id: string, updates: Partial<ArbitrageOpportunity>): Promise<ArbitrageOpportunity | undefined> {
+    const [updated] = await db.update(arbitrageOpportunities)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(arbitrageOpportunities.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Trading Agents methods
+  async getTradingAgents(): Promise<TradingAgent[]> {
+    return await db.select().from(tradingAgents);
+  }
+
+  async getActiveTradingAgents(): Promise<TradingAgent[]> {
+    return await db.select().from(tradingAgents).where(eq(tradingAgents.isActive, true));
+  }
+
+  async getTradingAgent(id: string): Promise<TradingAgent | undefined> {
+    const [agent] = await db.select().from(tradingAgents).where(eq(tradingAgents.id, id));
+    return agent || undefined;
+  }
+
+  async createTradingAgent(agent: InsertTradingAgent): Promise<TradingAgent> {
+    const [created] = await db.insert(tradingAgents).values(agent).returning();
+    return created;
+  }
+
+  async updateTradingAgent(id: string, updates: Partial<TradingAgent>): Promise<TradingAgent | undefined> {
+    const [updated] = await db.update(tradingAgents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tradingAgents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTradingAgent(id: string): Promise<boolean> {
+    const result = await db.delete(tradingAgents).where(eq(tradingAgents.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // Transaction methods
+  async getTransactions(limit = 50): Promise<Transaction[]> {
+    return await db.select().from(transactions)
+      .orderBy(desc(transactions.executedAt))
+      .limit(limit);
+  }
+
+  async getTransactionsByAgent(agentId: string): Promise<Transaction[]> {
+    return await db.select().from(transactions)
+      .where(eq(transactions.agentId, agentId))
+      .orderBy(desc(transactions.executedAt));
+  }
+
+  async getTransactionsByWallets(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {
+    if (!ethereumAddress && !suiAddress) {
+      return [];
+    }
+
+    const conditions = [];
+    if (ethereumAddress) {
+      conditions.push(eq(transactions.ethereumWallet, ethereumAddress));
+    }
+    if (suiAddress) {
+      conditions.push(eq(transactions.suiWallet, suiAddress));
+    }
+
+    return await db.select().from(transactions)
+      .where(or(...conditions))
+      .orderBy(desc(transactions.executedAt));
+  }
+
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
+    const [created] = await db.insert(transactions).values(transaction).returning();
+    return created;
+  }
+
+  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined> {
+    const [updated] = await db.update(transactions)
+      .set(updates)
+      .where(eq(transactions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Portfolio methods
+  async getPortfolio(): Promise<Portfolio | undefined> {
+    const [portfolioData] = await db.select().from(portfolioTable).limit(1);
+    return portfolioData || undefined;
+  }
+
+  async updatePortfolio(updates: Partial<Portfolio>): Promise<Portfolio> {
+    // First check if portfolio exists
+    const existing = await this.getPortfolio();
+    
+    if (existing) {
+      const [updated] = await db.update(portfolioTable)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(portfolioTable.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new portfolio if none exists
+      const [created] = await db.insert(portfolioTable)
+        .values({ ...updates, updatedAt: new Date() })
+        .returning();
+      return created;
+    }
+  }
+
+  // Chain Status methods
+  async getChainStatuses(): Promise<ChainStatus[]> {
+    return await db.select().from(chainStatus);
+  }
+
+  async getChainStatus(chainName: string): Promise<ChainStatus | undefined> {
+    const [status] = await db.select().from(chainStatus).where(eq(chainStatus.chainName, chainName));
+    return status || undefined;
+  }
+
+  async updateChainStatus(chainName: string, updates: Partial<ChainStatus>): Promise<ChainStatus> {
+    const existing = await this.getChainStatus(chainName);
+    
+    if (existing) {
+      const [updated] = await db.update(chainStatus)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(chainStatus.chainName, chainName))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(chainStatus)
+        .values({ chainName, ...updates, updatedAt: new Date() })
+        .returning();
+      return created;
+    }
+  }
+}
+
+export const storage = new DatabaseStorage();

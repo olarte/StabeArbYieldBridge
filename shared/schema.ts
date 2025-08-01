@@ -42,16 +42,20 @@ export const tradingAgents = pgTable("trading_agents", {
 
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  agentId: varchar("agent_id"),
+  ethereumWallet: text("ethereum_wallet"),
+  suiWallet: text("sui_wallet"),
   assetPairFrom: text("asset_pair_from").notNull(),
   assetPairTo: text("asset_pair_to").notNull(),
   sourceChain: text("source_chain").notNull(),
   targetChain: text("target_chain").notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  profit: decimal("profit", { precision: 10, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 18, scale: 8 }).notNull(),
+  amountReceived: decimal("amount_received", { precision: 18, scale: 8 }),
+  profit: decimal("profit", { precision: 18, scale: 8 }).notNull(),
   spread: decimal("spread", { precision: 10, scale: 4 }).notNull(),
   status: text("status").notNull(), // 'pending', 'completed', 'failed'
-  txHash: text("tx_hash"),
+  ethereumTxHash: text("ethereum_tx_hash"),
+  suiTxHash: text("sui_tx_hash"),
+  explorerUrls: text("explorer_urls"), // JSON string with both explorer URLs
   executedAt: timestamp("executed_at").defaultNow().notNull(),
 });
 
