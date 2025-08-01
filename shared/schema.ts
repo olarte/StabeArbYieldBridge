@@ -42,6 +42,10 @@ export const tradingAgents = pgTable("trading_agents", {
   goalAchieved: boolean("goal_achieved").default(false).notNull(),
   ethereumWallet: text("ethereum_wallet"),
   suiWallet: text("sui_wallet"),
+  // 1Inch Limit Order Protocol integration fields
+  oneInchOrderId: text("one_inch_order_id"),
+  oneInchOrderHash: text("one_inch_order_hash"),
+  oneInchOrderStatus: text("one_inch_order_status").default("pending"), // 'pending', 'active', 'filled', 'cancelled'
   lastExecutedAt: timestamp("last_executed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
