@@ -60,6 +60,10 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Debug wallet connections
+  console.log('🔍 CreateAgent - walletConnections:', walletConnections);
+  console.log('🔍 CreateAgent - suiWalletInfo:', suiWalletInfo);
+
   const form = useForm<CreateAgentForm>({
     resolver: zodResolver(createAgentSchema),
     defaultValues: {
@@ -85,8 +89,8 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
       const agentData = {
         ...data,
         frequency: 5, // 5 minutes
-        ethereumWallet: walletConnections.ethereum || null,
-        suiWallet: suiWalletInfo.address || null,
+        ethereumWallet: walletConnections?.account || walletConnections?.ethereum || null,
+        suiWallet: suiWalletInfo?.address || null,
       };
       const response = await fetch('/api/agents', {
         method: 'POST',
@@ -335,7 +339,7 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
       )}
 
       {/* Active Agents - Only show when wallets are connected */}
-      {(walletConnections.ethereum || suiWalletInfo?.address) && (
+      {(walletConnections?.ethereum || walletConnections?.account || suiWalletInfo?.address) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg text-gray-900">Active Agents</CardTitle>
@@ -453,7 +457,7 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
       )}
 
       {/* Message when no wallets connected */}
-      {!walletConnections.ethereum && !suiWalletInfo?.address && (
+      {!walletConnections?.ethereum && !walletConnections?.account && !suiWalletInfo?.address && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg text-gray-900">Connect Wallets to View Agents</CardTitle>
