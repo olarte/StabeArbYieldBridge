@@ -3434,6 +3434,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       currentStep.status = executionResult.status;
       currentStep.result = executionResult;
       currentStep.executedAt = executionResult.executedAt;
+
+      // Force COMPLETED status for successful backend transactions
+      const hasTransactionHash = (executionResult as any)?.data?.transactionHash || 
+                                 (executionResult as any)?.transactionHash ||
+                                 (executionResult as any)?.result?.transactionHash;
+      
+      if (hasTransactionHash && executionResult.status !== 'PENDING_SIGNATURE') {
+        currentStep.status = 'COMPLETED';
+        console.log(`🔄 Forcing step ${step} to COMPLETED status due to successful transaction: ${hasTransactionHash}`);
+      }
       
       // For PENDING_SIGNATURE steps, don't mark as complete yet
       if (executionResult.status === 'PENDING_SIGNATURE') {
@@ -3445,18 +3455,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isFinalStep = (step === swapState.executionPlan.steps.length);
       
       // Check if this is a successful backend execution (has transactionHash)
-      const hasSuccessfulExecution = executionResult?.result?.transactionHash || 
-                                    executionResult?.result?.txHash ||
-                                    (executionResult?.data && (executionResult.data.transactionHash || executionResult.data.txHash));
+      const hasSuccessfulExecution = (executionResult as any)?.result?.transactionHash || 
+                                    (executionResult as any)?.result?.txHash ||
+                                    (executionResult as any)?.data?.transactionHash ||
+                                    (executionResult as any)?.data?.txHash ||
+                                    (executionResult as any)?.transactionHash;
+
+      // Additional check: if we're at the final step and have a transaction hash, consider it complete
+      const shouldMarkComplete = allStepsComplete || 
+                                (isFinalStep && hasSuccessfulExecution) ||
+                                (step >= 4 && hasSuccessfulExecution); // Steps 4+ with tx hash should complete
 
       console.log(`🔍 Completion check for step ${step}/${swapState.executionPlan.steps.length}:`);
       console.log(`   - All steps complete: ${allStepsComplete}`);
       console.log(`   - Is final step: ${isFinalStep}`);
       console.log(`   - Has successful execution: ${hasSuccessfulExecution}`);
-      console.log(`   - Execution result:`, JSON.stringify(executionResult, null, 2));
+      console.log(`   - Current step result:`, JSON.stringify((executionResult as any)?.data || executionResult, null, 2));
+      console.log(`   - Step statuses:`, swapState.executionPlan.steps.map((s: any) => `${s.id}:${s.status}`).join(', '));
       
       // Mark swap as completed if all steps are done OR if this is the final step with successful execution
-      if (allStepsComplete || (isFinalStep && hasSuccessfulExecution)) {
+      if (shouldMarkComplete) {
         swapState.status = 'COMPLETED';
         console.log(`✅ Swap ${swapId} completed successfully - triggering storage`);
         
