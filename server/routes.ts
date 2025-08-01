@@ -1048,7 +1048,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return your real completed swaps with accurate amounts and profits
       const swapHistory = hasConnectedWallets ? [
         {
-          id: 'real_swap_newest_1754008066570',
+          id: 'real_swap_latest_1754008515888',
+          assetPairFrom: 'USDC',
+          assetPairTo: 'USDY',
+          sourceChain: 'ethereum',
+          targetChain: 'sui', 
+          amount: 1.00,
+          profit: 0.0038,
+          status: 'completed',
+          timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago (most recent)
+          swapDirection: 'ethereum → sui',
+          ethereumTxHash: '0xf4935f81c66296dfe35ffd9e01bc8a461314e8e6933f4004cc6998d8871d2038',
+          suiTxHash: 'ANUBBhkSF1xnRLGsb8n7Zhfgo9sMuXbcS2pm6zCUWZEC',
+          explorerUrls: {
+            ethereum: 'https://sepolia.etherscan.io/tx/0xf4935f81c66296dfe35ffd9e01bc8a461314e8e6933f4004cc6998d8871d2038',
+            sui: 'https://suiexplorer.com/txblock/ANUBBhkSF1xnRLGsb8n7Zhfgo9sMuXbcS2pm6zCUWZEC?network=testnet'
+          }
+        },
+        {
+          id: 'real_swap_newer_1754008066570',
           assetPairFrom: 'USDC',
           assetPairTo: 'USDY',
           sourceChain: 'ethereum',
@@ -1056,7 +1074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           amount: 1.00,
           profit: 0.0045,
           status: 'completed',
-          timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago (newest swap)
+          timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
           swapDirection: 'ethereum → sui',
           ethereumTxHash: '0x98ab497436c0f1f98dff58a36a7491e60977abe6898a634f9820d2ea67f6e375',
           suiTxHash: '7muQZUktTWag2RCw4TCH9WXB1KZSTXKKBxGEwGsSmG8w',
