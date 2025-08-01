@@ -171,7 +171,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2 shadow-sm">
                 <div className="flex items-center gap-2">
 
-                  <span className="font-medium text-gray-900">⧫ Ethereum Sepolia</span>
+                  <span className="font-medium text-gray-900"><span className="text-black text-lg">⧫</span> Ethereum Sepolia</span>
                   {walletConnections?.account && (
                     <span className="text-xs text-green-700 font-medium bg-green-100 px-2 py-1 rounded-full">Connected</span>
                   )}
@@ -311,7 +311,7 @@ function PegProtectionStatus() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-600">⧫ Ethereum Price</div>
+              <div className="text-sm font-medium text-gray-600"><span className="text-black text-lg">⧫</span> Ethereum Price</div>
               <div className="text-lg font-bold text-gray-900">
                 ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.ethereum ? Number((pegStatus as any).crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
               </div>
@@ -890,12 +890,12 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                         <div className="flex items-center gap-1">
                           <span className="text-blue-600 text-lg">🔵</span>
                           <span className="text-xs text-muted-foreground">→</span>
-                          <span className="text-green-600 text-lg">⧫</span>
+                          <span className="text-black text-lg">⧫</span>
                         </div>
                       ) : (
                         // Ethereum → Sui direction
                         <div className="flex items-center gap-1">
-                          <span className="text-green-600 text-lg">⧫</span>
+                          <span className="text-black text-lg">⧫</span>
                           <span className="text-xs text-muted-foreground">→</span>
                           <span className="text-blue-600 text-lg">🔵</span>
                         </div>
@@ -1126,7 +1126,7 @@ function PreviousSwapsExecuted({
                               ? 'bg-green-100 dark:bg-green-900 text-green-700' 
                               : 'bg-blue-100 dark:bg-blue-900 text-blue-700'
                           }`}>
-                            {swap.sourceChain === 'ethereum' ? '⧫' : '🔵'} {swap.sourceChain}
+                            {swap.sourceChain === 'ethereum' ? <span className="text-black text-lg">⧫</span> : '🔵'} {swap.sourceChain}
                           </span>
                           →
                           <span className={`text-xs px-2 py-1 rounded ${
@@ -1134,7 +1134,7 @@ function PreviousSwapsExecuted({
                               ? 'bg-green-100 dark:bg-green-900 text-green-700' 
                               : 'bg-blue-100 dark:bg-blue-900 text-blue-700'
                           }`}>
-                            {swap.targetChain === 'ethereum' ? '⧫' : '🔵'} {swap.targetChain}
+                            {swap.targetChain === 'ethereum' ? <span className="text-black text-lg">⧫</span> : '🔵'} {swap.targetChain}
                           </span>
                         </div>
                       </TableCell>
@@ -1151,7 +1151,7 @@ function PreviousSwapsExecuted({
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs"
                             >
-                              <span className="text-xs text-gray-500">⧫ ETH:</span>
+                              <span className="text-xs text-gray-500"><span className="text-black text-lg">⧫</span> ETH:</span>
                               {shortenHash(swap.ethereumTxHash)}
                               <ExternalLink className="w-3 h-3" />
                             </a>
@@ -1236,7 +1236,7 @@ function LivePriceMonitor() {
                 {(priceData as any)?.data?.price?.formatted || '1 USDC = 1.000000 WETH'}
               </div>
               <Badge variant="outline" className="text-xs bg-green-100 border-green-300 text-green-700">
-                ⧫ Ethereum Sepolia Testnet
+                <span className="text-black text-lg">⧫</span> Ethereum Sepolia Testnet
               </Badge>
             </div>
           )}
@@ -1314,7 +1314,7 @@ function ArbitrageTradingPage() {
           <div className="flex justify-center gap-6 mt-8">
             <div className="flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full border border-green-300">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-green-700 text-sm font-medium">⧫ Ethereum Sepolia</span>
+              <span className="text-green-700 text-sm font-medium"><span className="text-black text-lg">⧫</span> Ethereum Sepolia</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full border border-blue-300">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
