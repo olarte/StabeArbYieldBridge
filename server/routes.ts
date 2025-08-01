@@ -9,6 +9,9 @@ import { insertTradingAgentSchema, insertTransactionSchema } from "@shared/schem
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
+// Storage for completed swaps (in-memory) - moved to top to avoid initialization errors
+const completedSwaps = new Map();
+
 // Enhanced cross-chain spread analysis for Ethereum-Sui
 async function analyzeCrossChainSpread(fromChain: string, toChain: string, fromToken: string, toToken: string, minSpread: number) {
   try {
@@ -5391,8 +5394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Storage for completed swaps (in-memory)
-  const completedSwaps = new Map();
+
   
   // Function to store completed swap with real execution data
   async function storeCompletedSwapData(swapId: string, swapState: any, executionResult: any) {
