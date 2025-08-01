@@ -3895,7 +3895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'ethereum', 
           'sui', 
           'USDC', 
-          'USDC', 
+          'USDY', // Focus on USDC→USDY like transaction history
           parseFloat(minSpread as string)
         );
         
@@ -3903,16 +3903,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const opportunity = {
             id: `arb_cross_chain_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             assetPairFrom: 'USDC',
-            assetPairTo: 'USDC',
+            assetPairTo: 'USDY', // Match transaction history format
             currentSpread: spreadAnalysis.spread.toString(),
             uniswapPrice: spreadAnalysis.ethereumPrice.toFixed(6), // Frontend expects uniswapPrice
             competitorPrice: spreadAnalysis.suiPrice.toFixed(6),   // Frontend expects competitorPrice
             ethereumPrice: spreadAnalysis.ethereumPrice.toFixed(6),
             suiPrice: spreadAnalysis.suiPrice.toFixed(6),
             estimatedProfit: spreadAnalysis.estimatedProfit,
-            direction: spreadAnalysis.direction === 'ETHEREUM_TO_SUI' ? 'ETH→SUI' : 'SUI→ETH',
+            direction: spreadAnalysis.direction === 'ETHEREUM_TO_SUI' ? 'ethereum → sui' : 'sui → ethereum', // Match transaction history format
             betterChain: spreadAnalysis.analysis.betterChain,
-            optimalAmount: Math.min(10000, Math.max(100, spreadAnalysis.spread * 1000)),
+            optimalAmount: 1.00, // Match transaction history amount format
             source: 'enhanced_cross_chain_analysis',
             status: 'active',
             confidence: spreadAnalysis.spread > 1.0 ? 'high' : 'medium',
@@ -3928,13 +3928,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Store enhanced opportunity
           await storage.createArbitrageOpportunity({
             assetPairFrom: 'USDC',
-            assetPairTo: 'USDC',
+            assetPairTo: 'USDY', // Match transaction history format
             sourceChain: "ethereum",
             targetChain: "sui", 
             spread: spreadAnalysis.spread.toString(),
             profitEstimate: spreadAnalysis.estimatedProfit,
-            minAmount: "100",
-            maxAmount: "10000",
+            minAmount: "1",
+            maxAmount: "1000",
             isActive: true
           });
         }
@@ -3980,18 +3980,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const finalSpread = Math.max(spread, newSpread);
             
             if (finalSpread >= parseFloat(minSpread as string)) {
+              // Prioritize USDC→USDY pairs to match transaction history
+              const isUSDCToUSDY = (token0 === 'USDC' && token1 === 'USDY');
+              const displayToken0 = isUSDCToUSDY ? 'USDC' : token0;
+              const displayToken1 = isUSDCToUSDY ? 'USDY' : token1;
+              
               const opportunity = {
                 id: `arb_${pair.replace('-', '_')}_${Date.now()}`,
-                assetPairFrom: token0,
-                assetPairTo: token1,
+                assetPairFrom: displayToken0,
+                assetPairTo: displayToken1,
                 currentSpread: finalSpread.toFixed(4),
                 uniswapPrice: ethereumPrice.toFixed(6), // Frontend expects uniswapPrice
                 competitorPrice: suiPrice.toFixed(6),   // Frontend expects competitorPrice
                 ethereumPrice: ethereumPrice.toFixed(6),
                 suiPrice: suiPrice.toFixed(6),
                 estimatedProfit: (finalSpread * 0.7).toFixed(2), // Account for fees
-                direction: ethereumPrice > suiPrice ? 'ETH→SUI' : 'SUI→ETH',
-                optimalAmount: Math.min(10000, Math.max(100, spread * 1000)),
+                direction: ethereumPrice > suiPrice ? 'ethereum → sui' : 'sui → ethereum', // Match transaction history format
+                optimalAmount: 1.00, // Match transaction history amount format
                 source: 'fallback_pair_scanning',
                 status: 'active',
                 confidence: spread > 1.0 ? 'high' : 'medium',
@@ -4002,14 +4007,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Store fallback opportunity
               await storage.createArbitrageOpportunity({
-                assetPairFrom: token0,
-                assetPairTo: token1,
+                assetPairFrom: displayToken0,
+                assetPairTo: displayToken1,
                 sourceChain: "ethereum",
                 targetChain: "sui",
                 spread: finalSpread.toFixed(2),
                 profitEstimate: (finalSpread * 0.7).toFixed(2),
-                minAmount: "100",
-                maxAmount: "10000",
+                minAmount: "1",
+                maxAmount: "1000",
                 isActive: true
               });
             }
