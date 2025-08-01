@@ -101,15 +101,15 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
   const hasConnectedWallets = walletConnections?.account || suiWalletInfo?.account?.address;
 
   return (
-    <Card className="mb-6 bg-gradient-to-br from-slate-800/50 to-purple-900/30 border-slate-700/50 backdrop-blur-sm">
+    <Card className="mb-6 bg-white/80 border-gray-200 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-white">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           💰 Portfolio Balance
-          <Badge variant="outline" className="ml-auto bg-purple-500/20 border-purple-400/30 text-purple-200">
+          <Badge variant="outline" className="ml-auto bg-purple-100 border-purple-300 text-purple-700">
             📊 Last 7 Days
           </Badge>
         </CardTitle>
-        <CardDescription className="text-gray-300">
+        <CardDescription className="text-gray-600">
           Current balance and weekly performance across all chains
         </CardDescription>
       </CardHeader>
@@ -135,7 +135,7 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
           <div className="space-y-6">
             {/* Main Balance Display */}
             <div className="text-center space-y-2">
-              <div className="text-4xl font-bold text-white">
+              <div className="text-4xl font-bold text-gray-900">
                 💵 ${portfolio.currentBalance?.toFixed(4) || '0.0000'}
               </div>
               <div className="flex items-center justify-center gap-2">
@@ -169,15 +169,15 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
 
             {/* Chain Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-700/30 border border-slate-600/50 rounded-lg space-y-2">
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2 shadow-sm">
                 <div className="flex items-center gap-2">
                   <img src={ethereumIcon} alt="Ethereum" className="w-5 h-5 rounded-full" />
-                  <span className="font-medium text-white">🟢 Ethereum Sepolia</span>
+                  <span className="font-medium text-gray-900">🟢 Ethereum Sepolia</span>
                   {walletConnections?.account && (
-                    <span className="text-xs text-green-400 font-medium bg-green-500/20 px-2 py-1 rounded-full">Connected</span>
+                    <span className="text-xs text-green-700 font-medium bg-green-100 px-2 py-1 rounded-full">Connected</span>
                   )}
                 </div>
-                <div className="text-xl font-bold text-white">
+                <div className="text-xl font-bold text-gray-900">
                   ${portfolio.chainBalances?.ethereum?.balance?.toFixed(4) || '0.0000'}
                 </div>
                 <div className="flex items-center gap-1">
@@ -209,15 +209,15 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
                 )}
               </div>
 
-              <div className="p-4 bg-slate-700/30 border border-slate-600/50 rounded-lg space-y-2">
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2 shadow-sm">
                 <div className="flex items-center gap-2">
                   <img src={suiIcon} alt="Sui" className="w-5 h-5 rounded-full" />
-                  <span className="font-medium text-white">🔵 Sui Testnet</span>
+                  <span className="font-medium text-gray-900">🔵 Sui Testnet</span>
                   {suiWalletInfo?.account?.address && (
-                    <span className="text-xs text-blue-400 font-medium bg-blue-500/20 px-2 py-1 rounded-full">Connected</span>
+                    <span className="text-xs text-blue-700 font-medium bg-blue-100 px-2 py-1 rounded-full">Connected</span>
                   )}
                 </div>
-                <div className="text-xl font-bold text-white">
+                <div className="text-xl font-bold text-gray-900">
                   ${portfolio.chainBalances?.sui?.balance?.toFixed(4) || '0.0000'}
                 </div>
                 <div className="flex items-center gap-1">
@@ -295,44 +295,44 @@ function PegProtectionStatus() {
   const pegStatus: PegStatus = (pegData as any)?.data || {};
 
   return (
-    <Card className="mb-6 bg-gradient-to-br from-slate-800/50 to-purple-900/30 border-slate-700/50 backdrop-blur-sm">
+    <Card className="mb-6 bg-white/80 border-gray-200 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-white">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           🛡️ Peg Protection Status
-          <Badge variant={pegStatus?.safety?.safe ? "default" : "destructive"} className={pegStatus?.safety?.safe ? "bg-green-500/20 border-green-400/30 text-green-200" : "bg-red-500/20 border-red-400/30 text-red-200"}>
+          <Badge variant={pegStatus?.safety?.safe ? "default" : "destructive"} className={pegStatus?.safety?.safe ? "bg-green-100 border-green-300 text-green-700" : "bg-red-100 border-red-300 text-red-700"}>
             {pegStatus?.safety?.safe ? "✅ SAFE" : "⚠️ MONITORING"}
           </Badge>
         </CardTitle>
-        <CardDescription className="text-gray-300">
+        <CardDescription className="text-gray-600">
           Real-time stablecoin peg monitoring across multiple data sources
         </CardDescription>
       </CardHeader>
       <CardContent>
         {pegLoading ? (
-          <div className="flex justify-center py-4 text-gray-300">Loading peg status...</div>
+          <div className="flex justify-center py-4 text-gray-600">Loading peg status...</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-400">🟢 Ethereum Price</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-sm font-medium text-gray-600">🟢 Ethereum Price</div>
+              <div className="text-lg font-bold text-gray-900">
                 ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.ethereum ? Number((pegStatus as any).crossChainValidation.crossChainPrices.ethereum).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-400">🔵 Sui Price</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-sm font-medium text-gray-600">🔵 Sui Price</div>
+              <div className="text-lg font-bold text-gray-900">
                 ${(pegStatus as any)?.crossChainValidation?.crossChainPrices?.sui ? Number((pegStatus as any).crossChainValidation.crossChainPrices.sui).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-400">🔗 Chainlink Reference</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-sm font-medium text-gray-600">🔗 Chainlink Reference</div>
+              <div className="text-lg font-bold text-gray-900">
                 ${(pegStatus as any)?.crossChainValidation?.chainlinkReference?.price ? Number((pegStatus as any).crossChainValidation.chainlinkReference.price).toFixed(6) : 'N/A'}
               </div>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-400">📊 Cross-Chain Deviation</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-sm font-medium text-gray-600">📊 Cross-Chain Deviation</div>
+              <div className="text-lg font-bold text-gray-900">
                 {(pegStatus as any)?.crossChainValidation?.deviations?.crossChain?.deviation ? (Number((pegStatus as any).crossChainValidation.deviations.crossChain.deviation) * 100).toFixed(3) + '%' : 'N/A'}
               </div>
             </div>
@@ -772,21 +772,21 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
   const opportunities = (arbData as any)?.data?.opportunities || [];
 
   return (
-    <Card className="bg-gradient-to-br from-slate-800/50 to-purple-900/30 border-slate-700/50 backdrop-blur-sm">
+    <Card className="bg-white/80 border-gray-200 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-white">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           🔄 Live Arbitrage Opportunities
-          <Badge variant="secondary" className="bg-cyan-500/20 border-cyan-400/30 text-cyan-200">{opportunities.length} Active</Badge>
+          <Badge variant="secondary" className="bg-cyan-100 border-cyan-300 text-cyan-700">{opportunities.length} Active</Badge>
         </CardTitle>
-        <CardDescription className="text-gray-300">
+        <CardDescription className="text-gray-600">
           Real-time arbitrage opportunities between Uniswap V3 (Ethereum Sepolia) and Cetus (Sui)
         </CardDescription>
       </CardHeader>
       <CardContent>
         {/* Test Transaction Button */}
-        <div className="mb-6 p-4 border border-blue-500/30 rounded-lg bg-blue-500/10 backdrop-blur-sm">
-          <h3 className="font-medium mb-2 text-white">🧪 Real Blockchain Transaction Test</h3>
-          <p className="text-sm text-gray-300 mb-3">
+        <div className="mb-6 p-4 border border-blue-300 rounded-lg bg-blue-50 backdrop-blur-sm">
+          <h3 className="font-medium mb-2 text-gray-900">🧪 Real Blockchain Transaction Test</h3>
+          <p className="text-sm text-gray-600 mb-3">
             Test authentic blockchain transactions using configured testnet wallets
           </p>
           <div className="space-x-2">
@@ -859,9 +859,9 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           </div>
         </div>
         {arbLoading ? (
-          <div className="flex justify-center py-8">Loading opportunities...</div>
+          <div className="flex justify-center py-8 text-gray-600">Loading opportunities...</div>
         ) : opportunities.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-gray-600">
             No arbitrage opportunities available
           </div>
         ) : (
@@ -1065,15 +1065,15 @@ function PreviousSwapsExecuted({
   const hasWalletData = (swapHistory as any)?.hasWalletData || false;
 
   return (
-    <Card>
+    <Card className="bg-white/80 border-gray-200 backdrop-blur-sm shadow-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           🔄 Previous Swaps Executed
-          <Badge variant="secondary">
+          <Badge variant="secondary" className="bg-gray-100 border-gray-300 text-gray-700">
             {swapData.length} Completed
           </Badge>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-gray-600">
           Historical record of completed cross-chain arbitrage swaps
         </CardDescription>
       </CardHeader>
@@ -1226,26 +1226,26 @@ function LivePriceMonitor() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <Card className="bg-gradient-to-br from-slate-800/50 to-purple-900/30 border-slate-700/50 backdrop-blur-sm">
+      <Card className="bg-white/80 border-gray-200 backdrop-blur-sm shadow-lg">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg text-white">🦄 Uniswap V3 (Sepolia)</CardTitle>
-          <CardDescription className="text-gray-300">USDC/WETH Price Feed</CardDescription>
+          <CardTitle className="text-lg text-gray-900">🦄 Uniswap V3 (Sepolia)</CardTitle>
+          <CardDescription className="text-gray-600">USDC/WETH Price Feed</CardDescription>
         </CardHeader>
         <CardContent>
           {priceLoading ? (
-            <div className="animate-pulse">Loading...</div>
+            <div className="animate-pulse text-gray-600">Loading...</div>
           ) : (
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-gray-900">
                 ${(priceData as any)?.data?.price?.token0ToToken1 ? Number((priceData as any).data.price.token0ToToken1).toFixed(6) : '1.000000'}
               </div>
-              <div className="text-sm text-gray-300">
+              <div className="text-sm text-gray-600">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-500">
                 {(priceData as any)?.data?.price?.formatted || '1 USDC = 1.000000 WETH'}
               </div>
-              <Badge variant="outline" className="text-xs bg-green-500/20 border-green-400/30 text-green-200">
+              <Badge variant="outline" className="text-xs bg-green-100 border-green-300 text-green-700">
                 🟢 Ethereum Sepolia Testnet
               </Badge>
             </div>
@@ -1253,26 +1253,26 @@ function LivePriceMonitor() {
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-slate-800/50 to-purple-900/30 border-slate-700/50 backdrop-blur-sm">
+      <Card className="bg-white/80 border-gray-200 backdrop-blur-sm shadow-lg">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg text-white">🌊 Cetus DEX (Sui)</CardTitle>
-          <CardDescription className="text-gray-300">USDC/USDY Price Feed</CardDescription>
+          <CardTitle className="text-lg text-gray-900">🌊 Cetus DEX (Sui)</CardTitle>
+          <CardDescription className="text-gray-600">USDC/USDY Price Feed</CardDescription>
         </CardHeader>
         <CardContent>
           {cetusLoading ? (
-            <div className="animate-pulse">Loading...</div>
+            <div className="animate-pulse text-gray-600">Loading...</div>
           ) : (
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-gray-900">
                 ${(cetusData as any)?.data?.price?.token0ToToken1 ? Number((cetusData as any).data.price.token0ToToken1).toFixed(6) : '1.000000'}
               </div>
-              <div className="text-sm text-gray-300">
+              <div className="text-sm text-gray-600">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-500">
                 {(cetusData as any)?.data?.price?.formatted || '1 USDC = 1.000000 USDY'}
               </div>
-              <Badge variant="outline" className="text-xs bg-blue-500/20 border-blue-400/30 text-blue-200">
+              <Badge variant="outline" className="text-xs bg-blue-100 border-blue-300 text-blue-700">
                 🔵 Sui Testnet
               </Badge>
             </div>
@@ -1302,33 +1302,33 @@ function ArbitrageTradingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Hero Section */}
         <div className="text-center space-y-6 py-12">
           <div className="space-y-4">
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
               ⚡ StableArbYieldBridge
             </h1>
-            <p className="text-2xl text-gray-300 font-medium">
+            <p className="text-2xl text-gray-700 font-medium">
               🚀 Advanced Multi-Chain DeFi Arbitrage Platform
             </p>
           </div>
           <div className="max-w-3xl mx-auto">
-            <p className="text-lg text-gray-400 leading-relaxed">
+            <p className="text-lg text-gray-600 leading-relaxed">
               💎 Leverage cutting-edge atomic swap technology for sophisticated cross-network arbitrage strategies between Ethereum Sepolia and Sui Testnet
             </p>
           </div>
           
           {/* Status Indicators */}
           <div className="flex justify-center gap-6 mt-8">
-            <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 rounded-full border border-green-500/30">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-green-300 text-sm font-medium">🟢 Ethereum Sepolia</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full border border-green-300">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-700 text-sm font-medium">🟢 Ethereum Sepolia</span>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 rounded-full border border-blue-500/30">
-              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-              <span className="text-blue-300 text-sm font-medium">🔵 Sui Testnet</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full border border-blue-300">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-blue-700 text-sm font-medium">🔵 Sui Testnet</span>
             </div>
           </div>
         </div>

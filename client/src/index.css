@@ -54,7 +54,7 @@
   }
 
   html {
-    @apply dark;
+    /* Light mode by default */
   }
 
   body {
@@ -67,23 +67,23 @@
   }
 }
 
-/* Custom scrollbar for dark theme */
+/* Custom scrollbar for light theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(240, 3.7%, 15.9%);
+  background: hsl(210, 40%, 96%);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(240, 5%, 34%);
+  background: hsl(215.4, 16.3%, 46.9%);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(240, 5%, 44%);
+  background: hsl(215.4, 16.3%, 36.9%);
 }
 
 /* Custom styles for profit/loss colors */
@@ -120,5 +120,5 @@
 }
 
 .table-row-hover:hover {
-  background-color: hsl(240, 3.7%, 15.9%, 0.5);
+  background-color: hsl(210, 40%, 96%, 0.5);
 }
