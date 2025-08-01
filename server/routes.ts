@@ -3440,19 +3440,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔐 Step ${step} waiting for wallet signature`);
       }
 
-      // Check if all steps completed (only count COMPLETED, not PENDING_SIGNATURE)
+      // Enhanced completion detection - check multiple criteria
       const allStepsComplete = swapState.executionPlan.steps.every((s: any) => s.status === 'COMPLETED');
+      const isFinalStep = (step === swapState.executionPlan.steps.length);
       
-      // Also check if this is the final step and it was just completed
-      const isFinalStepCompleted = (step === swapState.executionPlan.steps.length - 1) && (executionResult.status === 'COMPLETED');
+      // Check if this is a successful backend execution (has transactionHash)
+      const hasSuccessfulExecution = executionResult?.result?.transactionHash || 
+                                    executionResult?.result?.txHash ||
+                                    (executionResult?.data && (executionResult.data.transactionHash || executionResult.data.txHash));
+
+      console.log(`🔍 Completion check for step ${step}/${swapState.executionPlan.steps.length}:`);
+      console.log(`   - All steps complete: ${allStepsComplete}`);
+      console.log(`   - Is final step: ${isFinalStep}`);
+      console.log(`   - Has successful execution: ${hasSuccessfulExecution}`);
+      console.log(`   - Execution result:`, JSON.stringify(executionResult, null, 2));
       
-      if (allStepsComplete || isFinalStepCompleted) {
+      // Mark swap as completed if all steps are done OR if this is the final step with successful execution
+      if (allStepsComplete || (isFinalStep && hasSuccessfulExecution)) {
         swapState.status = 'COMPLETED';
-        console.log(`✅ Swap ${swapId} completed successfully`);
+        console.log(`✅ Swap ${swapId} completed successfully - triggering storage`);
         
         // Store the completed swap with real execution data
         console.log(`🎉 Swap ${swapId} completed! Storing swap data...`);
-        await storeCompletedSwapData(swapId, swapState, executionResult);
+        try {
+          await storeCompletedSwapData(swapId, swapState, executionResult);
+          console.log(`✅ Successfully stored completed swap ${swapId}`);
+        } catch (storeError) {
+          console.error(`❌ Failed to store completed swap ${swapId}:`, storeError);
+        }
+      } else {
+        console.log(`⏳ Swap ${swapId} not yet complete - continuing execution`);
       }
 
       swapState.updatedAt = new Date().toISOString();
@@ -3811,9 +3828,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cache for arbitrage opportunities to prevent flickering
+  let cachedOpportunities: any[] = [];
+  let lastCacheTime = 0;
+  const CACHE_DURATION = 5000; // 5 seconds
+
   // Arbitrage scanning with Uniswap V3 integration - Updated for Ethereum Sepolia
   app.get('/api/scan-arbs', async (req, res) => {
     try {
+      // Use cached results if recent enough to prevent flickering
+      const now = Date.now();
+      if (cachedOpportunities.length > 0 && (now - lastCacheTime) < CACHE_DURATION) {
+        return res.json({
+          success: true,
+          data: {
+            opportunities: cachedOpportunities,
+            scanResults: {
+              totalPairs: cachedOpportunities.length,
+              profitableOpportunities: cachedOpportunities.filter(o => parseFloat(o.currentSpread) > 0.01).length,
+              timestamp: new Date(lastCacheTime).toISOString(),
+              cached: true
+            }
+          }
+        });
+      }
+
       const { pairs = 'USDC-WETH,USDC-USDT,USDC-USDY,WETH-USDT,WETH-USDY,USDT-USDY,USDC-DAI,WETH-DAI,USDT-DAI,DAI-USDY', minSpread = 0.01 } = req.query;
       const tokenPairs = (pairs as string).split(',');
       const opportunities = [];
@@ -3963,6 +4002,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sort by spread (highest first)
       opportunities.sort((a, b) => parseFloat(b.currentSpread) - parseFloat(a.currentSpread));
       
+      // Update cache to prevent flickering
+      cachedOpportunities = opportunities;
+      lastCacheTime = now;
+      
       res.json({
         success: true,
         data: {
@@ -3971,7 +4014,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           foundOpportunities: opportunities.length,
           minSpreadThreshold: parseFloat(minSpread as string),
           timestamp: new Date().toISOString(),
-          priceSource: 'uniswap_v3_ethereum_sepolia'
+          priceSource: 'uniswap_v3_ethereum_sepolia',
+          cached: false
         },
         message: `Scanned ${tokenPairs.length} pairs using enhanced cross-chain analysis, found ${opportunities.length} opportunities`,
         analysisMethod: opportunities.length > 0 ? 
