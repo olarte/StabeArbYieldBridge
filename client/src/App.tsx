@@ -11,10 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
-// @ts-ignore
-import WalletConnect from "@/components/WalletConnect.jsx";
-import SuiWalletConnect from "@/components/SuiWalletConnect";
-import WalletSelector from "@/components/WalletSelector";
+import { Header } from "@/components/layout/header";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
 
@@ -1218,20 +1215,17 @@ function ArbitrageTradingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+      <Header 
+        walletConnections={walletConnections}
+        suiWalletInfo={suiWalletInfo}
+        onWalletUpdate={handleWalletChange}
+      />
       <div className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Hero Section */}
         <div className="text-center space-y-6 py-12">
-          <div className="space-y-4">
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              🤺 Sabre
-            </h1>
-            <p className="text-2xl text-gray-700 font-medium">
-              🚀 Stable Arbitrage Bridge
-            </p>
-          </div>
           <div className="max-w-3xl mx-auto">
             <p className="text-lg text-gray-600 leading-relaxed">
-              💎 Leverage cutting-edge atomic swap technology for sophisticated cross-network arbitrage strategies between Ethereum Sepolia and Sui Testnet
+              Leverage cutting-edge atomic swap technology for sophisticated cross-network arbitrage strategies between Ethereum Sepolia and Sui Testnet
             </p>
           </div>
           
@@ -1247,8 +1241,6 @@ function ArbitrageTradingPage() {
             </div>
           </div>
         </div>
-
-        <WalletSelector onWalletChange={handleWalletChange} />
         <PortfolioBalance 
           walletConnections={walletConnections}
           suiWalletInfo={suiWalletInfo}
