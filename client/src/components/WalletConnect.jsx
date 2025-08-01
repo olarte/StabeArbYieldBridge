@@ -218,7 +218,7 @@ const WalletConnect = ({ onWalletChange }) => {
           <div className="supported-networks">
             <small>Supported Network:</small>
             <div className="network-list">
-              <span className="network-badge ethereum">🔵 Ethereum Sepolia Testnet</span>
+              <span className="network-badge ethereum">⧫ Ethereum Sepolia Testnet</span>
             </div>
           </div>
         </div>
@@ -278,7 +278,7 @@ const WalletConnect = ({ onWalletChange }) => {
                 onClick={() => handleNetworkSwitch(11155111)}
                 className="network-btn ethereum"
               >
-                🔵 Switch to Ethereum Sepolia
+                ⧫ Switch to Ethereum Sepolia
               </button>
             </div>
           </div>

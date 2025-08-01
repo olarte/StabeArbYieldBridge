@@ -33,8 +33,8 @@ export function Header() {
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
             <span className="text-sm text-slate-300">0xA1B2...C3D4</span>
             <div className="flex space-x-1 ml-2">
-              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white font-bold">C</div>
-              <div className="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center text-xs text-white font-bold">S</div>
+              <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-xs text-white font-bold">⧫</div>
+              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white font-bold">🔵</div>
             </div>
           </div>
           <Button variant="ghost" size="icon" className="text-slate-400 hover:text-slate-200">

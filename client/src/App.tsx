@@ -17,8 +17,7 @@ import SuiWalletConnect from "@/components/SuiWalletConnect";
 import WalletSelector from "@/components/WalletSelector";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
-import suiIcon from "@assets/abfadeb9f40e6ad0db5e9c92c09c40e0_1753983736153.jpg";
-import ethereumIcon from "@assets/download_1753983736153.png";
+
 
 // TypeScript interfaces for better type safety
 declare global {
@@ -171,8 +170,8 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <img src={ethereumIcon} alt="Ethereum" className="w-5 h-5 rounded-full" />
-                  <span className="font-medium text-gray-900">🟢 Ethereum Sepolia</span>
+
+                  <span className="font-medium text-gray-900">⧫ Ethereum Sepolia</span>
                   {walletConnections?.account && (
                     <span className="text-xs text-green-700 font-medium bg-green-100 px-2 py-1 rounded-full">Connected</span>
                   )}
@@ -211,7 +210,6 @@ function PortfolioBalance({ walletConnections, suiWalletInfo }: {
 
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <img src={suiIcon} alt="Sui" className="w-5 h-5 rounded-full" />
                   <span className="font-medium text-gray-900">🔵 Sui Testnet</span>
                   {suiWalletInfo?.account?.address && (
                     <span className="text-xs text-blue-700 font-medium bg-blue-100 px-2 py-1 rounded-full">Connected</span>
@@ -890,32 +888,16 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
                       {opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? (
                         // Sui → Ethereum direction
                         <div className="flex items-center gap-1">
-                          <img 
-                            src={suiIcon} 
-                            alt="Sui" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-blue-600 text-lg">🔵</span>
                           <span className="text-xs text-muted-foreground">→</span>
-                          <img 
-                            src={ethereumIcon} 
-                            alt="Ethereum" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-green-600 text-lg">⧫</span>
                         </div>
                       ) : (
                         // Ethereum → Sui direction
                         <div className="flex items-center gap-1">
-                          <img 
-                            src={ethereumIcon} 
-                            alt="Ethereum" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-green-600 text-lg">⧫</span>
                           <span className="text-xs text-muted-foreground">→</span>
-                          <img 
-                            src={suiIcon} 
-                            alt="Sui" 
-                            className="w-5 h-5 rounded-full"
-                          />
+                          <span className="text-blue-600 text-lg">🔵</span>
                         </div>
                       )}
                     </div>
@@ -1139,12 +1121,20 @@ function PreviousSwapsExecuted({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
-                            {swap.sourceChain}
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            swap.sourceChain === 'ethereum' 
+                              ? 'bg-green-100 dark:bg-green-900 text-green-700' 
+                              : 'bg-blue-100 dark:bg-blue-900 text-blue-700'
+                          }`}>
+                            {swap.sourceChain === 'ethereum' ? '⧫' : '🔵'} {swap.sourceChain}
                           </span>
                           →
-                          <span className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
-                            {swap.targetChain}
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            swap.targetChain === 'ethereum' 
+                              ? 'bg-green-100 dark:bg-green-900 text-green-700' 
+                              : 'bg-blue-100 dark:bg-blue-900 text-blue-700'
+                          }`}>
+                            {swap.targetChain === 'ethereum' ? '⧫' : '🔵'} {swap.targetChain}
                           </span>
                         </div>
                       </TableCell>
@@ -1161,7 +1151,7 @@ function PreviousSwapsExecuted({
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs"
                             >
-                              <span className="text-xs text-gray-500">ETH:</span>
+                              <span className="text-xs text-gray-500">⧫ ETH:</span>
                               {shortenHash(swap.ethereumTxHash)}
                               <ExternalLink className="w-3 h-3" />
                             </a>
@@ -1173,7 +1163,7 @@ function PreviousSwapsExecuted({
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-xs"
                             >
-                              <span className="text-xs text-gray-500">SUI:</span>
+                              <span className="text-xs text-gray-500">🔵 SUI:</span>
                               {shortenHash(swap.suiTxHash)}
                               <ExternalLink className="w-3 h-3" />
                             </a>
@@ -1246,7 +1236,7 @@ function LivePriceMonitor() {
                 {(priceData as any)?.data?.price?.formatted || '1 USDC = 1.000000 WETH'}
               </div>
               <Badge variant="outline" className="text-xs bg-green-100 border-green-300 text-green-700">
-                🟢 Ethereum Sepolia Testnet
+                ⧫ Ethereum Sepolia Testnet
               </Badge>
             </div>
           )}
@@ -1324,7 +1314,7 @@ function ArbitrageTradingPage() {
           <div className="flex justify-center gap-6 mt-8">
             <div className="flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full border border-green-300">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-green-700 text-sm font-medium">🟢 Ethereum Sepolia</span>
+              <span className="text-green-700 text-sm font-medium">⧫ Ethereum Sepolia</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full border border-blue-300">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
