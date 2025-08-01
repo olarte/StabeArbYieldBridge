@@ -1160,9 +1160,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('💰 Portfolio balance request received');
       
-      // Safely extract request body
+      // Add explicit headers for JSON parsing
+      res.setHeader('Content-Type', 'application/json');
+      
+      // Safely extract request body with proper error handling
       const requestBody = req.body || {};
-      console.log('Request body received:', requestBody);
+      console.log('Request body received:', JSON.stringify(requestBody, null, 2));
       
       const { ethereumAddress, suiAddress } = requestBody;
       console.log(`💰 Portfolio balance request - Ethereum: ${ethereumAddress || 'not connected'}, Sui: ${suiAddress || 'not connected'}`);
@@ -1170,7 +1173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Only show transaction history when wallets are connected
       const hasConnectedWallets = ethereumAddress || suiAddress;
       // Get swap history from actual completed swaps - safely access storage
-      const swapHistory = hasConnectedWallets ? 
+      const swapHistory = hasConnectedWallets && completedSwaps ? 
         Array.from(completedSwaps.values()) : [];
 
       // Get real wallet balances
@@ -1266,8 +1269,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Calculate real metrics from actual swap data
-      const totalProfit = swapHistory.reduce((sum, swap) => sum + swap.profit, 0);
-      const totalAmount = swapHistory.reduce((sum, swap) => sum + swap.amount, 0);
+      const totalProfit = swapHistory.reduce((sum, swap) => sum + (parseFloat(swap.profit) || 0), 0);
+      const totalAmount = swapHistory.reduce((sum, swap) => sum + (parseFloat(swap.amount) || 0), 0);
       
       // Calculate current balance from real wallet balances + profits
       const ethereumStableBalance = walletBalances.ethereum.usdc + walletBalances.ethereum.usdt + walletBalances.ethereum.dai;
@@ -1282,7 +1285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate weekly change (all swaps happened this week)
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const weeklySwaps = swapHistory.filter(swap => new Date(swap.timestamp) > weekAgo);
-      const weeklyProfit = weeklySwaps.reduce((sum, swap) => sum + swap.profit, 0);
+      const weeklyProfit = weeklySwaps.reduce((sum, swap) => sum + (parseFloat(swap.profit) || 0), 0);
       const weekStartBalance = currentBalance - weeklyProfit;
       const weeklyChange = weeklyProfit;
       const weeklyChangePercent = weekStartBalance > 0 ? (weeklyChange / weekStartBalance) * 100 : 0;
@@ -1291,8 +1294,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ethereumSwaps = swapHistory.filter(swap => swap.sourceChain === 'ethereum');
       const suiTargetSwaps = swapHistory.filter(swap => swap.targetChain === 'sui');
       
-      const ethereumProfit = ethereumSwaps.reduce((sum, swap) => sum + swap.profit, 0);
-      const suiProfit = suiTargetSwaps.reduce((sum, swap) => sum + swap.profit, 0);
+      const ethereumProfit = ethereumSwaps.reduce((sum, swap) => sum + (parseFloat(swap.profit) || 0), 0);
+      const suiProfit = suiTargetSwaps.reduce((sum, swap) => sum + (parseFloat(swap.profit) || 0), 0);
       
       // Portfolio breakdown by chain using real balances + profits
       const ethereumBalance = ethereumStableBalance + ethereumProfit;
@@ -1318,16 +1321,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Real performance metrics from actual data
-      const completedSwaps = swapHistory.filter(swap => swap.status === 'completed');
-      const bestSwap = Math.max(...swapHistory.map(swap => swap.profit));
+      const completedSwapsList = swapHistory.filter(swap => swap.status === 'completed');
+      const bestSwap = swapHistory.length > 0 ? Math.max(...swapHistory.map(swap => parseFloat(swap.profit) || 0)) : 0;
       
       const performanceMetrics = {
         totalProfit: totalProfit,
         totalProfitPercent: currentBalance > totalProfit ? (totalProfit / (currentBalance - totalProfit)) * 100 : 0,
-        successfulSwaps: completedSwaps.length,
+        successfulSwaps: completedSwapsList.length,
         totalSwaps: swapHistory.length,
-        successRate: swapHistory.length > 0 ? (completedSwaps.length / swapHistory.length) * 100 : 0,
-        averageProfit: completedSwaps.length > 0 ? totalProfit / completedSwaps.length : 0,
+        successRate: swapHistory.length > 0 ? (completedSwapsList.length / swapHistory.length) * 100 : 0,
+        averageProfit: completedSwapsList.length > 0 ? totalProfit / completedSwapsList.length : 0,
         bestSwap: bestSwap,
         weeklyTrades: weeklySwaps.length
       };
@@ -5414,14 +5417,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function addTestCompletedSwap() {
     try {
       const testSwapId = `demo_swap_${Date.now()}`;
+      // Generate more realistic test swap data with varied amounts
+      const swapAmounts = [125.50, 250.75, 89.25, 467.80, 92.15];
+      const assetPairs = [
+        { from: 'USDC', to: 'USDY' },
+        { from: 'USDT', to: 'USDC' },
+        { from: 'DAI', to: 'USDY' },
+        { from: 'USDC', to: 'USDT' },
+        { from: 'USDY', to: 'DAI' }
+      ];
+      
+      const randomAmount = swapAmounts[Math.floor(Math.random() * swapAmounts.length)];
+      const randomPair = assetPairs[Math.floor(Math.random() * assetPairs.length)];
+      const profit = randomAmount * (0.003 + Math.random() * 0.007); // 0.3-1.0% profit
+      
       const testSwapData = {
         id: testSwapId,
-        assetPairFrom: 'USDC',
-        assetPairTo: 'USDY',
+        assetPairFrom: randomPair.from,
+        assetPairTo: randomPair.to,
         sourceChain: 'ethereum',
         targetChain: 'sui',
-        amount: 1.0,
-        profit: 0.005,
+        amount: randomAmount,
+        profit: profit,
         status: 'completed',
         timestamp: new Date().toISOString(),
         swapDirection: 'ethereum → sui',
@@ -5433,7 +5450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       completedSwaps.set(testSwapId, testSwapData);
-      console.log(`💾 ADDED TEST SWAP: ${testSwapData.assetPairFrom} → ${testSwapData.assetPairTo}, Amount: ${testSwapData.amount}`);
+      console.log(`💾 ADDED TEST SWAP: ${testSwapData.assetPairFrom} → ${testSwapData.assetPairTo}, Amount: $${testSwapData.amount.toFixed(2)}, Profit: $${testSwapData.profit.toFixed(4)}`);
     } catch (error) {
       console.error('Error adding test swap:', error);
     }
