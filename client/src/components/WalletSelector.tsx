@@ -103,7 +103,7 @@ const WalletSelector: React.FC<WalletSelectorProps> = ({ onWalletChange }) => {
       sui: {
         ...prev.sui,
         connectionStatus: walletInfo.connected ? 'connected' : 'disconnected',
-        account: walletInfo.account?.address
+        account: walletInfo.connected ? walletInfo.account?.address : null
       }
     }));
     
