@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { Header } from "@/components/layout/header";
+import { SwapProgressBar } from "@/components/SwapProgressBar";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
 
@@ -398,9 +399,16 @@ function SwapResultsHistory({ swapResults }: { swapResults: SwapResult[] }) {
 }
 
 // Arbitrage Opportunities Component
-function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: { 
+function ArbitrageOpportunities({ 
+  walletConnections, 
+  suiWalletInfo, 
+  swapProgress, 
+  setSwapProgress 
+}: { 
   walletConnections: any, 
-  suiWalletInfo: any 
+  suiWalletInfo: any,
+  swapProgress: any,
+  setSwapProgress: any
 }) {
   const { toast } = useToast();
   const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
@@ -643,14 +651,41 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       setSelectedOpportunity(opportunity.id);
       setExecutionSteps([]);
 
+      // Initialize progress bar
+      setSwapProgress(prev => ({
+        ...prev,
+        isVisible: true,
+        swapId: `swap-${Date.now()}`,
+        currentStep: 1,
+        timeRemaining: 300,
+        steps: prev.steps.map((step, index) => ({
+          ...step,
+          status: index === 0 ? 'in-progress' : 'pending'
+        }))
+      }));
+
       try {
         // Step 1: Register wallet session
-        toast({
-          title: "Starting Arbitrage",
-          description: `Registering wallet session for $${amount} swap...`,
-        });
+        setSwapProgress(prev => ({
+          ...prev,
+          currentStep: 1,
+          steps: prev.steps.map((step, index) => ({
+            ...step,
+            status: index === 0 ? 'in-progress' : 'pending'
+          }))
+        }));
 
         const { sessionId } = await registerWalletSession();
+        
+        // Update step 1 as completed, move to step 2
+        setSwapProgress(prev => ({
+          ...prev,
+          currentStep: 2,
+          steps: prev.steps.map((step, index) => ({
+            ...step,
+            status: index === 0 ? 'completed' : index === 1 ? 'in-progress' : 'pending'
+          }))
+        }));
         
         setExecutionSteps(prev => [...prev, { 
           step: 'Wallet Session', 
@@ -659,13 +694,19 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
         }]);
 
         // Step 2: Create atomic swap
-        toast({
-          title: "Creating Swap",
-          description: `Setting up atomic swap for $${amount}...`,
-        });
-
         const swapResult = await createAtomicSwap(opportunity, sessionId, amount);
         const swapId = swapResult.data.swapId;
+        
+        // Update progress with actual swap ID
+        setSwapProgress(prev => ({
+          ...prev,
+          swapId: swapId,
+          currentStep: 3,
+          steps: prev.steps.map((step, index) => ({
+            ...step,
+            status: index <= 1 ? 'completed' : index === 2 ? 'in-progress' : 'pending'
+          }))
+        }));
         
         setExecutionSteps(prev => [...prev, { 
           step: 'Atomic Swap Created', 
@@ -680,6 +721,18 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
           const currentStep = swapResult.data.executionPlan.steps[i];
           const stepName = currentStep.type;
           
+          // Update progress for current execution step
+          const progressStep = i < 2 ? 3 : 4; // Map to Ethereum (step 3) or Sui (step 4)
+          setSwapProgress(prev => ({
+            ...prev,
+            currentStep: progressStep,
+            steps: prev.steps.map((step, index) => ({
+              ...step,
+              status: index < progressStep - 1 ? 'completed' : 
+                     index === progressStep - 1 ? 'in-progress' : 'pending'
+            }))
+          }));
+          
           // Skip already completed steps
           if (currentStep.status === 'COMPLETED') {
             setExecutionSteps(prev => [...prev, { 
@@ -689,11 +742,6 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             }]);
             continue;
           }
-          
-          toast({
-            title: `Step ${i + 1}/${totalSteps}`,
-            description: `Executing ${stepName}...`,
-          });
 
           setExecutionSteps(prev => [...prev, { 
             step: stepName, 
@@ -729,6 +777,16 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
             // Continue to next step instead of stopping entire process
           }
         }
+        
+        // Final step - completion
+        setSwapProgress(prev => ({
+          ...prev,
+          currentStep: 5,
+          steps: prev.steps.map((step, index) => ({
+            ...step,
+            status: index < 4 ? 'completed' : 'in-progress'
+          }))
+        }));
 
         return { swapId, steps: totalSteps };
       } catch (error) {
@@ -745,20 +803,56 @@ function ArbitrageOpportunities({ walletConnections, suiWalletInfo }: {
       }
     },
     onSuccess: (data) => {
-      toast({
-        title: "Arbitrage Completed!",
-        description: `Swap ${data.swapId} executed successfully with ${data.steps} steps`,
-      });
+      // Mark all steps as completed
+      setSwapProgress(prev => ({
+        ...prev,
+        currentStep: prev.totalSteps,
+        steps: prev.steps.map(step => ({
+          ...step,
+          status: 'completed'
+        }))
+      }));
+      
+      // Hide progress bar after 3 seconds
+      setTimeout(() => {
+        setSwapProgress(prev => ({
+          ...prev,
+          isVisible: false,
+          currentStep: 0,
+          steps: prev.steps.map(step => ({
+            ...step,
+            status: 'pending'
+          }))
+        }));
+      }, 3000);
+      
       setSelectedOpportunity(null);
       setExecutionSteps([]);
       refetchArbs();
     },
     onError: (error) => {
-      toast({
-        title: "Execution Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
+      // Mark current step as failed
+      setSwapProgress(prev => ({
+        ...prev,
+        steps: prev.steps.map((step, index) => ({
+          ...step,
+          status: index === prev.currentStep - 1 ? 'failed' : step.status
+        }))
+      }));
+      
+      // Hide progress bar after 5 seconds to show error
+      setTimeout(() => {
+        setSwapProgress(prev => ({
+          ...prev,
+          isVisible: false,
+          currentStep: 0,
+          steps: prev.steps.map(step => ({
+            ...step,
+            status: 'pending'
+          }))
+        }));
+      }, 5000);
+      
       setSelectedOpportunity(null);
       setExecutionSteps([]);
     },
@@ -1181,6 +1275,22 @@ function ArbitrageTradingPage() {
   const [swapResults, setSwapResults] = useState<SwapResult[]>([]);
   const [walletConnections, setWalletConnections] = useState<any>({});
   const [suiWalletInfo, setSuiWalletInfo] = useState<any>({});
+  
+  // Swap progress state
+  const [swapProgress, setSwapProgress] = useState({
+    isVisible: false,
+    swapId: '',
+    currentStep: 0,
+    totalSteps: 5,
+    timeRemaining: 300, // 5 minutes default
+    steps: [
+      { id: 1, title: 'Wallet Session', description: 'Registering wallet session for cross-chain swap', status: 'pending' as const },
+      { id: 2, title: 'Atomic Swap Creation', description: 'Setting up atomic swap with hashlock security', status: 'pending' as const },
+      { id: 3, title: 'Ethereum Transaction', description: 'Executing transaction on Ethereum Sepolia', status: 'pending' as const },
+      { id: 4, title: 'Sui Transaction', description: 'Executing transaction on Sui Testnet', status: 'pending' as const },
+      { id: 5, title: 'Completion', description: 'Finalizing cross-chain swap and updating records', status: 'pending' as const }
+    ]
+  });
 
   // Handle unified wallet changes from Header
   const handleWalletChange = (walletType: 'ethereum' | 'sui', walletInfo: any) => {
@@ -1215,9 +1325,22 @@ function ArbitrageTradingPage() {
         />
         <PegProtectionStatus />
         <LivePriceMonitor />
+        
+        <SwapProgressBar 
+          swapId={swapProgress.swapId}
+          currentStep={swapProgress.currentStep}
+          totalSteps={swapProgress.totalSteps}
+          steps={swapProgress.steps}
+          isVisible={swapProgress.isVisible}
+          timeRemaining={swapProgress.timeRemaining}
+          setSwapProgress={setSwapProgress}
+        />
+        
         <ArbitrageOpportunities 
           walletConnections={walletConnections}
           suiWalletInfo={suiWalletInfo}
+          swapProgress={swapProgress}
+          setSwapProgress={setSwapProgress}
         />
         <PreviousSwapsExecuted 
           walletConnections={walletConnections}

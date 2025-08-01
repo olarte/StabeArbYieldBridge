@@ -13,7 +13,7 @@ import SuiWalletConnect from "@/components/SuiWalletConnect";
 interface HeaderProps {
   walletConnections?: any;
   suiWalletInfo?: any;
-  onWalletUpdate?: (type: string, info: any) => void;
+  onWalletUpdate?: (type: 'ethereum' | 'sui', info: any) => void;
 }
 
 export function Header({ walletConnections, suiWalletInfo, onWalletUpdate }: HeaderProps) {
