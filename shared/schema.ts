@@ -36,6 +36,13 @@ export const tradingAgents = pgTable("trading_agents", {
   isActive: boolean("is_active").default(true).notNull(),
   totalTrades: integer("total_trades").default(0).notNull(),
   totalProfit: decimal("total_profit", { precision: 10, scale: 2 }).default("0").notNull(),
+  goalType: text("goal_type").notNull(), // 'profit_target', 'trade_count', 'time_limit'
+  goalValue: decimal("goal_value", { precision: 15, scale: 2 }).notNull(),
+  currentProgress: decimal("current_progress", { precision: 15, scale: 2 }).default("0").notNull(),
+  goalAchieved: boolean("goal_achieved").default(false).notNull(),
+  ethereumWallet: text("ethereum_wallet"),
+  suiWallet: text("sui_wallet"),
+  lastExecutedAt: timestamp("last_executed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -94,6 +101,9 @@ export const insertTradingAgentSchema = createInsertSchema(tradingAgents).omit({
   id: true,
   totalTrades: true,
   totalProfit: true,
+  currentProgress: true,
+  goalAchieved: true,
+  lastExecutedAt: true,
   createdAt: true,
   updatedAt: true,
 });

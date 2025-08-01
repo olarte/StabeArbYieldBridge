@@ -156,9 +156,11 @@ export class MemStorage implements IStorage {
         minSpread: "0.5",
         maxAmount: "1000.00",
         assetPair: "USDC/USDC",
-        sourceChain: "Celo",
-        targetChain: "Sui",
+        sourceChain: "ethereum",
+        targetChain: "sui",
         frequency: 5,
+        goalType: "profit_target",
+        goalValue: "50.00",
         isActive: true,
       },
       {
@@ -166,9 +168,11 @@ export class MemStorage implements IStorage {
         minSpread: "0.8",
         maxAmount: "2500.00",
         assetPair: "DAI/USDC",
-        sourceChain: "Celo",
-        targetChain: "Sui",
+        sourceChain: "ethereum",
+        targetChain: "sui",
         frequency: 15,
+        goalType: "profit_target",
+        goalValue: "100.00",
         isActive: true,
       },
       {
@@ -176,9 +180,11 @@ export class MemStorage implements IStorage {
         minSpread: "1.0",
         maxAmount: "500.00",
         assetPair: "USDT/USDT",
-        sourceChain: "Sui",
-        targetChain: "Celo",
+        sourceChain: "sui",
+        targetChain: "ethereum",
         frequency: 10,
+        goalType: "trade_count",
+        goalValue: "25",
         isActive: false,
       },
     ];
@@ -190,7 +196,6 @@ export class MemStorage implements IStorage {
     // Real completed transactions from user's previous swaps
     const recentTransactions = [
       {
-        agentId: null,
         assetPairFrom: "USDC",
         assetPairTo: "USDY",
         sourceChain: "ethereum",
@@ -199,10 +204,10 @@ export class MemStorage implements IStorage {
         profit: "0.0040",
         spread: "0.40",
         status: "completed",
-        txHash: "0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656",
+        ethereumTxHash: "0xb822a878a7b4fd0a07ceffb90ec0e1ac33c34fb1700e57ed053c6a2429540656",
+        suiTxHash: null,
       },
       {
-        agentId: null,
         assetPairFrom: "USDC",
         assetPairTo: "USDY",
         sourceChain: "ethereum",
@@ -211,7 +216,8 @@ export class MemStorage implements IStorage {
         profit: "0.0075",
         spread: "0.75",
         status: "completed",
-        txHash: "GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF",
+        ethereumTxHash: null,
+        suiTxHash: "GhhJs73xNrSBzpvP18sgJ6XXDSjdAmjqKXgEGs9f56KF",
       },
     ];
 
@@ -295,6 +301,9 @@ export class MemStorage implements IStorage {
       isActive: insertAgent.isActive ?? true,
       totalTrades: 0,
       totalProfit: "0.00",
+      currentProgress: "0.00",
+      goalAchieved: false,
+      lastExecutedAt: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -488,9 +497,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTransactionsByAgent(agentId: string): Promise<Transaction[]> {
-    return await db.select().from(transactions)
-      .where(eq(transactions.agentId, agentId))
-      .orderBy(desc(transactions.executedAt));
+    // Note: agentId field was removed from transactions schema
+    // This method will return empty array for now
+    return [];
   }
 
   async getTransactionsByWallet(ethereumAddress?: string, suiAddress?: string): Promise<Transaction[]> {

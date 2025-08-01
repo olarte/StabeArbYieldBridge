@@ -2791,6 +2791,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/agents/:id/toggle", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+      
+      const agent = await storage.updateTradingAgent(id, { isActive });
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Trading agent not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        data: agent,
+        message: `Agent ${isActive ? 'activated' : 'deactivated'} successfully`
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle trading agent" });
+    }
+  });
+
   app.delete("/api/agents/:id", async (req, res) => {
     try {
       const { id } = req.params;

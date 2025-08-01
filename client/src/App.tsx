@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { Header } from "@/components/layout/header";
 import { SwapProgressBar } from "@/components/SwapProgressBar";
+import { CreateAgent } from "@/components/CreateAgent";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
 
@@ -1341,6 +1342,10 @@ function ArbitrageTradingPage() {
           suiWalletInfo={suiWalletInfo}
           swapProgress={swapProgress}
           setSwapProgress={setSwapProgress}
+        />
+        <CreateAgent 
+          walletConnections={walletConnections}
+          suiWalletInfo={suiWalletInfo}
         />
         <PreviousSwapsExecuted 
           walletConnections={walletConnections}
