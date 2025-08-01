@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Settings, ArrowRightLeft, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 // @ts-ignore
 import WalletConnect from "@/components/WalletConnect.jsx";
 import SuiWalletConnect from "@/components/SuiWalletConnect";
@@ -28,9 +28,6 @@ export function Header({ walletConnections, suiWalletInfo, onWalletUpdate }: Hea
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg flex items-center justify-center">
-              <ArrowRightLeft className="text-white text-sm" size={16} />
-            </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">🤺 Sabre</h1>
               <p className="text-xs text-gray-600">Stable Arbitrage Bridge</p>
@@ -128,10 +125,6 @@ export function Header({ walletConnections, suiWalletInfo, onWalletUpdate }: Hea
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-600">
-            <Settings size={16} />
-          </Button>
         </div>
       </div>
     </header>
