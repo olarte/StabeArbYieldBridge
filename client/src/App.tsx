@@ -1308,10 +1308,10 @@ function ArbitrageTradingPage() {
         <div className="text-center space-y-6 py-12">
           <div className="space-y-4">
             <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              ⚡ StableArbYieldBridge
+              🤺 Sabre
             </h1>
             <p className="text-2xl text-gray-700 font-medium">
-              🚀 Advanced Multi-Chain DeFi Arbitrage Platform
+              🚀 Stable Arbitrage Bridge
             </p>
           </div>
           <div className="max-w-3xl mx-auto">

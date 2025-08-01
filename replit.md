@@ -1,8 +1,8 @@
-# StableArbYieldBridge - Replit Configuration
+# 🤺 Sabre - Replit Configuration
 
 ## Overview
 
-StableArbYieldBridge is a sophisticated multichain DeFi arbitrage platform that enables automated stablecoin swaps between Celo and Sui networks. The application focuses on detecting and executing arbitrage opportunities while providing yield farming capabilities through intelligent routing to yield-bearing protocols. The business vision is to provide a seamless and profitable cross-chain arbitrage experience, leveraging market inefficiencies across multiple blockchain networks.
+Sabre is a sophisticated multichain DeFi arbitrage platform that enables automated stablecoin swaps between Celo and Sui networks. The application focuses on detecting and executing arbitrage opportunities while providing yield farming capabilities through intelligent routing to yield-bearing protocols. The business vision is to provide a seamless and profitable cross-chain arbitrage experience, leveraging market inefficiencies across multiple blockchain networks.
 
 ## User Preferences
 

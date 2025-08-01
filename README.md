@@ -1,4 +1,4 @@
-# StableArbYieldBridge
+# 🤺 Sabre
 
 A sophisticated multichain DeFi arbitrage platform that enables automated stablecoin swaps between Celo and Sui networks with yield optimization capabilities.
 

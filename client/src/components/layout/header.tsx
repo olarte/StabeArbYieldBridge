@@ -10,7 +10,7 @@ export function Header() {
             <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg flex items-center justify-center">
               <ArrowRightLeft className="text-white text-sm" size={16} />
             </div>
-            <h1 className="text-xl font-bold text-slate-50">StableArbYieldBridge</h1>
+            <h1 className="text-xl font-bold text-slate-50">🤺 Sabre</h1>
           </div>
           <nav className="hidden md:flex space-x-6">
             <a href="#" className="text-emerald-400 font-medium border-b-2 border-emerald-400 pb-1">
