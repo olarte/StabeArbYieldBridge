@@ -993,7 +993,6 @@ function PreviousSwapsExecuted({
             <TableHeader>
               <TableRow>
                 <TableHead>Asset Pair</TableHead>
-                <TableHead>Swap Direction</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Received</TableHead>
                 <TableHead>Profit</TableHead>
@@ -1005,7 +1004,7 @@ function PreviousSwapsExecuted({
             <TableBody>
               {swapData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No completed swaps yet. Execute arbitrage opportunities to see history here.
                   </TableCell>
                 </TableRow>
@@ -1031,25 +1030,14 @@ function PreviousSwapsExecuted({
                   return (
                     <TableRow key={swap.id || index}>
                       <TableCell className="font-medium">
-                        {swap.assetPairFrom}/{swap.assetPairTo}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            swap.sourceChain === 'ethereum' 
-                              ? 'bg-green-100 dark:bg-green-900 text-green-700' 
-                              : 'bg-blue-100 dark:bg-blue-900 text-blue-700'
-                          }`}>
-                            {swap.sourceChain === 'ethereum' ? '🩶' : '🔵'} {swap.sourceChain}
-                          </span>
-                          →
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            swap.targetChain === 'ethereum' 
-                              ? 'bg-green-100 dark:bg-green-900 text-green-700' 
-                              : 'bg-blue-100 dark:bg-blue-900 text-blue-700'
-                          }`}>
-                            {swap.targetChain === 'ethereum' ? '🩶' : '🔵'} {swap.targetChain}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <span className="text-lg">{swap.sourceChain === 'ethereum' ? '🩶' : '🔵'}</span>
+                            <span className="text-sm">{swap.assetPairFrom}</span>
+                            <span className="text-xs text-muted-foreground">→</span>
+                            <span className="text-lg">{swap.targetChain === 'ethereum' ? '🩶' : '🔵'}</span>
+                            <span className="text-sm">{swap.assetPairTo}</span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>${Number(swap.amount || 0).toFixed(3)}</TableCell>
