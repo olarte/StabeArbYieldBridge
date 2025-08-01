@@ -345,13 +345,13 @@ export function CreateAgent({ walletConnections, suiWalletInfo }: CreateAgentPro
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">Loading agents...</div>
-          ) : (!agents?.data || agents.data.length === 0) ? (
+          ) : (!agents || agents.length === 0) ? (
             <div className="text-center py-8 text-gray-500">
               No agents created yet. Create your first automated trading agent above.
             </div>
           ) : (
             <div className="space-y-4">
-              {(Array.isArray(agents?.data) ? agents.data : []).map((agent: TradingAgent) => (
+              {(Array.isArray(agents) ? agents : []).map((agent: TradingAgent) => (
                 <div key={agent.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
