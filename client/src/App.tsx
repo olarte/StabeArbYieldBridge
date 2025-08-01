@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { Header } from "@/components/layout/header";
 import { SwapProgressBar } from "@/components/SwapProgressBar";
+import { CreateAgent } from "@/components/CreateAgent";
 import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
 
@@ -978,15 +979,31 @@ function ArbitrageOpportunities({
                           : "Execute with Wallets"
                         }
                       </Button>
-                      {(!walletConnections?.account || !suiWalletInfo?.account?.address) && (
-                        <div className="text-xs text-red-500 text-center">
-                          Connect both wallets
-                          <div className="text-xs text-gray-400 mt-1">
-                            ETH: {walletConnections?.account ? '✅' : '❌'} | 
-                            SUI: {suiWalletInfo?.account?.address ? '✅' : '❌'}
-                          </div>
-                        </div>
-                      )}
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // Scroll to CreateAgent section and prepopulate the form
+                          const createAgentElement = document.querySelector('[data-testid="create-agent-section"]');
+                          if (createAgentElement) {
+                            createAgentElement.scrollIntoView({ behavior: 'smooth' });
+                          }
+                          
+                          // Trigger form prepopulation
+                          window.dispatchEvent(new CustomEvent('prepopulate-agent-form', {
+                            detail: {
+                              assetPair: `${opp.assetPairFrom}/${opp.assetPairTo}`,
+                              sourceChain: opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? 'sui' : 'ethereum',
+                              targetChain: opp.source?.includes('Sui') || opp.competitorPrice > opp.uniswapPrice ? 'ethereum' : 'sui',
+                              minSpread: Math.max(0.01, Number(opp.currentSpread) - 0.05).toFixed(2),
+                              maxAmount: swapAmounts[opp.id] || '100'
+                            }
+                          }));
+                        }}
+                        className="w-full mt-1 text-blue-600 border-blue-300 hover:bg-blue-50"
+                      >
+                        🤖 Automate
+                      </Button>
                       {selectedOpportunity === opp.id && executionSteps.length > 0 && (
                         <div className="text-xs space-y-1">
                           {executionSteps.map((step, idx) => (
@@ -1342,6 +1359,12 @@ function ArbitrageTradingPage() {
           swapProgress={swapProgress}
           setSwapProgress={setSwapProgress}
         />
+        <div data-testid="create-agent-section">
+          <CreateAgent 
+            walletConnections={walletConnections}
+            suiWalletInfo={suiWalletInfo}
+          />
+        </div>
         <PreviousSwapsExecuted 
           walletConnections={walletConnections}
           suiWalletInfo={suiWalletInfo}
