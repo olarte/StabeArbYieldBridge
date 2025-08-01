@@ -36,7 +36,7 @@ Preferred communication style: Simple, everyday language.
 - **Portfolio Management**: Balance tracking and profit/loss calculations.
 - **Transaction Management**: Complete trade history and status tracking.
 - **Chain Status Monitoring**: Real-time blockchain network health monitoring.
-- **Cross-Chain Atomic Swaps**: Bidirectional swaps between Ethereum Sepolia and Sui Testnet with real 1Inch Fusion+ cryptographic hashlock/timelock security and yield optimization (USDC to USDY on Sui).
+- **Cross-Chain Atomic Swaps**: Bidirectional swaps between Ethereum Sepolia and Sui Testnet with hashlock/timelock security and yield optimization (USDC to USDY on Sui).
 - **Peg Protection**: Multi-source price validation (Uniswap V3, Cetus DEX, Chainlink Oracles) for real-time deviation detection.
 - **Cross-Chain Limit Orders**: Management of limit orders across Ethereum Sepolia and Sui Testnet using 1Inch Fusion+ and Cetus DEX.
 
@@ -47,13 +47,6 @@ Preferred communication style: Simple, everyday language.
 - **Real-time Updates**: Polling strategy for live market data, balancing simplicity and reliability.
 - **Transaction Execution**: Backend-executed transactions using private keys to bypass wallet interface compatibility issues, ensuring reliable real blockchain execution on Ethereum Sepolia and Sui Testnet.
 - **Network Focus**: Primary focus on Ethereum Sepolia and Sui Testnet for cross-chain USDC/USDY arbitrage.
-- **Code Organization**: Modular file structure with src/server/ architecture for better maintainability and debugging.
-
-### Recent Changes (January 2025)
-- **Fixed Arbitrage Flickering**: Implemented 5-second caching system for arbitrage opportunities to prevent UI jumping between different opportunity lists.
-- **Enhanced Swap Completion Detection**: Added comprehensive logging and multiple completion criteria to ensure real completed swaps appear in transaction history.
-- **Modular File Structure**: Created new organized structure with src/server/ containing routes/, config/, and services/ directories for better code organization.
-- **Improved Debugging**: Added detailed transaction hash tracking and step-by-step execution logging for atomic swap troubleshooting.
 
 ## External Dependencies
 
